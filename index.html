@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>블로그 도우미</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --bg:#f4f5f7; --card:#fff; --text:#1d1f23; --sub:#5d636c; --muted:#8a9099; --line:#e3e6ea;
+  --pri:#2453d6; --pri-ink:#fff; --pri-soft:#eaf0fd; --pri-line:#a9bff2;
+  --amb-soft:#fdf3e4; --amb-line:#d98a3a; --amb-ink:#7a4510;
+  --ok:#1f8a4c; --ok-soft:#e5f5ec; --bad:#c23a32; --bad-soft:#fbe9e7; --warn:#a86500; --warn-soft:#fff3db;
+  --mark-photo:#fff1a8; --mark-exp:#d9ecff;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#15171a; --card:#1e2125; --text:#e9ebee; --sub:#aab0b8; --muted:#7f868f; --line:#30353b;
+    --pri:#5b86f0; --pri-ink:#0d1220; --pri-soft:#1c2740; --pri-line:#35508f;
+    --amb-soft:#2b2216; --amb-line:#b77632; --amb-ink:#f0c995;
+    --ok:#4cc483; --ok-soft:#173023; --bad:#f07a71; --bad-soft:#36201e; --warn:#f0b54d; --warn-soft:#33281a;
+    --mark-photo:#5a4f12; --mark-exp:#1d3a5a;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.6;-webkit-text-size-adjust:100%}
+a{color:var(--pri)}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.hrow{max-width:860px;margin:0 auto;padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:700;font-size:18px}
+.hstat{font-size:13px;color:var(--muted)}
+nav{max-width:860px;margin:0 auto;padding:6px 8px 4px;display:flex;flex-wrap:wrap;gap:2px}
+nav button{background:none;border:0;padding:10px 10px;font:inherit;font-size:15px;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent}
+nav button.on{color:var(--text);font-weight:700;border-bottom-color:var(--pri)}
+main{max-width:860px;margin:0 auto;padding:20px 16px 80px}
+h1{font-size:26px;margin:4px 0 2px}
+h2{font-size:20px;margin:0 0 8px}
+h3{font-size:16px;margin:0 0 6px}
+.lead{color:var(--sub);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0 0 14px}
+.notice{background:var(--amb-soft);border:1px solid var(--amb-line);border-radius:12px;padding:12px 14px;margin:0 0 14px;color:var(--text)}
+.todo{background:var(--pri-soft);border:1px solid var(--pri-line);border-radius:12px;padding:16px;margin:0 0 14px}
+.todo .flow{color:var(--sub);font-size:14px;margin-bottom:8px}
+.todo .now{font-size:17px;margin-bottom:12px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;padding:9px 14px;font:inherit;font-size:15px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:var(--pri-ink);font-weight:600}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label.f{display:block;font-size:14px;color:var(--sub);margin:12px 0 4px}
+input[type=text],input[type=password],textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-size:15px}
+textarea{min-height:70px;resize:vertical}
+.hint{font-size:13px;color:var(--muted);margin-top:4px}
+.err{color:var(--bad);font-size:14px;margin-top:8px;white-space:pre-wrap}
+.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--sub);border:1px solid var(--line);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.pill.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.pri{background:var(--pri-soft);color:var(--pri);border-color:transparent}
+.kw{border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 10px;background:var(--card)}
+.kw .t{font-weight:700;font-size:17px;margin-bottom:4px}
+.kw .r{color:var(--sub);font-size:14px;margin:4px 0 10px}
+.prog{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--sub)}
+.prog .on{color:var(--text);font-weight:600}
+.prog .done{color:var(--ok)}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--pri);width:0;transition:width .3s}
+details.post{border:1px solid var(--line);border-radius:12px;background:var(--card);margin:0 0 10px}
+details.post>summary{list-style:none;cursor:pointer;padding:14px;display:flex;flex-direction:column;gap:6px}
+details.post>summary::-webkit-details-marker{display:none}
+.ph{font-size:13px;color:var(--muted)}
+.pt{font-weight:600}
+.pbody{padding:0 14px 16px;border-top:1px solid var(--line)}
+.sec{margin-top:16px}
+.sec h4{font-size:14px;color:var(--sub);margin:0 0 6px;font-weight:600}
+.preview{border:1px solid var(--line);border-radius:10px;padding:14px;max-height:520px;overflow:auto;background:var(--bg);font-size:15px}
+.preview h2{font-size:19px;margin:18px 0 8px}
+.preview h3{font-size:17px;margin:14px 0 6px}
+.preview h4{font-size:15px;margin:12px 0 4px}
+.preview p{margin:0 0 10px}
+.preview table,.mdt{border-collapse:collapse;width:100%;margin:8px 0 12px;font-size:14px}
+.preview th,.preview td,.mdt th,.mdt td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.preview th,.mdt th{background:var(--card)}
+mark.mp{background:var(--mark-photo);color:inherit;padding:1px 4px;border-radius:4px}
+mark.me{background:var(--mark-exp);color:inherit;padding:1px 4px;border-radius:4px}
+.raw{white-space:pre-wrap;font-size:13px;color:var(--sub);max-height:240px;overflow:auto;background:var(--bg);border-radius:8px;padding:10px}
+.chk{display:flex;align-items:center;gap:8px;font-size:15px;cursor:pointer}
+.chk input{width:18px;height:18px}
+.list{margin:0;padding-left:20px}
+.list li{margin:2px 0}
+table.pub{border-collapse:collapse;width:100%;font-size:14px}
+table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+.hide{display:none!important}
+.split{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:640px){.split{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow"><div class="brand">블로그 도우미</div><div class="hstat" id="hstat"></div></div>
+  <nav id="nav">
+    <button data-tab="home" class="on">홈</button>
+    <button data-tab="kw">① 키워드 찾기</button>
+    <button data-tab="write">② 글 만들기</button>
+    <button data-tab="pub">③ 발행 관리</button>
+    <button data-tab="set">설정</button>
+    <button data-tab="help">도움말</button>
+  </nav>
+</header>
+
+<main>
+<!-- 홈 -->
+<section id="tab-home">
+  <h1>블로그 도우미</h1>
+  <p class="lead">키워드 찾기 · 네이버 6개 + 워드프레스 1개 초안 · 발행 관리</p>
+  <div class="notice"><b>처음이세요?</b> <a href="#" data-go="help">도움말</a>을 열고 위에서부터 따라 하세요. 설정 → 키워드 찾기 → 글 만들기 → 직접 업로드 순서입니다.</div>
+  <div class="todo" id="todo"></div>
+  <div class="card">
+    <div class="row"><h3 style="margin:0">전체 백업</h3>
+      <button class="btn sm" id="bkSave">전체 백업 받기</button>
+      <button class="btn sm" id="bkLoad">백업 파일로 되살리기</button>
+      <input type="file" id="bkFile" accept=".json,application/json" class="hide">
+    </div>
+    <div class="hint" style="margin-top:8px">키워드·글·발행 기록·설정을 파일 하나로 저장하고 다른 기기에서 그대로 되살립니다(API 키는 빼고).</div>
+  </div>
+</section>
+
+<!-- 키워드 -->
+<section id="tab-kw" class="hide">
+  <h2>① 키워드 찾기</h2>
+  <p class="lead">지금 뜨는 키워드를 찾거나, 직접 입력해서 바로 글을 만들 수 있습니다.</p>
+  <div class="card">
+    <button class="btn pri" id="findBtn">키워드 자동찾기</button>
+    <div class="hint" id="findHint">최근 뉴스·정부/지자체 공고를 검색해 후보 6개를 찾습니다. 1~2분 걸립니다.</div>
+    <div class="err" id="findErr"></div>
+    <label class="f" for="manualKw">직접 입력</label>
+    <div class="row" style="flex-wrap:nowrap">
+      <input type="text" id="manualKw" placeholder="예: 민생지원금 신청방법">
+      <button class="btn" id="manualBtn" style="white-space:nowrap">이 키워드로 글 만들기</button>
+    </div>
+    <div class="err" id="manualErr"></div>
+  </div>
+  <div id="kwList"></div>
+</section>
+
+<!-- 글 만들기 -->
+<section id="tab-write" class="hide">
+  <h2>② 글 만들기</h2>
+  <div id="projSelWrap" class="row" style="margin-bottom:12px"></div>
+  <div id="writeArea"></div>
+</section>
+
+<!-- 발행 관리 -->
+<section id="tab-pub" class="hide">
+  <h2>③ 발행 관리</h2>
+  <p class="lead">직접 업로드한 글은 체크해 두세요. 네이버는 하루 1~2개씩 나눠 올리는 게 안전합니다.</p>
+  <div id="pubArea"></div>
+</section>
+
+<!-- 설정 -->
+<section id="tab-set" class="hide">
+  <h2>설정</h2>
+  <div class="card">
+    <h3>Claude API 키</h3>
+    <label class="f" for="apiKey">API 키 (sk-ant-로 시작)</label>
+    <input type="password" id="apiKey" autocomplete="off" placeholder="sk-ant-...">
+    <div class="hint">이 기기의 브라우저에만 저장되고, Claude 서버로만 전송됩니다. 백업 파일에도 들어가지 않습니다.</div>
+    <div class="row" style="margin-top:10px"><button class="btn pri" id="keySave">저장</button><button class="btn" id="keyTest">연결 확인</button><button class="btn" id="keyDel">키 지우기</button></div>
+    <div class="err" id="keyMsg"></div>
+  </div>
+  <div class="card">
+    <h3>글쓰기 설정</h3>
+    <label class="f" for="cats">내 네이버 블로그 카테고리 (쉼표로 구분)</label>
+    <input type="text" id="cats">
+    <div class="hint">4~6개 권장. 글마다 이 중 하나를 추천해 줍니다.</div>
+    <label class="f" for="interest">경험을 쓰기 쉬운 관심 분야 (선택)</label>
+    <input type="text" id="interest">
+    <div class="hint">키워드 후보에 이 분야를 1개 이상 섞어 줍니다.</div>
+    <label class="f" for="model">모델</label>
+    <input type="text" id="model">
+    <div class="hint">기본값 claude-sonnet-5-5. 바꿀 일이 없으면 그대로 두세요.</div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" id="setSave">저장</button></div>
+  </div>
+  <div class="card">
+    <h3>데이터 지우기</h3>
+    <div class="hint" style="margin-bottom:8px">키워드·글·발행 기록을 모두 지웁니다. 먼저 홈에서 백업을 받아두세요.</div>
+    <button class="btn" id="wipe">모두 지우기</button>
+  </div>
+</section>
+
+<!-- 도움말 -->
+<section id="tab-help" class="hide">
+  <h2>도움말</h2>
+  <div class="card">
+    <h3>1. 준비 (처음 한 번)</h3>
+    <ol class="list">
+      <li>Claude Console(platform.claude.com)에서 API 키를 만들고 크레딧을 충전합니다. 월 사용 한도도 꼭 걸어두세요.</li>
+      <li>설정 탭에 API 키를 넣고 <b>연결 확인</b>을 누릅니다.</li>
+      <li>설정 탭에 내 네이버 카테고리를 적습니다.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>2. 글 만들기</h3>
+    <ol class="list">
+      <li>① 키워드 찾기에서 <b>키워드 자동찾기</b>를 누르고 후보 중 하나를 고릅니다.</li>
+      <li>자동으로 1차 출처를 모으고, 상위글을 분석한 뒤 글 7개(네이버 6 + 워드프레스 1)를 씁니다. 3~6분 걸립니다.</li>
+      <li>7개 글은 모두 메인 키워드를 제목과 본문에 넣되, 서로 다른 세부 주제를 맡습니다. 같은 내용 반복은 유사문서로 묶이기 때문입니다.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>3. 업로드 (직접)</h3>
+    <ol class="list">
+      <li>글 카드를 열어 제목을 손보고 <b>제목 복사</b> → 네이버 글쓰기에 붙여넣기.</li>
+      <li><b>본문 복사(서식)</b> → 붙여넣기. 노란 칸은 사진, 파란 칸은 경험 자리입니다. 채운 뒤 표시를 지우세요.</li>
+      <li>사진 가이드대로 화면을 캡처해서 넣고, 경험 예시는 직접 확인한 내용으로 고쳐 씁니다.</li>
+      <li>검증 체크리스트에서 ⚠️ 항목은 공고 원문과 꼭 대조하세요.</li>
+      <li>올렸으면 <b>발행 완료</b>를 체크합니다.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>주의</h3>
+    <ul class="list">
+      <li>같은 글을 여러 블로그에 그대로 올리지 마세요. 검색에서 한 곳만 남고 나머지는 숨겨집니다.</li>
+      <li>다른 블로그·뉴스 사진은 쓰지 마세요(저작권). AI 이미지를 실제 사진처럼 쓰는 것도 피하세요.</li>
+      <li>확인하지 않은 경험 예시를 그대로 쓰면 거짓 경험이 됩니다.</li>
+    </ul>
+  </div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const LS_STATE='bh_state_v1', LS_KEY='bh_api_key';
+const DEF={model:'claude-sonnet-5-5',categories:'지원금·정책, 생활정보, 해외직구·배송, 돈 아끼는 법, 일상·후기',interest:'해외직구·배송·통관'};
+const ANGLES=['신청방법','대상·자격','지급일·금액','사용처·사용기한','자주 묻는 질문','놓치기 쉬운 주의사항'];
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+
+let S=load();
+function load(){
+  let s=null; try{s=JSON.parse(lsGet(LS_STATE)||'null')}catch(e){}
+  s=s||{};
+  s.settings=Object.assign({},DEF,s.settings||{});
+  s.keywords=s.keywords||[]; s.projects=s.projects||[];
+  return s;
+}
+let saveTimer=null;
+function save(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{if(!lsSet(LS_STATE,JSON.stringify(S)))toast('저장 공간이 부족합니다. 백업 후 오래된 글을 지워주세요.')},300)}
+function saveNow(){clearTimeout(saveTimer);lsSet(LS_STATE,JSON.stringify(S))}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1800)}
+function todayKST(){const d=new Date(Date.now()+9*3600e3);return d.toISOString().slice(0,10)}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function cur(){return S.projects.find(p=>p.id===S.currentId)||null}
+
+/* ---------- 탭 ---------- */
+function go(tab){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hide',s.id!=='tab-'+tab));
+  render(tab); window.scrollTo(0,0);
+}
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.tab)});
+document.addEventListener('click',e=>{const a=e.target.closest('[data-go]');if(a){e.preventDefault();go(a.dataset.go)}});
+function render(tab){
+  renderHeader();
+  if(tab==='home')renderTodo();
+  if(tab==='kw')renderKw();
+  if(tab==='write')renderWrite();
+  if(tab==='pub')renderPub();
+  if(tab==='set')renderSet();
+}
+function activeTab(){const b=document.querySelector('nav button.on');return b?b.dataset.tab:'home'}
+function rerender(){render(activeTab())}
+
+function renderHeader(){
+  const all=S.projects.flatMap(p=>p.posts||[]);
+  const done=all.filter(x=>x.published).length;
+  $('#hstat').textContent=all.length?`발행 ${done}/${all.length}`:'';
+}
+
+/* ---------- 홈: 지금 할 일 ---------- */
+function renderTodo(){
+  const key=lsGet(LS_KEY); const p=cur();
+  const allPosts=S.projects.flatMap(pr=>(pr.posts||[]).map(x=>({pr,x})));
+  const ready=allPosts.filter(o=>o.x.status==='done'&&!o.x.published);
+  const flow=`1 키워드(${S.keywords.length?S.keywords.length+'개 후보':'아직 없음'}) → 2 글 만들기(${p?(p.posts||[]).filter(x=>x.status==='done').length+'/'+(p.posts||[]).length:'-'}) → 3 발행(${allPosts.filter(o=>o.x.published).length}/${allPosts.length||0})`;
+  let now,btn,goTab;
+  if(!key){now='처음 한 번만: Claude API 키를 넣으면 키워드 찾기와 글쓰기가 모두 됩니다.';btn='API 키 넣기 (1분) →';goTab='set'}
+  else if(p&&p.running){now=`"${p.keyword}" 글을 만드는 중입니다. 화면을 닫지 마세요.`;btn='진행 상황 보기 →';goTab='write'}
+  else if(ready.length){const d=nextDay(ready);now=`업로드할 글이 ${ready.length}개 있습니다. 오늘은 ${d.length}개를 올려보세요.`;btn='발행 관리 열기 →';goTab='pub'}
+  else if(S.keywords.length){now='키워드 후보 중 하나를 골라 글 7개를 만드세요.';btn='키워드 고르기 →';goTab='kw'}
+  else{now='키워드 자동찾기를 눌러 오늘의 후보를 받으세요.';btn='키워드 찾기 →';goTab='kw'}
+  $('#todo').innerHTML=`<div class="flow">${esc(flow)}</div><div class="now"><b>지금 할 일:</b> ${esc(now)}</div><button class="btn pri" data-go="${goTab}">${esc(btn)}</button>`;
+}
+function nextDay(list){
+  const naver=list.filter(o=>o.x.spec.platform==='naver').sort((a,b)=>(a.x.spec.publish_day||9)-(b.x.spec.publish_day||9));
+  const out=naver.slice(0,2); const wp=list.find(o=>o.x.spec.platform==='wordpress'); if(wp)out.push(wp); return out;
+}
+
+/* ---------- Claude API ---------- */
+function apiErr(status,msg){
+  if(status===401)return 'API 키가 올바르지 않습니다. 설정에서 다시 넣어주세요.';
+  if(status===403)return '이 API 키로는 사용할 수 없는 기능입니다: '+msg;
+  if(status===429)return '사용량 한도에 걸렸습니다. 1~2분 뒤 다시 시도하거나 Console에서 한도·크레딧을 확인하세요.';
+  if(status===529||status===503)return 'Claude 서버가 혼잡합니다. 잠시 뒤 다시 시도하세요.';
+  if(status===400&&/web search/i.test(msg))return '웹 검색이 꺼져 있습니다. Claude Console의 설정에서 웹 검색을 켜주세요.\n('+msg+')';
+  if(status===400&&/credit|balance/i.test(msg))return '크레딧이 부족합니다. Claude Console에서 충전하세요.';
+  if(status===404&&/model/i.test(msg))return '모델 이름을 찾을 수 없습니다. 설정의 모델 칸을 확인하세요.';
+  return `오류 (${status}): ${msg}`;
+}
+async function claudeFetch(body,stream){
+  const key=lsGet(LS_KEY); if(!key)throw new Error('먼저 설정 탭에서 API 키를 넣어주세요.');
+  let res;
+  try{
+    res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(Object.assign({model:S.settings.model||DEF.model,stream:!!stream},body))});
+  }catch(e){throw new Error('인터넷 연결을 확인하세요. ('+e.message+')')}
+  if(!res.ok){let t=await res.text();try{t=JSON.parse(t).error.message}catch(e){}throw new Error(apiErr(res.status,t))}
+  return res;
+}
+const WEB=n=>({type:'web_search_20250305',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}});
+async function searchRun(system,user,maxTokens,maxUses,onTick){
+  let messages=[{role:'user',content:user}],text='';
+  for(let i=0;i<5;i++){
+    const res=await claudeFetch({system,messages,max_tokens:maxTokens,tools:[WEB(maxUses)]},false);
+    const data=await res.json();
+    text+=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    if(onTick)onTick(data.content.filter(b=>b.type==='server_tool_use').length);
+    if(data.stop_reason==='pause_turn'){messages=[...messages,{role:'assistant',content:data.content}];continue}
+    if(data.stop_reason==='max_tokens')throw new Error('답이 너무 길어 잘렸습니다. 다시 시도해 주세요.');
+    return text;
+  }
+  throw new Error('검색이 너무 오래 걸려 멈췄습니다. 다시 시도해 주세요.');
+}
+async function streamRun(system,user,maxTokens,onText){
+  const res=await claudeFetch({system,messages:[{role:'user',content:user}],max_tokens:maxTokens},true);
+  const reader=res.body.getReader(),dec=new TextDecoder();let buf='',full='',stop='';
+  while(true){
+    const {done,value}=await reader.read(); if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    let i; while((i=buf.indexOf('\n'))>=0){
+      const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
+      if(!line.startsWith('data:'))continue;
+      let ev; try{ev=JSON.parse(line.slice(5))}catch(e){continue}
+      if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){full+=ev.delta.text;onText&&onText(full)}
+      else if(ev.type==='message_delta'&&ev.delta&&ev.delta.stop_reason)stop=ev.delta.stop_reason;
+      else if(ev.type==='error')throw new Error(apiErr(529,(ev.error&&ev.error.message)||'스트림 오류'));
+    }
+  }
+  return {text:full,stop};
+}
+function extractJSON(t){
+  const tags=[...t.matchAll(/<json>([\s\S]*?)<\/json>/g)];
+  let s=tags.length?tags[tags.length-1][1]:t;
+  s=s.replace(/```(?:json)?/g,'');
+  const a=s.indexOf('{'),b=s.lastIndexOf('}');
+  if(a<0||b<a)throw new Error('결과를 읽지 못했습니다. 다시 시도해 주세요.');
+  return JSON.parse(s.slice(a,b+1));
+}
+
+/* ---------- 프롬프트 ---------- */
+const BANNED='"~에 대해 알아보겠습니다", "살펴보겠습니다", "결론적으로", "다양한", "누구나", "무조건", "역대급", "또 준다", 이모지';
+function pKeywords(){
+  const sys=`너는 한국 네이버 블로그 운영자를 돕는 키워드 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
+웹 검색으로 최근 48시간 이내 한국의 뉴스, 정부·지자체 공고, 정책 발표, 생활 이슈를 확인하고, 한국 사람들이 네이버에서 곧 많이 검색할 키워드를 찾는다.
+제외할 키워드:
+- 고객센터 전화번호처럼 검색 결과나 AI 브리핑에서 답이 바로 나오는 것
+- 확정 발표가 없는 루머성 정보, 아직 발표 안 된 금액을 추정해야 하는 것
+- 의료·투자 판단을 대신해 주는 주제, 정치 성향이 드러나는 주제, 사건·사고 피해자 관련 주제
+후보 6개 중 최소 1개는 "${S.settings.interest||DEF.interest}" 분야처럼 생활 경험을 쓰기 쉬운 장기형 키워드로 넣는다.
+각 키워드는 사람들이 실제로 검색창에 칠 법한 2~4단어 형태로 쓴다.
+category는 다음 목록 중 하나: ${S.settings.categories}
+결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
+형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":""}]}`;
+  return {sys,user:'오늘 기준 키워드 후보 6개를 찾아줘.'};
+}
+function pResearch(kw){
+  const sys=`너는 네이버 블로그 글을 준비하는 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
+메인 키워드: "${kw}"
+할 일:
+1) 1차 출처(정부24, 정부·지자체 공고문, 정부 보도자료, 기관 공식 홈페이지)에서 날짜·금액·대상·신청기간·신청방법·사용처 등 핵심 사실을 찾는다. 확정되지 않은 정보는 confirmed:false로 두고 추정치를 만들지 않는다.
+2) 이 키워드로 상위에 노출되는 블로그·뉴스 글 1~3개를 찾아 공통점, 모두 빠뜨린 정보, 틀리거나 오래된 정보를 정리한다.
+3) 글 7개를 계획한다: 네이버 블로그용 6개 + 워드프레스용 1개.
+ - 모든 글의 sub_keyword는 메인 키워드 "${kw}"를 글자 그대로(띄어쓰기 포함) 포함해야 한다.
+ - 네이버 6개는 각도가 서로 겹치면 안 된다. 참고 각도: ${ANGLES.join(' / ')}. 키워드 성격에 맞게 바꿔도 되지만 같은 내용을 다른 말로 반복하는 계획은 금지.
+ - 워드프레스 1개는 전체를 비교표와 FAQ 중심으로 정리하는 종합 가이드 각도로, 네이버 글과 구성이 달라야 한다.
+ - category는 다음 목록 중 하나: ${S.settings.categories}. 맞는 게 없으면 가장 가까운 것을 고르고 category_note에 이유를 적는다.
+ - publish_day: 네이버 글을 하루 1~2개씩 나눠 올리도록 1부터 번호를 매긴다. 가장 수요가 큰 글을 1일차에 둔다. 워드프레스는 1.
+4) 신청 기간이 이미 끝났거나 7일 안에 끝나면 deadline_warning에 적는다. 아니면 빈 문자열.
+결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
+형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"posts":[{"platform":"naver 또는 wordpress","sub_keyword":"","angle":"이 글이 다룰 내용 한 문장","category":"","category_note":"","publish_day":1}]}`;
+  return {sys,user:`"${kw}" 리서치와 글 7개 계획을 만들어줘.`};
+}
+function pWrite(pr,post){
+  const sp=post.spec, wp=sp.platform==='wordpress';
+  const r=pr.research||{};
+  const others=pr.posts.filter(x=>x!==post).map(x=>'- '+x.spec.sub_keyword+': '+x.spec.angle).join('\n');
+  const sys=`너는 한국어 블로그 글 작가다. 사람이 직접 쓴 것처럼 자연스럽고 구체적으로 쓴다. 오늘은 ${todayKST()}이다.
+[플랫폼] ${wp?'워드프레스(구글 검색 유입용)':'네이버 블로그'}
+[메인 키워드] ${pr.keyword}
+[이 글의 세부 키워드] ${sp.sub_keyword}
+[이 글의 각도] ${sp.angle}
+[카테고리] ${sp.category}
+[같은 키워드의 다른 글들 — 이 내용과 겹치지 않게, 이 글의 각도에 집중]
+${others}
+[조사 자료]
+${JSON.stringify({facts:r.facts,competitors:r.competitors,sources:r.sources,deadline_warning:r.deadline_warning}).slice(0,24000)}
+
+규칙:
+- 제목: 메인 키워드 "${pr.keyword}"를 글자 그대로 포함하고 가능한 앞쪽에 둔다. 세부 키워드의 나머지 단어도 자연스럽게 넣는다. ${wp?'40자 안팎':'30자 안팎'}.
+- 본문: 메인 키워드 "${pr.keyword}"를 글자 그대로 ${wp?'4~6':'3~5'}회 자연스럽게 넣는다. 첫 문단에 반드시 1회. 억지 반복 금지.
+- 도입 3~4줄에 결론(누가, 얼마, 언제까지, 어디서)을 먼저 쓴다.
+- 소제목 4~6개(## 사용), 마크다운 표 1개 이상, 절차는 번호 목록.
+- 조사 자료의 '모두 빠뜨린 정보' 중 이 글 각도에 맞는 것을 담은 섹션을 최소 1개 넣는다.
+- 사실은 조사 자료에 있는 것만 쓴다. confirmed:false 정보는 "아직 확정되지 않았다"고 쓴다. 숫자·날짜를 지어내지 않는다.
+- [사진 넣기: 무엇을] 자리를 2~3곳, [경험 넣기: 어떤 경험] 자리를 2곳 본문 흐름에 맞게 넣는다. 경험 내용은 지어내지 않고 자리만 표시한다.
+- 끝부분: "## 출처" 소제목 아래 1차 출처 링크 목록(마크다운 링크), 3줄 요약, 댓글을 유도하는 질문 1줄.
+${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 금지 표현: ${BANNED}.
+- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}.
+
+출력 형식 (이 순서, 표시줄 그대로, 다른 말 없이):
+@@TITLE
+제목 한 줄
+@@TAGS
+태그 10개, 쉼표로 구분, # 없이
+@@BODY
+본문 (마크다운)
+@@PHOTOS
+본문의 [사진 넣기] 자리마다 한 줄: - 캡처할 화면 | 여는 곳(사이트·앱 이름과 메뉴 경로) | 가릴 개인정보
+@@TABLEIMG
+미리캔버스·캔바로 만들 표 이미지 1장 내용 (마크다운 표, 4~6행)
+@@EXPERIENCE
+본문의 [경험 넣기] 자리마다: 자리 이름 한 줄, 그 아래 예시 문장 2~3개(- 로 시작). 직접 신청하지 않아도 쓸 수 있는 "확인한 경험" 형태.
+@@CHECK
+- 항목 | 본문에 쓴 값 | ✅ 출처와 일치 또는 ⚠️ 확인 필요`;
+  return {sys,user:`위 규칙대로 "${sp.sub_keyword}" 글을 써줘.`};
+}
+
+/* ---------- 키워드 찾기 ---------- */
+let finding=false;
+async function findKeywords(){
+  if(finding)return; finding=true; $('#findErr').textContent='';
+  const btn=$('#findBtn'); btn.disabled=true; const t0=Date.now(); let searches=0;
+  const tick=setInterval(()=>{btn.textContent=`찾는 중… ${Math.round((Date.now()-t0)/1000)}초${searches?` · 검색 ${searches}회`:''}`},500);
+  try{
+    const {sys,user}=pKeywords();
+    const text=await searchRun(sys,user,4000,8,n=>{searches+=n});
+    const j=extractJSON(text);
+    if(!Array.isArray(j.keywords)||!j.keywords.length)throw new Error('키워드를 찾지 못했습니다. 다시 시도해 주세요.');
+    S.keywords=j.keywords.filter(k=>k&&k.keyword); S.keywordsAt=new Date().toISOString(); save();
+  }catch(e){$('#findErr').textContent=e.message}
+  finally{clearInterval(tick);btn.disabled=false;btn.textContent='키워드 자동찾기';finding=false;renderKw();renderHeader()}
+}
+$('#findBtn').addEventListener('click',findKeywords);
+$('#manualBtn').addEventListener('click',()=>{
+  const k=$('#manualKw').value.trim(); $('#manualErr').textContent='';
+  if(!k){$('#manualErr').textContent='키워드를 먼저 입력하세요.';return}
+  if(k.length>40){$('#manualErr').textContent='키워드가 너무 깁니다. 2~4단어로 줄여주세요.';return}
+  startProject(k,null);
+});
+$('#manualKw').addEventListener('input',()=>{$('#manualErr').textContent=''});
+function renderKw(){
+  const el=$('#kwList');
+  if(!S.keywords.length){el.innerHTML='';return}
+  const when=S.keywordsAt?new Date(S.keywordsAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  el.innerHTML=`<div class="hint" style="margin:0 0 8px">${esc(when)} 기준 후보 · 이슈형은 하루이틀 안에 쓰는 게 좋습니다</div>`+S.keywords.map((k,i)=>{
+    const used=S.projects.some(p=>p.keyword===k.keyword);
+    const comp=k.competition==='높음'?'bad':k.competition==='낮음'?'ok':'warn';
+    return `<div class="kw"><div class="t">${esc(k.keyword)}</div>
+      <div class="row"><span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type||'')}</span><span class="pill">${esc(k.lifespan||'')}</span><span class="pill ${comp}">경쟁 ${esc(k.competition||'-')}</span><span class="pill">${esc(k.category||'')}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
+      <div class="r">${esc(k.reason||'')}</div>
+      <button class="btn ${used?'':'pri'} sm" data-kw="${i}">${used?'이미 만든 키워드 · 다시 만들기':'이 키워드로 글 7개 만들기'}</button></div>`}).join('');
+}
+$('#kwList').addEventListener('click',e=>{const b=e.target.closest('[data-kw]');if(!b)return;const k=S.keywords[+b.dataset.kw];if(k)startProject(k.keyword,k)});
+
+/* ---------- 프로젝트 실행 ---------- */
+function startProject(keyword,meta){
+  if(!lsGet(LS_KEY)){toast('먼저 API 키를 넣어주세요');go('set');return}
+  if(S.projects.some(p=>p.running)){toast('이미 만드는 중인 글이 있습니다');go('write');return}
+  const p={id:uid(),keyword,meta,createdAt:new Date().toISOString(),stage:'research',research:null,posts:[],error:''};
+  S.projects.unshift(p); S.currentId=p.id; save(); go('write'); runProject(p);
+}
+async function runProject(p){
+  p.running=true; p.error=''; renderWrite();
+  try{
+    if(!p.research){
+      p.stage='research'; p.t0=Date.now(); renderWrite();
+      const timer=setInterval(()=>{const el=$('#rsTime');if(el)el.textContent=Math.round((Date.now()-p.t0)/1000)+'초'},1000);
+      try{
+        const {sys,user}=pResearch(p.keyword);
+        const r=extractJSON(await searchRun(sys,user,8000,10));
+        p.research=r; p.posts=buildPosts(p.keyword,r.posts); saveNow();
+      }finally{clearInterval(timer)}
+    }
+    p.stage='write'; renderWrite();
+    const todo=p.posts.filter(x=>x.status!=='done');
+    await pool(todo,2,x=>writePost(p,x));
+    p.stage='done';
+  }catch(e){p.error=e.message}
+  finally{p.running=false;saveNow();rerender()}
+}
+function buildPosts(kw,plan){
+  plan=Array.isArray(plan)?plan:[];
+  let nav=plan.filter(x=>x&&x.platform!=='wordpress').slice(0,6);
+  let wp=plan.find(x=>x&&x.platform==='wordpress');
+  const usedAngles=nav.map(x=>x.sub_keyword||'');
+  for(const a of ANGLES){ if(nav.length>=6)break; if(!usedAngles.some(u=>u.includes(a.split('·')[0])))nav.push({platform:'naver',sub_keyword:`${kw} ${a}`,angle:`${a} 중심으로 정리`,category:'',publish_day:nav.length+1}); }
+  if(!wp)wp={platform:'wordpress',sub_keyword:`${kw} 총정리`,angle:'비교표와 FAQ 중심 종합 가이드',category:'',publish_day:1};
+  const fix=(s,i)=>{const sp=Object.assign({},s);if(!(sp.sub_keyword||'').includes(kw))sp.sub_keyword=`${kw} ${sp.sub_keyword||''}`.trim();sp.category=sp.category||S.settings.categories.split(',')[0].trim();sp.publish_day=sp.publish_day||i+1;return sp};
+  return [...nav.map((s,i)=>({spec:fix(Object.assign(s,{platform:'naver'}),i),status:'wait'})),{spec:fix(Object.assign(wp,{platform:'wordpress'}),0),status:'wait'}]
+    .map((x,i)=>Object.assign(x,{id:uid(),no:i+1,raw:'',title:'',published:false}));
+}
+async function pool(items,n,fn){let i=0;const run=async()=>{while(i<items.length){const it=items[i++];await fn(it)}};await Promise.all(Array.from({length:Math.min(n,items.length)},run))}
+async function writePost(p,post){
+  post.status='writing'; post.error=''; post.raw=''; post.title=''; updateCard(p,post);
+  let last=0;
+  try{
+    const {sys,user}=pWrite(p,post);
+    const {text,stop}=await streamRun(sys,user,post.spec.platform==='wordpress'?9000:7000,full=>{post.raw=full;const n=Date.now();if(n-last>400){last=n;updateCard(p,post)}});
+    post.raw=text; const sec=parseSec(text);
+    if(!sec.BODY)throw new Error('본문을 읽지 못했습니다. 다시 쓰기를 눌러주세요.');
+    post.title=sec.TITLE||''; post.status='done'; post.truncated=stop==='max_tokens';
+  }catch(e){post.status='error';post.error=e.message}
+  save(); updateCard(p,post); renderHeader();
+}
+function parseSec(t){
+  const out={}; const re=/^@@([A-Z]+)\s*$/gm; let m,marks=[];
+  while((m=re.exec(t)))marks.push({k:m[1],s:m.index,e:re.lastIndex});
+  marks.forEach((mk,i)=>{out[mk.k]=t.slice(mk.e,i+1<marks.length?marks[i+1].s:t.length).trim()});
+  return out;
+}
+
+/* ---------- 마크다운 ---------- */
+function inl(s,styled){
+  s=esc(s);
+  s=s.replace(/\[(사진 넣기|경험 넣기)\s*[:：]?\s*([^\]]*)\]/g,(m,k,v)=>{
+    const photo=k==='사진 넣기';
+    return styled?`<span style="background:${photo?'#fff1a8':'#d9ecff'};padding:1px 4px">[${k}${v?': '+v:''}]</span>`:`<mark class="${photo?'mp':'me'}">[${k}${v?': '+v:''}]</mark>`});
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s=s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  return s;
+}
+function md(src,styled){
+  const L=String(src||'').replace(/\r/g,'').split('\n'),out=[];let i=0;
+  const isTbl=l=>/^\s*\|/.test(l),isUl=l=>/^\s*[-*•]\s+/.test(l),isOl=l=>/^\s*\d+[.)]\s+/.test(l),isH=l=>/^#{1,4}\s+/.test(l);
+  const td=styled?' style="border:1px solid #ccc;padding:6px 8px"':'';
+  while(i<L.length){
+    const l=L[i];
+    if(!l.trim()){i++;continue}
+    let m=l.match(/^(#{1,4})\s+(.*)$/);
+    if(m){const lv=Math.min(m[1].length+1,4);out.push(`<h${lv}>${inl(m[2],styled)}</h${lv}>`);i++;continue}
+    if(isTbl(l)){const rows=[];while(i<L.length&&isTbl(L[i]))rows.push(L[i++]);
+      const cells=r=>r.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(c=>c.trim());
+      const data=rows.filter(r=>!/^\s*\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$/.test(r));
+      if(!data.length)continue;
+      const [h,...b]=data;
+      out.push(`<table class="mdt"${styled?' style="border-collapse:collapse"':''}><thead><tr>${cells(h).map(c=>`<th${td}>${inl(c,styled)}</th>`).join('')}</tr></thead><tbody>${b.map(r=>`<tr>${cells(r).map(c=>`<td${td}>${inl(c,styled)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);continue}
+    if(isUl(l)){const it=[];while(i<L.length&&isUl(L[i]))it.push(L[i++].replace(/^\s*[-*•]\s+/,''));out.push('<ul>'+it.map(x=>`<li>${inl(x,styled)}</li>`).join('')+'</ul>');continue}
+    if(isOl(l)){const it=[];while(i<L.length&&isOl(L[i]))it.push(L[i++].replace(/^\s*\d+[.)]\s+/,''));out.push('<ol>'+it.map(x=>`<li>${inl(x,styled)}</li>`).join('')+'</ol>');continue}
+    if(/^>\s?/.test(l)){const it=[];while(i<L.length&&/^>\s?/.test(L[i]))it.push(L[i++].replace(/^>\s?/,''));out.push(`<blockquote>${it.map(x=>inl(x,styled)).join('<br>')}</blockquote>`);continue}
+    if(/^-{3,}\s*$/.test(l)){out.push('<hr>');i++;continue}
+    const p=[];while(i<L.length&&L[i].trim()&&!isTbl(L[i])&&!isUl(L[i])&&!isOl(L[i])&&!isH(L[i])&&!/^>\s?/.test(L[i]))p.push(L[i++]);
+    out.push(`<p>${p.map(x=>inl(x,styled)).join('<br>')}</p>`);
+  }
+  return out.join('\n');
+}
+function plain(src){
+  return String(src||'').replace(/^#{1,4}\s+/gm,'').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'$1 ($2)').replace(/^\s*\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$\n?/gm,'');
+}
+async function copy(text,html){
+  try{
+    if(html&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
+      await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([text],{type:'text/plain'})})]);
+    }else await navigator.clipboard.writeText(text);
+    toast('복사했습니다');
+  }catch(e){
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');toast('복사했습니다')}catch(_){toast('복사에 실패했습니다. 길게 눌러 직접 복사하세요.')}
+    ta.remove();
+  }
+}
+
+/* ---------- 키워드 검사 ---------- */
+function count(h,n){if(!n)return 0;let c=0,i=0;while((i=h.indexOf(n,i))>=0){c++;i+=n.length}return c}
+function kwCheck(kw,title,body){
+  const ns=s=>s.replace(/\s+/g,'');
+  const t=title.includes(kw)?'ok':ns(title).includes(ns(kw))?'space':'no';
+  const n=count(body,kw);
+  return {t,n,b:n>=2?'ok':n===1?'low':(ns(body).includes(ns(kw))?'space':'no')};
+}
+function kwBadges(kw,title,body){
+  const c=kwCheck(kw,title,body);
+  const tb=c.t==='ok'?'<span class="pill ok">제목 키워드 ✓</span>':c.t==='space'?'<span class="pill warn">제목 띄어쓰기 다름</span>':'<span class="pill bad">제목에 키워드 없음</span>';
+  const bb=c.b==='ok'?`<span class="pill ok">본문 키워드 ${c.n}회</span>`:c.b==='low'?'<span class="pill warn">본문 키워드 1회뿐</span>':c.b==='space'?'<span class="pill warn">본문 띄어쓰기 다름</span>':'<span class="pill bad">본문에 키워드 없음</span>';
+  return tb+bb;
+}
+
+/* ---------- 글 만들기 화면 ---------- */
+function renderWrite(){
+  const sel=$('#projSelWrap'),area=$('#writeArea');
+  if(!S.projects.length){sel.innerHTML='';area.innerHTML='<div class="card">아직 만든 글이 없습니다. <a href="#" data-go="kw">① 키워드 찾기</a>에서 시작하세요.</div>';return}
+  if(!cur())S.currentId=S.projects[0].id;
+  sel.innerHTML=`<select id="projSel" aria-label="키워드 선택" style="flex:1">${S.projects.map(p=>`<option value="${p.id}"${p.id===S.currentId?' selected':''}>${esc(p.keyword)} · ${new Date(p.createdAt).toLocaleDateString('ko-KR')}</option>`).join('')}</select>`;
+  const p=cur(); const r=p.research;
+  const doneN=p.posts.filter(x=>x.status==='done').length;
+  let h='';
+  if(p.running||p.stage!=='done'||p.error){
+    const pct=p.research?15+Math.round(85*doneN/Math.max(1,p.posts.length)):5;
+    h+=`<div class="card"><h3>"${esc(p.keyword)}" 진행 상황</h3><div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="prog"><div class="${p.research?'done':p.running?'on':''}">${p.research?'✓':'●'} 1차 출처 수집 · 상위글 분석 · 7개 글 계획 ${!p.research&&p.running?'(<span id="rsTime">0초</span>, 1~3분)':''}</div>
+      <div class="${p.stage==='done'?'done':p.research&&p.running?'on':''}">${p.stage==='done'?'✓':'●'} 글 작성 ${doneN}/${p.posts.length||7} (2개씩 동시에 씁니다)</div></div>
+      ${p.error?`<div class="err">${esc(p.error)}</div>`:''}
+      ${!p.running&&p.stage!=='done'?`<div class="row" style="margin-top:10px"><button class="btn pri" id="resume">이어서 만들기</button></div>`:''}
+      ${p.running?'<div class="hint">이 화면을 닫거나 새로고침하면 작성이 멈춥니다. 다른 탭은 봐도 됩니다.</div>':''}</div>`;
+  }
+  if(r){
+    if(r.deadline_warning)h+=`<div class="notice"><b>마감 주의:</b> ${esc(r.deadline_warning)}</div>`;
+    const facts=(r.facts||[]).map(f=>`<tr><td>${esc(f.item)}</td><td>${esc(f.value)}${f.confirmed===false?' <span class="pill warn">미확정</span>':''}</td><td>${f.source&&/^https?:/.test(f.source)?`<a href="${esc(f.source)}" target="_blank" rel="noopener">원문</a>`:esc(f.source||'')}</td></tr>`).join('');
+    const li=a=>(a||[]).filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join('')||'<li>없음</li>';
+    h+=`<details class="card" style="padding:0"><summary style="padding:16px;cursor:pointer;font-weight:600">리서치 결과 보기 (출처 ${(r.sources||[]).length}개)</summary><div style="padding:0 16px 16px">
+      <div class="sec"><h4>핵심 사실</h4><table class="mdt"><thead><tr><th>항목</th><th>내용</th><th>출처</th></tr></thead><tbody>${facts||'<tr><td colspan="3">없음</td></tr>'}</tbody></table></div>
+      <div class="split"><div class="sec"><h4>상위글이 모두 빠뜨린 정보 (차별점)</h4><ul class="list">${li(r.competitors&&r.competitors.missing)}</ul></div>
+      <div class="sec"><h4>상위글의 틀리거나 오래된 정보</h4><ul class="list">${li(r.competitors&&r.competitors.errors)}</ul></div></div>
+      <div class="sec"><h4>상위글 공통점</h4><ul class="list">${li(r.competitors&&r.competitors.common)}</ul></div>
+      <div class="sec"><h4>출처</h4><ul class="list">${(r.sources||[]).map(s=>`<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a></li>`).join('')||'<li>없음</li>'}</ul></div>
+    </div></details>`;
+  }
+  h+=`<div id="posts">${p.posts.map(x=>`<details class="post" id="post-${x.id}"${x.open?' open':''}></details>`).join('')}</div>`;
+  if(p.posts.length&&!p.running)h+=`<div class="row" style="margin-top:6px"><button class="btn sm" id="delProj">이 키워드 글 모두 삭제</button></div>`;
+  area.innerHTML=h;
+  p.posts.forEach(x=>updateCard(p,x));
+}
+function updateCard(p,post){
+  const el=document.getElementById('post-'+post.id); if(!el||cur()!==p)return;
+  const sp=post.spec, sec=parseSec(post.raw||''), wp=sp.platform==='wordpress';
+  const title=post.title||sec.TITLE||'';
+  const st=post.status==='done'?(post.published?'<span class="pill ok">발행 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
+  const label=wp?'워드프레스':`네이버 ${post.no}`;
+  const sum=`<summary><div class="ph">${label} · ${wp?'아무 때나':sp.publish_day+'일차'} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${kwBadges(p.keyword,title,sec.BODY||'')}</div>`:''}</summary>`;
+  let body='';
+  if(post.status==='writing'){body=`<div class="sec"><div class="raw" id="raw-${post.id}">${esc((post.raw||'작성을 시작했습니다…').slice(-1500))}</div></div>`}
+  else if(post.status==='wait'){body=`<div class="sec hint">${esc(sp.angle||'')}</div>`}
+  else if(post.status==='error'){body=`<div class="err">${esc(post.error)}</div><div class="row" style="margin-top:10px"><button class="btn pri sm" data-act="redo">다시 쓰기</button></div>`}
+  else{
+    const photos=(sec.PHOTOS||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'').trim()).filter(Boolean);
+    body=`<div class="sec"><h4>세부 키워드 · 각도</h4><div>${esc(sp.sub_keyword)} — ${esc(sp.angle||'')}</div>${sp.category_note?`<div class="hint">${esc(sp.category_note)}</div>`:''}</div>
+    <div class="sec"><h4>추천 카테고리</h4><div><b>${esc(sp.category)}</b></div></div>
+    <div class="sec"><h4>제목 (직접 손보세요)</h4><input type="text" data-act="title" value="${esc(title)}"><div class="row" style="margin-top:6px" data-kwchk>${kwBadges(p.keyword,title,sec.BODY||'')}</div>
+      <div class="row" style="margin-top:8px"><button class="btn sm" data-act="cpTitle">제목 복사</button></div></div>
+    <div class="sec"><h4>본문 미리보기 ${post.truncated?'<span class="pill warn">끝부분이 잘렸을 수 있음</span>':''}</h4><div class="preview">${md(sec.BODY)}</div>
+      <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="cpHtml">본문 복사(서식)</button><button class="btn sm" data-act="cpText">본문 복사(텍스트)</button></div>
+      <div class="hint">노란 칸=사진 자리, 파란 칸=경험 자리. 채운 뒤 표시는 지우세요.</div></div>
+    <div class="sec"><h4>태그</h4><div>${esc(sec.TAGS||'')}</div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="cpTags">태그 복사</button></div></div>
+    <div class="sec"><h4>사진 가이드 — 이 화면을 캡처하세요</h4>${photos.length?`<table class="mdt"><thead><tr><th>캡처할 화면</th><th>여는 곳</th><th>가릴 정보</th></tr></thead><tbody>${photos.map(l=>{const c=l.split('|').map(x=>x.trim());return `<tr><td>${esc(c[0]||'')}</td><td>${esc(c[1]||'')}</td><td>${esc(c[2]||'')}</td></tr>`}).join('')}</tbody></table>`:'<div class="hint">없음</div>'}
+      <div class="hint">다른 블로그·뉴스 사진은 쓰지 마세요. 실제 신청을 안 해도 공고문·조회 화면 캡처면 충분합니다.</div></div>
+    <div class="sec"><h4>표 이미지 1장 (미리캔버스·캔바용)</h4>${md(sec.TABLEIMG||'')}</div>
+    <div class="sec"><h4>확인 경험 문장 예시</h4><div class="preview" style="max-height:none">${md(sec.EXPERIENCE||'')}</div>
+      <div class="hint" style="color:var(--warn)">직접 확인한 내용으로 고쳐 쓰세요. 확인하지 않은 내용을 그대로 쓰면 거짓 경험이 됩니다.</div></div>
+    <div class="sec"><h4>검증 체크리스트 — ⚠️는 원문과 꼭 대조</h4>${md((sec.CHECK||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'')).filter(Boolean).map(l=>'| '+l+' |').join('\n').replace(/^/,'| 항목 | 값 | 확인 |\n|---|---|---|\n'))}</div>
+    <div class="sec row"><label class="chk"><input type="checkbox" data-act="pub"${post.published?' checked':''}> 업로드했어요 (발행 완료)</label></div>
+    <div class="sec row"><button class="btn sm" data-act="redo">이 글 다시 쓰기</button></div>`;
+  }
+  const wasOpen=el.open;
+  el.innerHTML=sum+`<div class="pbody">${body}</div>`;
+  el.open=wasOpen;
+  if(post.status==='writing'){const raw=document.getElementById('raw-'+post.id);if(raw)raw.scrollTop=raw.scrollHeight}
+}
+$('#writeArea').addEventListener('click',async e=>{
+  if(e.target.id==='resume'){const p=cur();if(p&&!p.running)runProject(p);return}
+  if(e.target.id==='delProj'){const p=cur();if(p&&confirm(`"${p.keyword}" 글 ${p.posts.length}개를 모두 삭제할까요?`)){S.projects=S.projects.filter(x=>x!==p);S.currentId=S.projects[0]?S.projects[0].id:null;save();renderWrite();renderHeader()}return}
+  const b=e.target.closest('[data-act]'); if(!b)return;
+  const det=b.closest('details.post'); const p=cur(); if(!det||!p)return;
+  const post=p.posts.find(x=>'post-'+x.id===det.id); if(!post)return;
+  const sec=parseSec(post.raw), act=b.dataset.act;
+  if(act==='cpTitle')copy(post.title||sec.TITLE||'');
+  if(act==='cpTags')copy((sec.TAGS||'').split(/[,，]/).map(t=>t.trim().replace(/^#/,'')).filter(Boolean).map(t=>'#'+t).join(' '));
+  if(act==='cpText')copy(plain(sec.BODY));
+  if(act==='cpHtml')copy(plain(sec.BODY),md(sec.BODY,true));
+  if(act==='redo'){
+    if(p.running){toast('다른 글을 쓰는 중입니다. 끝난 뒤 다시 시도하세요.');return}
+    if(post.status==='done'&&!confirm('이 글을 새로 씁니다. 지금 내용은 사라집니다. 계속할까요?'))return;
+    p.running=true;rerender();
+    try{await writePost(p,post)}finally{p.running=false;save();rerender()}
+  }
+});
+$('#writeArea').addEventListener('change',e=>{
+  if(e.target.id==='projSel')return;
+  const b=e.target.closest('[data-act="pub"]'); if(!b)return;
+  const det=b.closest('details.post'),p=cur(),post=p&&p.posts.find(x=>'post-'+x.id===det.id);
+  if(post){post.published=b.checked;post.publishedAt=b.checked?new Date().toISOString():null;save();updateCard(p,post);renderHeader()}
+});
+$('#writeArea').addEventListener('input',e=>{
+  const b=e.target.closest('[data-act="title"]'); if(!b)return;
+  const det=b.closest('details.post'),p=cur(),post=p&&p.posts.find(x=>'post-'+x.id===det.id); if(!post)return;
+  post.title=b.value; save();
+  const chk=det.querySelector('[data-kwchk]'); if(chk)chk.innerHTML=kwBadges(p.keyword,b.value,parseSec(post.raw).BODY||'');
+  const pt=det.querySelector('.pt'); if(pt)pt.textContent=b.value||post.spec.sub_keyword;
+});
+$('#writeArea').addEventListener('toggle',e=>{const d=e.target;if(!d.matches||!d.matches('details.post'))return;const p=cur();const post=p&&p.posts.find(x=>'post-'+x.id===d.id);if(post)post.open=d.open},true);
+$('#projSelWrap').addEventListener('change',e=>{if(e.target.id==='projSel'){S.currentId=e.target.value;save();renderWrite()}});
+
+/* ---------- 발행 관리 ---------- */
+function renderPub(){
+  const el=$('#pubArea');
+  const all=S.projects.flatMap(p=>p.posts.map(x=>({p,x})));
+  if(!all.length){el.innerHTML='<div class="card">아직 만든 글이 없습니다.</div>';return}
+  const ready=all.filter(o=>o.x.status==='done'&&!o.x.published);
+  const today=nextDay(ready);
+  let h=`<div class="todo"><div class="now"><b>오늘 올릴 글</b></div>${today.length?'<ul class="list">'+today.map(o=>`<li><a href="#" data-open="${o.p.id}|${o.x.id}">${esc(o.x.title||o.x.spec.sub_keyword)}</a> <span class="hint">${o.x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(o.x.spec.category)}</span></li>`).join('')+'</ul>':'<div>올릴 글이 없습니다. 새 키워드로 글을 만드세요.</div>'}</div>`;
+  for(const p of S.projects){
+    const d=p.posts.filter(x=>x.published).length;
+    h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(p.keyword)}</h3><span class="pill ${d===p.posts.length&&d?'ok':''}">${d}/${p.posts.length} 발행</span></div>
+    <table class="pub" style="margin-top:8px"><thead><tr><th>발행</th><th>글</th><th>일차</th></tr></thead><tbody>${p.posts.map(x=>`<tr><td><input type="checkbox" aria-label="발행 완료" data-pub="${p.id}|${x.id}"${x.published?' checked':''}${x.status!=='done'?' disabled':''}></td><td><a href="#" data-open="${p.id}|${x.id}">${esc(x.title||x.spec.sub_keyword)}</a><div class="hint">${x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(x.spec.category)}${x.status!=='done'?' · 미완성':''}${x.publishedAt?' · '+new Date(x.publishedAt).toLocaleDateString('ko-KR'):''}</div></td><td>${x.spec.platform==='wordpress'?'-':x.spec.publish_day}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  el.innerHTML=h;
+}
+$('#pubArea').addEventListener('change',e=>{
+  const b=e.target.closest('[data-pub]');if(!b)return;
+  const [pid,xid]=b.dataset.pub.split('|');const p=S.projects.find(q=>q.id===pid);const x=p&&p.posts.find(q=>q.id===xid);
+  if(x){x.published=b.checked;x.publishedAt=b.checked?new Date().toISOString():null;save();renderPub();renderHeader()}
+});
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-open]');if(!a)return;e.preventDefault();
+  const [pid,xid]=a.dataset.open.split('|');const p=S.projects.find(q=>q.id===pid);if(!p)return;
+  S.currentId=pid;const x=p.posts.find(q=>q.id===xid);if(x)x.open=true;go('write');
+  const el=document.getElementById('post-'+xid);if(el)el.scrollIntoView({block:'start'});
+});
+
+/* ---------- 설정 ---------- */
+function renderSet(){
+  const k=lsGet(LS_KEY);$('#apiKey').value='';$('#apiKey').placeholder=k?'저장됨 (sk-ant-…'+k.slice(-4)+')':'sk-ant-...';
+  $('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#model').value=S.settings.model;
+}
+$('#keySave').addEventListener('click',()=>{
+  const v=$('#apiKey').value.trim();const m=$('#keyMsg');m.style.color='';
+  if(!v){m.textContent='API 키를 입력하세요.';return}
+  if(!/^sk-ant-/.test(v)){m.textContent='sk-ant-로 시작하는 키인지 확인하세요.';return}
+  if(!lsSet(LS_KEY,v)){m.textContent='이 브라우저에 저장할 수 없습니다(사생활 보호 모드인지 확인).';return}
+  m.style.color='var(--ok)';m.textContent='저장했습니다. 연결 확인을 눌러보세요.';renderSet();
+});
+$('#apiKey').addEventListener('input',()=>{$('#keyMsg').textContent=''});
+$('#keyTest').addEventListener('click',async()=>{
+  const m=$('#keyMsg');m.style.color='';m.textContent='확인 중…';
+  try{const r=await claudeFetch({max_tokens:5,messages:[{role:'user',content:'ok'}]},false);await r.json();m.style.color='var(--ok)';m.textContent='연결됐습니다. 이제 키워드를 찾아보세요.'}
+  catch(e){m.textContent=e.message}
+});
+$('#keyDel').addEventListener('click',()=>{lsDel(LS_KEY);renderSet();$('#keyMsg').textContent='키를 지웠습니다.'});
+$('#setSave').addEventListener('click',()=>{
+  const cats=$('#cats').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!cats.length){toast('카테고리를 1개 이상 적어주세요');return}
+  S.settings.categories=cats.join(', ');S.settings.interest=$('#interest').value.trim();S.settings.model=$('#model').value.trim()||DEF.model;
+  saveNow();toast('저장했습니다');
+});
+$('#wipe').addEventListener('click',()=>{if(confirm('키워드·글·발행 기록을 모두 지울까요? 되돌릴 수 없습니다.')){S.keywords=[];S.projects=[];S.currentId=null;saveNow();toast('지웠습니다');renderHeader()}});
+
+/* ---------- 백업 ---------- */
+$('#bkSave').addEventListener('click',()=>{
+  const data=JSON.stringify({app:'blog-helper',v:1,savedAt:new Date().toISOString(),state:S},null,1);
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download=`블로그도우미-백업-${todayKST()}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+});
+$('#bkLoad').addEventListener('click',()=>$('#bkFile').click());
+$('#bkFile').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const j=JSON.parse(await f.text());
+    if(j.app!=='blog-helper'||!j.state)throw new Error();
+    if(!confirm('지금 데이터를 백업 파일 내용으로 바꿀까요?'))return;
+    S=j.state;S.settings=Object.assign({},DEF,S.settings||{});S.keywords=S.keywords||[];S.projects=(S.projects||[]).map(p=>Object.assign(p,{running:false}));
+    saveNow();toast('되살렸습니다');rerender();
+  }catch(_){toast('블로그 도우미 백업 파일이 아닙니다')}
+  e.target.value='';
+});
+
+/* ---------- 시작 ---------- */
+S.projects.forEach(p=>{if(p.running){p.running=false;p.posts.forEach(x=>{if(x.status==='writing'){x.status='wait';x.raw=''}})}});
+window.addEventListener('beforeunload',e=>{if(S.projects.some(p=>p.running)){e.preventDefault();e.returnValue=''}});
+go('home');
+</script>
+</body>
+</html>
