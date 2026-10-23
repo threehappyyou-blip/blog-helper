@@ -12,7 +12,7 @@
   --pri:#2453d6; --pri-ink:#fff; --pri-soft:#eaf0fd; --pri-line:#a9bff2;
   --amb-soft:#fdf3e4; --amb-line:#d98a3a; --amb-ink:#7a4510;
   --ok:#1f8a4c; --ok-soft:#e5f5ec; --bad:#c23a32; --bad-soft:#fbe9e7; --warn:#a86500; --warn-soft:#fff3db;
-  --mark-photo:#fff1a8; --mark-exp:#d9ecff;
+  --mark-photo:#fff1a8; --mark-exp:#d9ecff; --mark-chk:#ffd9d6;
 }
 @media (prefers-color-scheme: dark){
   :root{
@@ -20,7 +20,7 @@
     --pri:#5b86f0; --pri-ink:#0d1220; --pri-soft:#1c2740; --pri-line:#35508f;
     --amb-soft:#2b2216; --amb-line:#b77632; --amb-ink:#f0c995;
     --ok:#4cc483; --ok-soft:#173023; --bad:#f07a71; --bad-soft:#36201e; --warn:#f0b54d; --warn-soft:#33281a;
-    --mark-photo:#5a4f12; --mark-exp:#1d3a5a;
+    --mark-photo:#5a4f12; --mark-exp:#1d3a5a; --mark-chk:#5a2420;
   }
 }
 *{box-sizing:border-box}
@@ -85,6 +85,7 @@ details.post>summary::-webkit-details-marker{display:none}
 .preview th,.mdt th{background:var(--card)}
 mark.mp{background:var(--mark-photo);color:inherit;padding:1px 4px;border-radius:4px}
 mark.me{background:var(--mark-exp);color:inherit;padding:1px 4px;border-radius:4px}
+mark.mc{background:var(--mark-chk);color:inherit;padding:1px 4px;border-radius:4px}
 .raw{white-space:pre-wrap;font-size:13px;color:var(--sub);max-height:240px;overflow:auto;background:var(--bg);border-radius:8px;padding:10px}
 .chk{display:flex;align-items:center;gap:8px;font-size:15px;cursor:pointer}
 .chk input{width:18px;height:18px}
@@ -180,6 +181,8 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <label class="f" for="interest">경험을 쓰기 쉬운 관심 분야 (선택)</label>
     <input type="text" id="interest">
     <div class="hint">키워드 후보에 이 분야를 1개 이상 섞어 줍니다.</div>
+    <label class="chk" style="margin-top:14px"><input type="checkbox" id="detail"> 클릭 순서까지 아주 자세한 따라하기 넣기</label>
+    <div class="hint">"어디 접속 → 무엇 클릭 → 무엇 입력 → 아래로 내려 → 무엇 클릭"을 단계별 사진 자리와 함께 씁니다. 글이 길어지고 비용이 조금 늘어납니다.</div>
     <label class="f" for="model">모델</label>
     <input type="text" id="model">
     <div class="hint">기본값 claude-sonnet-5-5. 바꿀 일이 없으면 그대로 두세요.</div>
@@ -218,6 +221,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
       <li><b>본문 복사(서식)</b> → 붙여넣기. 노란 칸은 사진, 파란 칸은 경험 자리입니다. 채운 뒤 표시를 지우세요.</li>
       <li>사진 가이드대로 화면을 캡처해서 넣고, 경험 예시는 직접 확인한 내용으로 고쳐 씁니다.</li>
       <li>검증 체크리스트에서 ⚠️ 항목은 공고 원문과 꼭 대조하세요.</li>
+      <li>따라하기의 빨간 칸은 AI가 출처에서 버튼 이름을 확인하지 못한 곳입니다. 단계별 사진을 찍으면서 실제 버튼 이름으로 고쳐 쓰세요.</li>
       <li>올렸으면 <b>발행 완료</b>를 체크합니다.</li>
     </ol>
   </div>
@@ -236,7 +240,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <script>
 'use strict';
 const LS_STATE='bh_state_v1', LS_KEY='bh_api_key';
-const DEF={model:'claude-sonnet-5-5',categories:'지원금·정책, 생활정보, 해외직구·배송, 돈 아끼는 법, 일상·후기',interest:'해외직구·배송·통관'};
+const DEF={model:'claude-sonnet-5-5',categories:'지원금·정책, 생활정보, 해외직구·배송, 돈 아끼는 법, 일상·후기',interest:'해외직구·배송·통관',detail:true};
 const ANGLES=['신청방법','대상·자격','지급일·금액','사용처·사용기한','자주 묻는 질문','놓치기 쉬운 주의사항'];
 
 const $=s=>document.querySelector(s);
@@ -394,12 +398,17 @@ function pResearch(kw){
  - category는 다음 목록 중 하나: ${S.settings.categories}. 맞는 게 없으면 가장 가까운 것을 고르고 category_note에 이유를 적는다.
  - publish_day: 네이버 글을 하루 1~2개씩 나눠 올리도록 1부터 번호를 매긴다. 가장 수요가 큰 글을 1일차에 둔다. 워드프레스는 1.
 4) 신청 기간이 이미 끝났거나 7일 안에 끝나면 deadline_warning에 적는다. 아니면 빈 문자열.
+5) 따라하기 절차를 수집한다. 신청·조회·사용 등 사람이 직접 해야 하는 일이 있으면, 공식 안내문·이용 가이드·FAQ에서 실제 화면 순서를 찾아 procedures에 정리한다.
+ - channel: "온라인(사이트 이름)", "앱(앱 이름)", "방문" 등 경로별로 나눈다.
+ - 단계마다: 접속할 곳(URL·앱 이름), 누를 메뉴·버튼의 정확한 이름, 입력하거나 고를 항목, 준비물, 완료 후 나오는 화면·문구.
+ - 메뉴·버튼 이름을 출처에서 직접 확인했으면 verified:true, 출처에 정확한 이름이 없으면 verified:false. 이름을 추측해서 채우지 않는다.
+ - 절차가 필요 없는 키워드면 빈 배열.
 결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
-형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"posts":[{"platform":"naver 또는 wordpress","sub_keyword":"","angle":"이 글이 다룰 내용 한 문장","category":"","category_note":"","publish_day":1}]}`;
+형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"procedures":[{"channel":"","url":"","need":["준비물"],"steps":[{"where":"","action":"","input":"","result":"","verified":true}],"source":"URL"}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"posts":[{"platform":"naver 또는 wordpress","sub_keyword":"","angle":"이 글이 다룰 내용 한 문장","category":"","category_note":"","publish_day":1}]}`;
   return {sys,user:`"${kw}" 리서치와 글 7개 계획을 만들어줘.`};
 }
 function pWrite(pr,post){
-  const sp=post.spec, wp=sp.platform==='wordpress';
+  const sp=post.spec, wp=sp.platform==='wordpress', detail=S.settings.detail!==false;
   const r=pr.research||{};
   const others=pr.posts.filter(x=>x!==post).map(x=>'- '+x.spec.sub_keyword+': '+x.spec.angle).join('\n');
   const sys=`너는 한국어 블로그 글 작가다. 사람이 직접 쓴 것처럼 자연스럽고 구체적으로 쓴다. 오늘은 ${todayKST()}이다.
@@ -411,7 +420,7 @@ function pWrite(pr,post){
 [같은 키워드의 다른 글들 — 이 내용과 겹치지 않게, 이 글의 각도에 집중]
 ${others}
 [조사 자료]
-${JSON.stringify({facts:r.facts,competitors:r.competitors,sources:r.sources,deadline_warning:r.deadline_warning}).slice(0,24000)}
+${JSON.stringify({facts:r.facts,procedures:r.procedures,competitors:r.competitors,sources:r.sources,deadline_warning:r.deadline_warning}).slice(0,30000)}
 
 규칙:
 - 제목: 메인 키워드 "${pr.keyword}"를 글자 그대로 포함하고 가능한 앞쪽에 둔다. 세부 키워드의 나머지 단어도 자연스럽게 넣는다. ${wp?'40자 안팎':'30자 안팎'}.
@@ -420,10 +429,23 @@ ${JSON.stringify({facts:r.facts,competitors:r.competitors,sources:r.sources,dead
 - 소제목 4~6개(## 사용), 마크다운 표 1개 이상, 절차는 번호 목록.
 - 조사 자료의 '모두 빠뜨린 정보' 중 이 글 각도에 맞는 것을 담은 섹션을 최소 1개 넣는다.
 - 사실은 조사 자료에 있는 것만 쓴다. confirmed:false 정보는 "아직 확정되지 않았다"고 쓴다. 숫자·날짜를 지어내지 않는다.
-- [사진 넣기: 무엇을] 자리를 2~3곳, [경험 넣기: 어떤 경험] 자리를 2곳 본문 흐름에 맞게 넣는다. 경험 내용은 지어내지 않고 자리만 표시한다.
+${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 독자가 직접 해야 하는 일(신청·조회·사용·확인 등)이 있으면 "## ○○ 따라하기" 소제목을 만들고, 컴퓨터를 잘 모르는 60대도 그대로 따라 할 수 있게 쓴다.
+  · 시작 전에 "준비물" 목록(신분증, 공동·간편인증서, 계좌 등)과 "걸리는 시간"을 먼저 적는다.
+  · 단계마다 "### 1단계. (한 줄 요약)" 소제목을 달고, 그 아래를 이 순서로 쓴다:
+    ① 어디서: 접속할 사이트 주소 또는 앱 이름, 휴대폰인지 PC인지
+    ② 무엇을 누르나: 버튼·메뉴 이름을 **"버튼 이름"**처럼 굵은 따옴표로, 화면 어디쯤 있는지(오른쪽 위, 화면 가운데, 맨 아래 등)
+    ③ 무엇을 입력·선택하나: 칸 이름과 넣을 내용(예: "주민등록번호 앞자리 6자리")
+    ④ 화면을 아래로 내려야 하면 "화면을 아래로 내리면 ○○이 보입니다"처럼 적는다
+    ⑤ 다음 버튼: 마지막에 누를 버튼(**"다음"**, **"신청하기"**, **"저장"** 등)
+    ⑥ 성공 확인: 이 단계가 끝나면 어떤 화면·문구가 뜨는지
+    ⑦ 단계마다 바로 아래에 [사진 넣기: N단계 ○○ 화면 캡처]를 넣는다
+  · 조사 자료 procedures에서 verified:true인 메뉴·버튼 이름만 확정적으로 쓴다. verified:false이거나 자료에 없는 이름은 일반적인 표현으로 쓰고 바로 뒤에 [확인 필요: 실제 화면에서 버튼 이름 확인]을 붙인다. 버튼 이름을 지어내지 않는다.
+  · 따라하기 끝에 "자주 막히는 부분" 3개 안팎(증상 → 해결)을 넣는다.
+  · 이 글 각도에 직접 해야 하는 일이 없으면 따라하기 섹션은 넣지 않는다. 다른 글의 따라하기와 같은 절차를 반복하지 않는다.
+`:''}- [사진 넣기: 무엇을] 자리를 ${detail?'따라하기 단계마다 + 그 밖에 1~2곳':'2~3곳'}, [경험 넣기: 어떤 경험] 자리를 2곳 본문 흐름에 맞게 넣는다. 경험 내용은 지어내지 않고 자리만 표시한다.
 - 끝부분: "## 출처" 소제목 아래 1차 출처 링크 목록(마크다운 링크), 3줄 요약, 댓글을 유도하는 질문 1줄.
 ${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 금지 표현: ${BANNED}.
-- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}.
+- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.
 
 출력 형식 (이 순서, 표시줄 그대로, 다른 말 없이):
 @@TITLE
@@ -439,7 +461,8 @@ ${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중
 @@EXPERIENCE
 본문의 [경험 넣기] 자리마다: 자리 이름 한 줄, 그 아래 예시 문장 2~3개(- 로 시작). 직접 신청하지 않아도 쓸 수 있는 "확인한 경험" 형태.
 @@CHECK
-- 항목 | 본문에 쓴 값 | ✅ 출처와 일치 또는 ⚠️ 확인 필요`;
+- 항목 | 본문에 쓴 값 | ✅ 출처와 일치 또는 ⚠️ 확인 필요
+(본문의 [확인 필요] 버튼·메뉴 이름도 ⚠️ 항목으로 모두 넣는다)`;
   return {sys,user:`위 규칙대로 "${sp.sub_keyword}" 글을 써줘.`};
 }
 
@@ -495,7 +518,7 @@ async function runProject(p){
       const timer=setInterval(()=>{const el=$('#rsTime');if(el)el.textContent=Math.round((Date.now()-p.t0)/1000)+'초'},1000);
       try{
         const {sys,user}=pResearch(p.keyword);
-        const r=extractJSON(await searchRun(sys,user,8000,10));
+        const r=extractJSON(await searchRun(sys,user,12000,12));
         p.research=r; p.posts=buildPosts(p.keyword,r.posts); saveNow();
       }finally{clearInterval(timer)}
     }
@@ -523,7 +546,7 @@ async function writePost(p,post){
   let last=0;
   try{
     const {sys,user}=pWrite(p,post);
-    const {text,stop}=await streamRun(sys,user,post.spec.platform==='wordpress'?9000:7000,full=>{post.raw=full;const n=Date.now();if(n-last>400){last=n;updateCard(p,post)}});
+    const {text,stop}=await streamRun(sys,user,post.spec.platform==='wordpress'?12000:10000,full=>{post.raw=full;const n=Date.now();if(n-last>400){last=n;updateCard(p,post)}});
     post.raw=text; const sec=parseSec(text);
     if(!sec.BODY)throw new Error('본문을 읽지 못했습니다. 다시 쓰기를 눌러주세요.');
     post.title=sec.TITLE||''; post.status='done'; post.truncated=stop==='max_tokens';
@@ -540,9 +563,9 @@ function parseSec(t){
 /* ---------- 마크다운 ---------- */
 function inl(s,styled){
   s=esc(s);
-  s=s.replace(/\[(사진 넣기|경험 넣기)\s*[:：]?\s*([^\]]*)\]/g,(m,k,v)=>{
-    const photo=k==='사진 넣기';
-    return styled?`<span style="background:${photo?'#fff1a8':'#d9ecff'};padding:1px 4px">[${k}${v?': '+v:''}]</span>`:`<mark class="${photo?'mp':'me'}">[${k}${v?': '+v:''}]</mark>`});
+  s=s.replace(/\[(사진 넣기|경험 넣기|확인 필요)\s*[:：]?\s*([^\]]*)\]/g,(m,k,v)=>{
+    const c=k==='사진 넣기'?['mp','#fff1a8']:k==='경험 넣기'?['me','#d9ecff']:['mc','#ffd9d6'];
+    return styled?`<span style="background:${c[1]};padding:1px 4px">[${k}${v?': '+v:''}]</span>`:`<mark class="${c[0]}">[${k}${v?': '+v:''}]</mark>`});
   s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
   s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
   s=s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
@@ -603,6 +626,7 @@ function kwBadges(kw,title,body){
   return tb+bb;
 }
 
+function chkBadge(b){const n=(String(b||'').match(/\[확인 필요/g)||[]).length;return n?`<span class="pill bad">버튼 이름 확인 ${n}곳</span>`:''}
 /* ---------- 글 만들기 화면 ---------- */
 function renderWrite(){
   const sel=$('#projSelWrap'),area=$('#writeArea');
@@ -629,6 +653,7 @@ function renderWrite(){
       <div class="sec"><h4>핵심 사실</h4><table class="mdt"><thead><tr><th>항목</th><th>내용</th><th>출처</th></tr></thead><tbody>${facts||'<tr><td colspan="3">없음</td></tr>'}</tbody></table></div>
       <div class="split"><div class="sec"><h4>상위글이 모두 빠뜨린 정보 (차별점)</h4><ul class="list">${li(r.competitors&&r.competitors.missing)}</ul></div>
       <div class="sec"><h4>상위글의 틀리거나 오래된 정보</h4><ul class="list">${li(r.competitors&&r.competitors.errors)}</ul></div></div>
+      ${(r.procedures||[]).length?`<div class="sec"><h4>수집한 따라하기 절차 (빨간 표시는 출처에서 버튼 이름 미확인)</h4>${r.procedures.map(pc=>`<div style="margin:0 0 10px"><b>${esc(pc.channel||'')}</b>${pc.url?` · <a href="${esc(pc.url)}" target="_blank" rel="noopener">열기</a>`:''}${(pc.need||[]).length?`<div class="hint">준비물: ${esc(pc.need.join(', '))}</div>`:''}<ol class="list">${(pc.steps||[]).map(st=>`<li>${st.verified===false?'<mark class="mc">':''}${esc([st.where,st.action,st.input].filter(Boolean).join(' → '))}${st.verified===false?'</mark>':''}${st.result?` <span class="hint">→ ${esc(st.result)}</span>`:''}</li>`).join('')}</ol></div>`).join('')}</div>`:''}
       <div class="sec"><h4>상위글 공통점</h4><ul class="list">${li(r.competitors&&r.competitors.common)}</ul></div>
       <div class="sec"><h4>출처</h4><ul class="list">${(r.sources||[]).map(s=>`<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a></li>`).join('')||'<li>없음</li>'}</ul></div>
     </div></details>`;
@@ -644,7 +669,7 @@ function updateCard(p,post){
   const title=post.title||sec.TITLE||'';
   const st=post.status==='done'?(post.published?'<span class="pill ok">발행 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
   const label=wp?'워드프레스':`네이버 ${post.no}`;
-  const sum=`<summary><div class="ph">${label} · ${wp?'아무 때나':sp.publish_day+'일차'} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${kwBadges(p.keyword,title,sec.BODY||'')}</div>`:''}</summary>`;
+  const sum=`<summary><div class="ph">${label} · ${wp?'아무 때나':sp.publish_day+'일차'} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${kwBadges(p.keyword,title,sec.BODY||'')}${chkBadge(sec.BODY)}</div>`:''}</summary>`;
   let body='';
   if(post.status==='writing'){body=`<div class="sec"><div class="raw" id="raw-${post.id}">${esc((post.raw||'작성을 시작했습니다…').slice(-1500))}</div></div>`}
   else if(post.status==='wait'){body=`<div class="sec hint">${esc(sp.angle||'')}</div>`}
@@ -657,7 +682,7 @@ function updateCard(p,post){
       <div class="row" style="margin-top:8px"><button class="btn sm" data-act="cpTitle">제목 복사</button></div></div>
     <div class="sec"><h4>본문 미리보기 ${post.truncated?'<span class="pill warn">끝부분이 잘렸을 수 있음</span>':''}</h4><div class="preview">${md(sec.BODY)}</div>
       <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="cpHtml">본문 복사(서식)</button><button class="btn sm" data-act="cpText">본문 복사(텍스트)</button></div>
-      <div class="hint">노란 칸=사진 자리, 파란 칸=경험 자리. 채운 뒤 표시는 지우세요.</div></div>
+      <div class="hint">노란 칸=사진 자리, 파란 칸=경험 자리, 빨간 칸=실제 화면에서 버튼 이름 확인. 채우거나 확인한 뒤 표시는 지우세요.</div></div>
     <div class="sec"><h4>태그</h4><div>${esc(sec.TAGS||'')}</div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="cpTags">태그 복사</button></div></div>
     <div class="sec"><h4>사진 가이드 — 이 화면을 캡처하세요</h4>${photos.length?`<table class="mdt"><thead><tr><th>캡처할 화면</th><th>여는 곳</th><th>가릴 정보</th></tr></thead><tbody>${photos.map(l=>{const c=l.split('|').map(x=>x.trim());return `<tr><td>${esc(c[0]||'')}</td><td>${esc(c[1]||'')}</td><td>${esc(c[2]||'')}</td></tr>`}).join('')}</tbody></table>`:'<div class="hint">없음</div>'}
       <div class="hint">다른 블로그·뉴스 사진은 쓰지 마세요. 실제 신청을 안 해도 공고문·조회 화면 캡처면 충분합니다.</div></div>
@@ -737,7 +762,7 @@ document.addEventListener('click',e=>{
 /* ---------- 설정 ---------- */
 function renderSet(){
   const k=lsGet(LS_KEY);$('#apiKey').value='';$('#apiKey').placeholder=k?'저장됨 (sk-ant-…'+k.slice(-4)+')':'sk-ant-...';
-  $('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#model').value=S.settings.model;
+  $('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#detail').checked=S.settings.detail!==false;$('#model').value=S.settings.model;
 }
 $('#keySave').addEventListener('click',()=>{
   const v=$('#apiKey').value.trim();const m=$('#keyMsg');m.style.color='';
@@ -756,7 +781,7 @@ $('#keyDel').addEventListener('click',()=>{lsDel(LS_KEY);renderSet();$('#keyMsg'
 $('#setSave').addEventListener('click',()=>{
   const cats=$('#cats').value.split(',').map(s=>s.trim()).filter(Boolean);
   if(!cats.length){toast('카테고리를 1개 이상 적어주세요');return}
-  S.settings.categories=cats.join(', ');S.settings.interest=$('#interest').value.trim();S.settings.model=$('#model').value.trim()||DEF.model;
+  S.settings.categories=cats.join(', ');S.settings.interest=$('#interest').value.trim();S.settings.detail=$('#detail').checked;S.settings.model=$('#model').value.trim()||DEF.model;
   saveNow();toast('저장했습니다');
 });
 $('#wipe').addEventListener('click',()=>{if(confirm('키워드·글·발행 기록을 모두 지울까요? 되돌릴 수 없습니다.')){S.keywords=[];S.projects=[];S.currentId=null;saveNow();toast('지웠습니다');renderHeader()}});
