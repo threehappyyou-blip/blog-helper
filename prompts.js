@@ -1,0 +1,133 @@
+/* 블로그 도우미 공용 프롬프트 — 사이트와 GitHub 서버가 같이 씁니다 */
+(function(root){
+'use strict';
+const ANGLES=['신청방법','대상·자격','지급일·금액','사용처·사용기한','자주 묻는 질문','놓치기 쉬운 주의사항'];
+function todayKST(){const d=new Date(Date.now()+9*3600e3);return d.toISOString().slice(0,10)}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function extractJSON(t){
+  const tags=[...t.matchAll(/<json>([\s\S]*?)<\/json>/g)];
+  let s=tags.length?tags[tags.length-1][1]:t;
+  s=s.replace(/```(?:json)?/g,'');
+  const a=s.indexOf('{'),b=s.lastIndexOf('}');
+  if(a<0||b<a)throw new Error('결과를 읽지 못했습니다. 다시 시도해 주세요.');
+  return JSON.parse(s.slice(a,b+1));
+}
+function parseSec(t){
+  const out={}; const re=/^@@([A-Z]+)\s*$/gm; let m,marks=[];
+  while((m=re.exec(t)))marks.push({k:m[1],s:m.index,e:re.lastIndex});
+  marks.forEach((mk,i)=>{out[mk.k]=t.slice(mk.e,i+1<marks.length?marks[i+1].s:t.length).trim()});
+  return out;
+}
+function create(settings){
+  const S={settings:settings||{}};
+const BANNED='"~에 대해 알아보겠습니다", "살펴보겠습니다", "결론적으로", "다양한", "누구나", "무조건", "역대급", "또 준다", 이모지';
+function pKeywords(){
+  const sys=`너는 한국 네이버 블로그 운영자를 돕는 키워드 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
+웹 검색으로 최근 48시간 이내 한국의 뉴스, 정부·지자체 공고, 정책 발표, 생활 이슈를 확인하고, 한국 사람들이 네이버에서 곧 많이 검색할 키워드를 찾는다.
+제외할 키워드:
+- 고객센터 전화번호처럼 검색 결과나 AI 브리핑에서 답이 바로 나오는 것
+- 확정 발표가 없는 루머성 정보, 아직 발표 안 된 금액을 추정해야 하는 것
+- 의료·투자 판단을 대신해 주는 주제, 정치 성향이 드러나는 주제, 사건·사고 피해자 관련 주제
+후보 6개 중 최소 1개는 "${S.settings.interest||DEF.interest}" 분야처럼 생활 경험을 쓰기 쉬운 장기형 키워드로 넣는다.
+각 키워드는 사람들이 실제로 검색창에 칠 법한 2~4단어 형태로 쓴다.
+category는 다음 목록 중 하나: ${S.settings.categories}
+결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
+형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":""}]}`;
+  return {sys,user:'오늘 기준 키워드 후보 6개를 찾아줘.'};
+}
+function pResearch(kw){
+  const sys=`너는 네이버 블로그 글을 준비하는 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
+메인 키워드: "${kw}"
+할 일:
+1) 1차 출처(정부24, 정부·지자체 공고문, 정부 보도자료, 기관 공식 홈페이지)에서 날짜·금액·대상·신청기간·신청방법·사용처 등 핵심 사실을 찾는다. 확정되지 않은 정보는 confirmed:false로 두고 추정치를 만들지 않는다.
+2) 이 키워드로 상위에 노출되는 블로그·뉴스 글 1~3개를 찾아 공통점, 모두 빠뜨린 정보, 틀리거나 오래된 정보를 정리한다.
+3) 글 7개를 계획한다: 네이버 블로그용 6개 + 워드프레스용 1개.
+ - 모든 글의 sub_keyword는 메인 키워드 "${kw}"를 글자 그대로(띄어쓰기 포함) 포함해야 한다.
+ - 네이버 6개는 각도가 서로 겹치면 안 된다. 참고 각도: ${ANGLES.join(' / ')}. 키워드 성격에 맞게 바꿔도 되지만 같은 내용을 다른 말로 반복하는 계획은 금지.
+ - 워드프레스 1개는 전체를 비교표와 FAQ 중심으로 정리하는 종합 가이드 각도로, 네이버 글과 구성이 달라야 한다.
+ - category는 다음 목록 중 하나: ${S.settings.categories}. 맞는 게 없으면 가장 가까운 것을 고르고 category_note에 이유를 적는다.
+ - publish_day: 네이버 글을 하루 1~2개씩 나눠 올리도록 1부터 번호를 매긴다. 가장 수요가 큰 글을 1일차에 둔다. 워드프레스는 1.
+4) 신청 기간이 이미 끝났거나 7일 안에 끝나면 deadline_warning에 적는다. 아니면 빈 문자열.
+5) 따라하기 절차를 수집한다. 신청·조회·사용 등 사람이 직접 해야 하는 일이 있으면, 공식 안내문·이용 가이드·FAQ에서 실제 화면 순서를 찾아 procedures에 정리한다.
+ - channel: "온라인(사이트 이름)", "앱(앱 이름)", "방문" 등 경로별로 나눈다.
+ - 단계마다: 접속할 곳(URL·앱 이름), 누를 메뉴·버튼의 정확한 이름, 입력하거나 고를 항목, 준비물, 완료 후 나오는 화면·문구.
+ - 메뉴·버튼 이름을 출처에서 직접 확인했으면 verified:true, 출처에 정확한 이름이 없으면 verified:false. 이름을 추측해서 채우지 않는다.
+ - 절차가 필요 없는 키워드면 빈 배열.
+결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
+형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"procedures":[{"channel":"","url":"","need":["준비물"],"steps":[{"where":"","action":"","input":"","result":"","verified":true}],"source":"URL"}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"posts":[{"platform":"naver 또는 wordpress","sub_keyword":"","angle":"이 글이 다룰 내용 한 문장","category":"","category_note":"","publish_day":1}]}`;
+  return {sys,user:`"${kw}" 리서치와 글 7개 계획을 만들어줘.`};
+}
+function pWrite(pr,post){
+  const sp=post.spec, wp=sp.platform==='wordpress', detail=S.settings.detail!==false;
+  const r=pr.research||{};
+  const others=pr.posts.filter(x=>x!==post).map(x=>'- '+x.spec.sub_keyword+': '+x.spec.angle).join('\n');
+  const sys=`너는 한국어 블로그 글 작가다. 사람이 직접 쓴 것처럼 자연스럽고 구체적으로 쓴다. 오늘은 ${todayKST()}이다.
+[플랫폼] ${wp?'워드프레스(구글 검색 유입용)':'네이버 블로그'}
+[메인 키워드] ${pr.keyword}
+[이 글의 세부 키워드] ${sp.sub_keyword}
+[이 글의 각도] ${sp.angle}
+[카테고리] ${sp.category}
+[같은 키워드의 다른 글들 — 이 내용과 겹치지 않게, 이 글의 각도에 집중]
+${others}
+[조사 자료]
+${JSON.stringify({facts:r.facts,procedures:r.procedures,competitors:r.competitors,sources:r.sources,deadline_warning:r.deadline_warning}).slice(0,30000)}
+
+규칙:
+- 제목: 메인 키워드 "${pr.keyword}"를 글자 그대로 포함하고 가능한 앞쪽에 둔다. 세부 키워드의 나머지 단어도 자연스럽게 넣는다. ${wp?'40자 안팎':'30자 안팎'}.
+- 본문: 메인 키워드 "${pr.keyword}"를 글자 그대로 ${wp?'4~6':'3~5'}회 자연스럽게 넣는다. 첫 문단에 반드시 1회. 억지 반복 금지.
+- 도입 3~4줄에 결론(누가, 얼마, 언제까지, 어디서)을 먼저 쓴다.
+- 소제목 4~6개(## 사용), 마크다운 표 1개 이상, 절차는 번호 목록.
+- 조사 자료의 '모두 빠뜨린 정보' 중 이 글 각도에 맞는 것을 담은 섹션을 최소 1개 넣는다.
+- 사실은 조사 자료에 있는 것만 쓴다. confirmed:false 정보는 "아직 확정되지 않았다"고 쓴다. 숫자·날짜를 지어내지 않는다.
+${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 독자가 직접 해야 하는 일(신청·조회·사용·확인 등)이 있으면 "## ○○ 따라하기" 소제목을 만들고, 컴퓨터를 잘 모르는 60대도 그대로 따라 할 수 있게 쓴다.
+  · 시작 전에 "준비물" 목록(신분증, 공동·간편인증서, 계좌 등)과 "걸리는 시간"을 먼저 적는다.
+  · 단계마다 "### 1단계. (한 줄 요약)" 소제목을 달고, 그 아래를 이 순서로 쓴다:
+    ① 어디서: 접속할 사이트 주소 또는 앱 이름, 휴대폰인지 PC인지
+    ② 무엇을 누르나: 버튼·메뉴 이름을 **"버튼 이름"**처럼 굵은 따옴표로, 화면 어디쯤 있는지(오른쪽 위, 화면 가운데, 맨 아래 등)
+    ③ 무엇을 입력·선택하나: 칸 이름과 넣을 내용(예: "주민등록번호 앞자리 6자리")
+    ④ 화면을 아래로 내려야 하면 "화면을 아래로 내리면 ○○이 보입니다"처럼 적는다
+    ⑤ 다음 버튼: 마지막에 누를 버튼(**"다음"**, **"신청하기"**, **"저장"** 등)
+    ⑥ 성공 확인: 이 단계가 끝나면 어떤 화면·문구가 뜨는지
+    ⑦ 단계마다 바로 아래에 [사진 넣기: N단계 ○○ 화면 캡처]를 넣는다
+  · 조사 자료 procedures에서 verified:true인 메뉴·버튼 이름만 확정적으로 쓴다. verified:false이거나 자료에 없는 이름은 일반적인 표현으로 쓰고 바로 뒤에 [확인 필요: 실제 화면에서 버튼 이름 확인]을 붙인다. 버튼 이름을 지어내지 않는다.
+  · 따라하기 끝에 "자주 막히는 부분" 3개 안팎(증상 → 해결)을 넣는다.
+  · 이 글 각도에 직접 해야 하는 일이 없으면 따라하기 섹션은 넣지 않는다. 다른 글의 따라하기와 같은 절차를 반복하지 않는다.
+`:''}- [사진 넣기: 무엇을] 자리를 ${detail?'따라하기 단계마다 + 그 밖에 1~2곳':'2~3곳'}, [경험 넣기: 어떤 경험] 자리를 2곳 본문 흐름에 맞게 넣는다. 경험 내용은 지어내지 않고 자리만 표시한다.
+- 끝부분: "## 출처" 소제목 아래 1차 출처 링크 목록(마크다운 링크), 3줄 요약, 댓글을 유도하는 질문 1줄.
+${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 금지 표현: ${BANNED}.
+- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.
+
+출력 형식 (이 순서, 표시줄 그대로, 다른 말 없이):
+@@TITLE
+제목 한 줄
+@@TAGS
+태그 10개, 쉼표로 구분, # 없이
+@@BODY
+본문 (마크다운)
+@@PHOTOS
+본문의 [사진 넣기] 자리마다 한 줄: - 캡처할 화면 | 여는 곳(사이트·앱 이름과 메뉴 경로) | 가릴 개인정보
+@@TABLEIMG
+미리캔버스·캔바로 만들 표 이미지 1장 내용 (마크다운 표, 4~6행)
+@@EXPERIENCE
+본문의 [경험 넣기] 자리마다: 자리 이름 한 줄, 그 아래 예시 문장 2~3개(- 로 시작). 직접 신청하지 않아도 쓸 수 있는 "확인한 경험" 형태.
+@@CHECK
+- 항목 | 본문에 쓴 값 | ✅ 출처와 일치 또는 ⚠️ 확인 필요
+(본문의 [확인 필요] 버튼·메뉴 이름도 ⚠️ 항목으로 모두 넣는다)`;
+  return {sys,user:`위 규칙대로 "${sp.sub_keyword}" 글을 써줘.`};
+}
+
+function buildPosts(kw,plan){
+  plan=Array.isArray(plan)?plan:[];
+  let nav=plan.filter(x=>x&&x.platform!=='wordpress').slice(0,6);
+  let wp=plan.find(x=>x&&x.platform==='wordpress');
+  const usedAngles=nav.map(x=>x.sub_keyword||'');
+  for(const a of ANGLES){ if(nav.length>=6)break; if(!usedAngles.some(u=>u.includes(a.split('·')[0])))nav.push({platform:'naver',sub_keyword:`${kw} ${a}`,angle:`${a} 중심으로 정리`,category:'',publish_day:nav.length+1}); }
+  if(!wp)wp={platform:'wordpress',sub_keyword:`${kw} 총정리`,angle:'비교표와 FAQ 중심 종합 가이드',category:'',publish_day:1};
+  const fix=(s,i)=>{const sp=Object.assign({},s);if(!(sp.sub_keyword||'').includes(kw))sp.sub_keyword=`${kw} ${sp.sub_keyword||''}`.trim();sp.category=sp.category||S.settings.categories.split(',')[0].trim();sp.publish_day=sp.publish_day||i+1;return sp};
+  return [...nav.map((s,i)=>({spec:fix(Object.assign(s,{platform:'naver'}),i),status:'wait'})),{spec:fix(Object.assign(wp,{platform:'wordpress'}),0),status:'wait'}]
+    .map((x,i)=>Object.assign(x,{id:uid(),no:i+1,raw:'',title:'',published:false}));
+}
+  return {pKeywords,pResearch,pWrite,buildPosts};
+}
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,version:3};
+})(typeof globalThis!=='undefined'?globalThis:this);
