@@ -136,7 +136,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <!-- 홈 -->
 <section id="tab-home">
   <h1>블로그 도우미</h1>
-  <p class="lead">키워드 찾기 · 네이버 6개 + 워드프레스 1개 초안 · 발행 관리</p>
+  <p class="lead">키워드 찾기 · 키워드 1개로 글 1개 · 발행 관리</p>
   <div class="notice"><b>처음이세요?</b> <a href="#" data-go="help">도움말</a>을 열고 위에서부터 따라 하세요. 설정 → 키워드 찾기 → 글 만들기 → 직접 업로드 순서입니다.</div>
   <div class="todo" id="todo"></div>
   <div class="card">
@@ -152,15 +152,16 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <!-- 키워드 -->
 <section id="tab-kw" class="hide">
   <h2>① 키워드 찾기</h2>
-  <p class="lead">지금 뜨는 키워드를 찾거나, 직접 입력해서 바로 글을 만들 수 있습니다.</p>
+  <p class="lead">키워드 1개로 글 1개를 씁니다. 후보를 찾거나 직접 입력하세요.</p>
   <div class="card">
     <button class="btn pri" id="findBtn">키워드 자동찾기</button>
-    <div class="hint" id="findHint">최근 뉴스·정부/지자체 공고를 검색해 후보 6개를 찾습니다. 1~2분 걸립니다.</div>
+    <div class="hint" id="findHint">최근 뉴스·정부/지자체 공고에서 서로 다른 후보 10개를 찾습니다. 이미 글을 쓴 키워드는 빠집니다. 1분 안팎.</div>
     <div class="err" id="findErr"></div>
     <label class="f" for="manualKw">직접 입력</label>
-    <div class="row" style="flex-wrap:nowrap">
-      <input type="text" id="manualKw" placeholder="예: 민생지원금 신청방법">
-      <button class="btn" id="manualBtn" style="white-space:nowrap">이 키워드로 글 만들기</button>
+    <input type="text" id="manualKw" placeholder="예: 민생지원금 신청방법">
+    <div class="row" style="margin-top:8px">
+      <button class="btn pri" data-manual="naver">네이버 글 쓰기</button>
+      <button class="btn" data-manual="wordpress">워드프레스 글 쓰기</button>
     </div>
     <div class="err" id="manualErr"></div>
   </div>
@@ -218,7 +219,10 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <div class="hint">"어디 접속 → 무엇 클릭 → 무엇 입력 → 아래로 내려 → 무엇 클릭"을 단계별 사진 자리와 함께 씁니다. 글이 길어지고 비용이 조금 늘어납니다.</div>
     <label class="f" for="model">모델</label>
     <input type="text" id="model">
-    <div class="hint">기본값 claude-sonnet-5-5. 바꿀 일이 없으면 그대로 두세요.</div>
+    <div class="hint">글쓰기·리서치용. 기본값 claude-sonnet-5-5.</div>
+    <label class="f" for="kwModel">키워드 찾기 모델</label>
+    <input type="text" id="kwModel">
+    <div class="hint">키워드 찾기는 저렴한 모델로 충분합니다. 기본값 claude-haiku-5-5.</div>
     <div class="row" style="margin-top:12px"><button class="btn pri" id="setSave">저장</button></div>
   </div>
   <div class="card">
@@ -242,9 +246,9 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   <div class="card">
     <h3>2. 글 만들기</h3>
     <ol class="list">
-      <li>① 키워드 찾기에서 <b>키워드 자동찾기</b>를 누르고 후보 중 하나를 고릅니다.</li>
-      <li>자동으로 1차 출처를 모으고, 상위글을 분석한 뒤 글 7개(네이버 6 + 워드프레스 1)를 씁니다. 글을 1개씩 차례로 쓰고, 다 쓴 글은 왼쪽 목록에 바로 나타납니다. 다른 탭을 봐도 계속 쓰며, 탭이 닫혔다가 다시 열리면 이어서 씁니다.</li>
-      <li>7개 글은 모두 메인 키워드를 제목과 본문에 넣되, 서로 다른 세부 주제를 맡습니다. 같은 내용 반복은 유사문서로 묶이기 때문입니다.</li>
+      <li>① 키워드 찾기에서 <b>키워드 자동찾기</b>를 누르고, 후보마다 <b>네이버 글 쓰기</b> 또는 <b>워드프레스 글 쓰기</b>를 누릅니다. 키워드 1개로 글 1개를 씁니다.</li>
+      <li>그 키워드의 1차 출처와 상위글을 확인한 뒤 글 1개를 씁니다. 2~4분 걸리고, 다 쓴 글은 왼쪽 목록에 나타납니다.</li>
+      <li>여러 글이 필요하면 키워드를 하나씩 더 고르세요. 이미 쓴 키워드는 다음 후보에서 자동으로 빠집니다.</li>
     </ol>
   </div>
   <div class="card">
@@ -281,7 +285,7 @@ function pResearch(kw){return P().pResearch(kw)}
 function pWrite(pr,post){return P().pWrite(pr,post)}
 function buildPosts(kw,plan){return P().buildPosts(kw,plan)}
 const LS_STATE='bh_state_v1', LS_KEY='bh_api_key';
-const DEF={model:'claude-sonnet-5-5',categories:'지원금·정책, 생활정보, 해외직구·배송, 돈 아끼는 법, 일상·후기',interest:'해외직구·배송·통관',detail:true,mode:'browser',repo:''};
+const DEF={model:'claude-sonnet-5-5',categories:'지원금·정책, 생활정보, 해외직구·배송, 돈 아끼는 법, 일상·후기',interest:'해외직구·배송·통관',detail:true,mode:'browser',repo:'',kwModel:'claude-haiku-5-5'};
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -340,11 +344,11 @@ function renderSide(){
   for(const p of S.projects){
     const list=p.posts.filter(x=>!(hide&&x.published));
     if(!list.length&&p.posts.length)continue;
-    h+=`<div class="skw"><span>${esc(p.keyword)}</span><span>${new Date(p.createdAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})}${p.running||(p.remote&&LIVE.includes(p.status))?' · 작성 중':''}</span></div>`;
+    if(p.multi&&p.posts.length===1&&!p.posts.some(x=>x.status!=='done')){}else h+=`<div class="skw"><span>${esc(p.keyword)}</span><span>${new Date(p.createdAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})}${p.running||(p.remote&&LIVE.includes(p.status))?' · 작성 중':''}</span></div>`;
     if(!p.posts.length)h+=`<div class="hint" style="padding:0 8px">${p.running||(p.remote&&LIVE.includes(p.status))?'리서치 중…':p.status==='error'?'멈춤 — 눌러서 확인':'글 없음'}</div>`;
     for(const x of list){
-      const ic=x.published?'<span style="color:var(--ok)">✓</span>':x.status==='done'?'<span style="color:var(--pri)">●</span>':x.status==='writing'?'<span style="color:var(--warn)">✎</span>':x.status==='error'?'<span style="color:var(--bad)">!</span>':'<span style="color:var(--muted)">○</span>';
-      const lab=(x.spec.platform==='wordpress'?'워드프레스':'네이버 '+x.no)+' · '+(x.published?'사용 완료':x.status==='done'?'작성 완료':x.status==='writing'?'작성 중':x.status==='error'?'오류':'대기');
+      const ic=x.published?'<span style="color:var(--ok)">✓</span>':x.status==='done'?'<span style="color:var(--pri)">●</span>':(x.status==='writing'||x.status==='research')?'<span style="color:var(--warn)">✎</span>':x.status==='error'?'<span style="color:var(--bad)">!</span>':'<span style="color:var(--muted)">○</span>';
+      const lab=(x.spec.platform==='wordpress'?'워드프레스':x.kw?'네이버':'네이버 '+x.no)+' · '+(x.published?'사용 완료':x.status==='done'?'작성 완료':x.status==='writing'?'작성 중':x.status==='research'?'리서치 중':x.status==='error'?'오류':'대기');
       h+=`<button class="si${x.published?' used':''}${viewId===x.id?' on':''}" data-open="${p.id}|${x.id}"><span class="ic">${ic}</span><span class="tx"><span>${esc(x.title||x.spec.sub_keyword)}</span><small>${lab}</small></span></button>`;
     }
   }
@@ -364,7 +368,7 @@ function renderTodo(){
   else if(p&&p.remote&&LIVE.includes(p.status)){now=`"${p.keyword}" 글을 서버에서 쓰는 중입니다. 창을 닫아도 됩니다.`;btn='진행 상황 보기 →';goTab='write'}
   else if(p&&p.running){now=`"${p.keyword}" 글을 만드는 중입니다. 화면을 닫지 마세요.`;btn='진행 상황 보기 →';goTab='write'}
   else if(ready.length){const d=nextDay(ready);now=`업로드할 글이 ${ready.length}개 있습니다. 오늘은 ${d.length}개를 올려보세요.`;btn='발행 관리 열기 →';goTab='pub'}
-  else if(S.keywords.length){now='키워드 후보 중 하나를 골라 글 7개를 만드세요.';btn='키워드 고르기 →';goTab='kw'}
+  else if(S.keywords.length){now='키워드 후보 중 하나를 골라 글을 쓰세요.';btn='키워드 고르기 →';goTab='kw'}
   else{now='키워드 자동찾기를 눌러 오늘의 후보를 받으세요.';btn='키워드 찾기 →';goTab='kw'}
   $('#todo').innerHTML=`<div class="flow">${esc(flow)}</div><div class="now"><b>지금 할 일:</b> ${esc(now)}</div><button class="btn pri" data-go="${goTab}">${esc(btn)}</button>`;
 }
@@ -395,27 +399,33 @@ async function claudeFetch(body,stream){
     if(res.ok)return res;
     let t=await res.text();try{t=JSON.parse(t).error.message}catch(e){}
     last=apiErr(res.status,t);
-    if([400,401,403,404].includes(res.status))break;
+    if([400,401,403,404].includes(res.status)){const er=new Error(last);er.status=res.status;er.raw=t;throw er}
     await sleepMs(Math.min(60000,8000*2**(a-1)));
   }
   throw new Error(last);
 }
 const sleepMs=ms=>new Promise(r=>setTimeout(r,ms));
-const WEB=n=>({type:'web_search_20250305',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}});
-async function searchRun(system,user,maxTokens,maxUses,onTick){
+let webBasic=false;
+const WEB=n=>webBasic?{type:'web_search_20250305',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}}
+  :{type:'web_search_20260209',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}};
+function addUsage(acc,u){if(!acc||!u)return;acc.in=(acc.in||0)+(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0);acc.out=(acc.out||0)+(u.output_tokens||0);acc.search=(acc.search||0)+((u.server_tool_use&&u.server_tool_use.web_search_requests)||0)}
+async function searchRun(system,user,maxTokens,maxUses,opt={}){
   let messages=[{role:'user',content:user}],text='';
-  for(let i=0;i<5;i++){
-    const res=await claudeFetch({system,messages,max_tokens:maxTokens,tools:[WEB(maxUses)]},false);
+  for(let i=0;i<6;i++){
+    let res;
+    try{res=await claudeFetch(Object.assign({system,messages,max_tokens:maxTokens,tools:[WEB(maxUses)]},opt.model?{model:opt.model}:{}),false)}
+    catch(e){if(e.status===400&&!webBasic&&/tool|web_search|caller|code_execution|filter/i.test(e.raw||'')){webBasic=true;i--;continue}throw e}
     const data=await res.json();
+    addUsage(opt.usage,data.usage);
     text+=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    if(onTick)onTick(data.content.filter(b=>b.type==='server_tool_use').length);
+    if(opt.onTick)opt.onTick(data.content.filter(b=>b.type==='server_tool_use'&&b.name==='web_search').length);
     if(data.stop_reason==='pause_turn'){messages=[...messages,{role:'assistant',content:data.content}];continue}
     if(data.stop_reason==='max_tokens')throw new Error('답이 너무 길어 잘렸습니다. 다시 시도해 주세요.');
     return text;
   }
   throw new Error('검색이 너무 오래 걸려 멈췄습니다. 다시 시도해 주세요.');
 }
-async function streamRun(system,user,maxTokens,onText){
+async function streamRun(system,user,maxTokens,onText,usage){
   const res=await claudeFetch({system,messages:[{role:'user',content:user}],max_tokens:maxTokens},true);
   const reader=res.body.getReader(),dec=new TextDecoder();let buf='',full='',stop='';
   while(true){
@@ -426,7 +436,8 @@ async function streamRun(system,user,maxTokens,onText){
       if(!line.startsWith('data:'))continue;
       let ev; try{ev=JSON.parse(line.slice(5))}catch(e){continue}
       if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){full+=ev.delta.text;onText&&onText(full)}
-      else if(ev.type==='message_delta'&&ev.delta&&ev.delta.stop_reason)stop=ev.delta.stop_reason;
+      else if(ev.type==='message_start'&&ev.message)addUsage(usage,ev.message.usage);
+      else if(ev.type==='message_delta'){if(ev.delta&&ev.delta.stop_reason)stop=ev.delta.stop_reason;if(ev.usage&&usage)usage.out=(usage.out||0)+(ev.usage.output_tokens||0)}
       else if(ev.type==='error')throw new Error(apiErr(529,(ev.error&&ev.error.message)||'스트림 오류'));
     }
   }
@@ -441,8 +452,8 @@ async function findKeywords(){
   const btn=$('#findBtn'); btn.disabled=true; const t0=Date.now(); let searches=0;
   const tick=setInterval(()=>{btn.textContent=`찾는 중… ${Math.round((Date.now()-t0)/1000)}초${searches?` · 검색 ${searches}회`:''}`},500);
   try{
-    const {sys,user}=pKeywords();
-    const text=await searchRun(sys,user,4000,8,n=>{searches+=n});
+    const {sys,user}=P().pKeywords(usedKeywords());
+    const text=await searchRun(sys,user,3000,5,{model:S.settings.kwModel||DEF.kwModel,onTick:n=>{searches+=n}});
     const j=extractJSON(text);
     if(!Array.isArray(j.keywords)||!j.keywords.length)throw new Error('키워드를 찾지 못했습니다. 다시 시도해 주세요.');
     S.keywords=j.keywords.filter(k=>k&&k.keyword); S.keywordsAt=new Date().toISOString(); save();
@@ -450,26 +461,29 @@ async function findKeywords(){
   finally{clearInterval(tick);btn.disabled=false;btn.textContent='키워드 자동찾기';finding=false;renderKw();renderHeader()}
 }
 $('#findBtn').addEventListener('click',findKeywords);
-$('#manualBtn').addEventListener('click',()=>{
+document.addEventListener('click',e=>{const b=e.target.closest('[data-manual]');if(!b)return;
   const k=$('#manualKw').value.trim(); $('#manualErr').textContent='';
   if(!k){$('#manualErr').textContent='키워드를 먼저 입력하세요.';return}
   if(k.length>40){$('#manualErr').textContent='키워드가 너무 깁니다. 2~4단어로 줄여주세요.';return}
-  startProject(k,null);
+  startProject(k,b.dataset.manual,null);
 });
+function usedKeywords(){const out=new Set();S.projects.forEach(p=>{if(p.keyword)out.add(p.keyword);(p.posts||[]).forEach(x=>{if(x.kw)out.add(x.kw)})});return [...out]}
+const nsp=s=>String(s||'').replace(/\s+/g,'');
+function isUsedKw(k){const n=nsp(k);return usedKeywords().some(u=>nsp(u)===n)}
 $('#manualKw').addEventListener('input',()=>{$('#manualErr').textContent=''});
 function renderKw(){
   const el=$('#kwList');
   if(!S.keywords.length){el.innerHTML='';return}
   const when=S.keywordsAt?new Date(S.keywordsAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   el.innerHTML=`<div class="hint" style="margin:0 0 8px">${esc(when)} 기준 후보 · 이슈형은 하루이틀 안에 쓰는 게 좋습니다</div>`+S.keywords.map((k,i)=>{
-    const used=S.projects.some(p=>p.keyword===k.keyword);
+    const used=isUsedKw(k.keyword);
     const comp=k.competition==='높음'?'bad':k.competition==='낮음'?'ok':'warn';
     return `<div class="kw"><div class="t">${esc(k.keyword)}</div>
       <div class="row"><span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type||'')}</span><span class="pill">${esc(k.lifespan||'')}</span><span class="pill ${comp}">경쟁 ${esc(k.competition||'-')}</span><span class="pill">${esc(k.category||'')}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
       <div class="r">${esc(k.reason||'')}</div>
-      <button class="btn ${used?'':'pri'} sm" data-kw="${i}">${used?'이미 만든 키워드 · 다시 만들기':'이 키워드로 글 7개 만들기'}</button></div>`}).join('');
+      ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기</button><button class="btn sm" data-kw="${i}" data-pf="wordpress">워드프레스 글 쓰기${k.wordpress_fit?' (추천)':''}</button></div></div>`}).join('');
 }
-$('#kwList').addEventListener('click',e=>{const b=e.target.closest('[data-kw]');if(!b)return;const k=S.keywords[+b.dataset.kw];if(k)startProject(k.keyword,k)});
+$('#kwList').addEventListener('click',e=>{const b=e.target.closest('[data-kw]');if(!b)return;const k=S.keywords[+b.dataset.kw];if(k)startProject(k.keyword,b.dataset.pf,k)});
 
 /* ---------- GitHub 서버 연결 ---------- */
 const LS_GH='bh_gh_token';
@@ -579,22 +593,24 @@ async function remoteUpdate(p,mutate,msg){
 }
 
 /* ---------- 프로젝트 실행 ---------- */
-function startProject(keyword,meta){
+function startProject(keyword,platform,meta){
+  platform=platform==='wordpress'?'wordpress':'naver';
   if(!isServer()&&!lsGet(LS_KEY)){toast('먼저 API 키를 넣어주세요');go('set');return}
   if(!isServer()&&S.projects.some(p=>p.running)){toast('이미 만드는 중인 글이 있습니다');go('write');return}
-  const dup=S.projects.find(p=>p.keyword.replace(/\s+/g,'')===keyword.replace(/\s+/g,''));
-  if(dup&&!confirm(`"${dup.keyword}"는 ${new Date(dup.createdAt).toLocaleDateString('ko-KR')}에 이미 글을 만든 키워드입니다. 비슷한 글이 또 생겨 중복 문서가 될 수 있어요. 그래도 새로 만들까요?`))return;
+  if(isUsedKw(keyword)&&!confirm(`"${keyword}"는 이미 글을 쓴 키워드입니다. 비슷한 글이 또 생겨 중복 문서가 될 수 있어요. 그래도 새로 쓸까요?`))return;
+  const posts=P().buildMulti([{keyword,platform,category:meta&&meta.category,type:meta&&meta.type}]);
   if(isServer()){
     if(!serverReady()){toast('설정에서 GitHub 저장소와 토큰을 먼저 넣어주세요');go('set');return}
     const id=uid(), now=new Date().toISOString();
-    const rd={id,keyword,createdAt:now,status:'queued',settings:{model:S.settings.model,categories:S.settings.categories,interest:S.settings.interest,detail:S.settings.detail!==false},promptsUrl:promptsUrl(),research:null,posts:[]};
-    const p={id,keyword,createdAt:now,remote:true,status:'queued',stage:'research',research:null,posts:[],error:'',pendingAt:Date.now()};
+    const rd={id,keyword,multi:true,createdAt:now,status:'queued',settings:{model:S.settings.model,categories:S.settings.categories,interest:S.settings.interest,detail:S.settings.detail!==false},promptsUrl:promptsUrl(),research:null,posts};
+    const p={id,keyword,multi:true,createdAt:now,remote:true,status:'queued',stage:'research',research:null,posts:JSON.parse(JSON.stringify(posts)),error:'',pendingAt:Date.now()};
     S.projects.unshift(p);S.currentId=id;save();go('write');
-    ghPut('projects/'+id+'.json',rd,null,'새 키워드: '+keyword).then(sha=>{p.sha=sha;p.updatedAt=now;save();toast('서버에 등록했습니다. 이 창을 닫아도 계속 씁니다');schedulePoll()})
+    ghPut('projects/'+id+'.json',rd,null,'새 글: '+keyword).then(sha=>{p.sha=sha;p.updatedAt=now;save();toast('서버에 등록했습니다. 이 창을 닫아도 계속 씁니다');schedulePoll()})
       .catch(e=>{S.projects=S.projects.filter(x=>x!==p);S.currentId=S.projects[0]?S.projects[0].id:null;save();rerender();alert('서버에 등록하지 못했습니다.\n'+e.message)});
     return;
   }
-  const p={id:uid(),keyword,meta,createdAt:new Date().toISOString(),stage:'research',research:null,posts:[],error:''};
+  const p={id:uid(),keyword,multi:true,meta,createdAt:new Date().toISOString(),stage:'write',research:null,posts,error:''};
+  posts[0].open=true;
   S.projects.unshift(p); S.currentId=p.id; save(); go('write'); runProject(p);
 }
 async function runProject(p){
@@ -609,6 +625,20 @@ async function runProject(p){
 async function runInner(p){
   p.running=true; p.error=''; saveNow(); renderWrite(); renderSide();
   try{
+    if(p.multi){
+      for(const x of p.posts){
+        if(x.status==='done')continue;
+        if(!x.research){
+          x.status='research';x.error='';x.usage=x.usage||{};updateCard(p,x);renderSide();renderProgress();
+          try{const {sys,user}=P().pResearchOne(x.kw,x.spec.platform);P().applyPlan(x,extractJSON(await searchRun(sys,user,6000,5,{usage:x.usage})));saveNow()}
+          catch(e){x.status='error';x.error='리서치 실패: '+e.message;saveNow();updateCard(p,x);continue}
+        }
+        await writePost(p,x);
+      }
+      p.stage='done';
+      if(p.posts.some(x=>x.status==='error'))p.error='글을 쓰지 못했습니다. 카드의 "다시 쓰기"를 누르세요.';
+      return;
+    }
     if(!p.research){
       p.stage='research'; p.t0=Date.now(); renderWrite();
       const timer=setInterval(()=>{const el=$('#rsTime');if(el)el.textContent=Math.round((Date.now()-p.t0)/1000)+'초'},1000);
@@ -627,11 +657,16 @@ async function runInner(p){
 }
 async function pool(items,n,fn){let i=0;const run=async()=>{while(i<items.length){const it=items[i++];await fn(it)}};await Promise.all(Array.from({length:Math.min(n,items.length)},run))}
 async function writePost(p,post){
-  post.status='writing'; post.error=''; post.raw=''; post.title=''; updateCard(p,post); renderSide();
+  if(post.kw&&!post.research){
+    post.status='research';post.error='';updateCard(p,post);renderSide();
+    try{const {sys,user}=P().pResearchOne(post.kw,post.spec.platform);post.usage=post.usage||{};P().applyPlan(post,extractJSON(await searchRun(sys,user,6000,5,{usage:post.usage})))}
+    catch(e){post.status='error';post.error='리서치 실패: '+e.message;saveNow();updateCard(p,post);renderHeader();return}
+  }
+  post.status='writing'; post.error=''; post.raw=''; post.title=''; post.usage=post.usage||{}; updateCard(p,post); renderSide();
   let last=0;
   try{
     const {sys,user}=pWrite(p,post);
-    const {text,stop}=await streamRun(sys,user,post.spec.platform==='wordpress'?12000:10000,full=>{post.raw=full;const n=Date.now();if(n-last>400){last=n;updateCard(p,post)}});
+    const {text,stop}=await streamRun(sys,user,post.spec.platform==='wordpress'?9000:8000,full=>{post.raw=full;const n=Date.now();if(n-last>400){last=n;updateCard(p,post)}},post.usage);
     post.raw=text; const sec=parseSec(text);
     if(!sec.BODY)throw new Error('본문을 읽지 못했습니다. 다시 쓰기를 눌러주세요.');
     post.title=sec.TITLE||''; post.status='done'; post.truncated=stop==='max_tokens';
@@ -705,12 +740,26 @@ function kwBadges(kw,title,body){
   return tb+bb;
 }
 
+function fmtUsage(u){const k=n=>n>=1000?(n/1000).toFixed(1)+'천':String(n||0);return `입력 ${k(u.in)} · 출력 ${k(u.out)} 토큰 · 웹 검색 ${u.search||0}회`}
 function chkBadge(b){const n=(String(b||'').match(/\[확인 필요/g)||[]).length;return n?`<span class="pill bad">버튼 이름 확인 ${n}곳</span>`:''}
 /* ---------- 글 만들기 화면 ---------- */
 function renderProgress(){const b=$('#progBox'),p=cur();if(b&&p)b.innerHTML=progressHtml(p)}
 function ago(t){if(!t)return '';const m=Math.round((Date.now()-new Date(t))/60000);return m<1?'방금':m<60?m+'분 전':Math.round(m/60)+'시간 전'}
 function progressHtml(p){
   const doneN=p.posts.filter(x=>x.status==='done').length, total=p.posts.length||7;
+  if(p.multi&&p.posts.length===1){
+    const x=p.posts[0];
+    if(x.status==='done'&&!p.error)return '';
+    const live=p.remote?LIVE.includes(p.status):p.running;
+    const stale=p.remote&&live&&p.updatedAt&&Date.now()-new Date(p.updatedAt)>15*60000;
+    const step=x.status==='research'?'1차 출처·상위글 확인 중 (1~2분)':x.status==='writing'?'글 작성 중 (1~3분)':x.status==='error'?'멈췄습니다':p.status==='queued'?'서버 대기 중 — 보통 1분 안에 시작합니다':'대기 중';
+    const pct=x.status==='research'?30:x.status==='writing'?70:x.status==='done'?100:5;
+    return `<div class="card"><h3>"${esc(p.keyword)}" 진행 상황 <span class="pill ${p.remote?'pri':''}">${p.remote?'서버':'이 브라우저'}</span></h3><div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="prog"><div class="on">${esc(step)}</div>${p.remote?`<div class="hint">마지막 진행: ${ago(p.updatedAt||p.createdAt)}</div>`:''}</div>
+      ${x.error||p.error?`<div class="err">${esc(x.error||p.error)}</div>`:''}
+      ${live?`<div class="hint" style="margin-top:6px">${p.remote?'이 창을 닫거나 폰을 꺼도 서버에서 계속 씁니다.':'다른 탭을 봐도 계속 씁니다. 이 탭을 닫으면 멈춥니다.'}</div>`:''}
+      ${(p.remote&&(p.status==='error'||p.status==='partial'||stale))?`<div class="row" style="margin-top:10px"><button class="btn pri" id="kick">서버에서 다시 시작</button></div>`:(!p.remote&&!p.running&&x.status!=='done')?`<div class="row" style="margin-top:10px"><button class="btn pri" id="resume">이어서 쓰기</button></div>`:''}</div>`;
+  }
   if(p.remote){
     if(p.status==='done')return '';
     const stale=LIVE.includes(p.status)&&p.updatedAt&&Date.now()-new Date(p.updatedAt)>15*60000;
@@ -736,7 +785,7 @@ function renderWrite(){
   if(!S.projects.length){sel.innerHTML='';area.innerHTML='<div class="card">아직 만든 글이 없습니다. <a href="#" data-go="kw">① 키워드 찾기</a>에서 시작하세요.</div>';return}
   if(!cur())S.currentId=S.projects[0].id;
   sel.innerHTML=`<select id="projSel" aria-label="키워드 선택" style="flex:1">${S.projects.map(p=>`<option value="${p.id}"${p.id===S.currentId?' selected':''}>${esc(p.keyword)} · ${new Date(p.createdAt).toLocaleDateString('ko-KR')}</option>`).join('')}</select>`;
-  const p=cur(); const r=p.research;
+  const p=cur(); const r=p.research||(p.multi&&p.posts.length===1?p.posts[0].research:null);
   const doneN=p.posts.filter(x=>x.status==='done').length;
   let h='<div id="progBox">'+progressHtml(p)+'</div>';
   if(r){
@@ -753,7 +802,7 @@ function renderWrite(){
     </div></details>`;
   }
   h+=`<div id="posts">${p.posts.map(x=>`<details class="post" id="post-${x.id}"${x.open?' open':''}></details>`).join('')}</div>`;
-  if(p.posts.length&&!p.running)h+=`<div class="row" style="margin-top:6px"><button class="btn sm" id="delProj">이 키워드 글 모두 삭제</button></div>`;
+  if(p.posts.length&&!p.running)h+=`<div class="row" style="margin-top:6px"><button class="btn sm" id="delProj">${p.multi&&p.posts.length===1?'이 글 삭제':'이 키워드 글 모두 삭제'}</button></div>`;
   area.innerHTML=h;
   p.posts.forEach(x=>updateCard(p,x));
 }
@@ -761,18 +810,20 @@ function updateCard(p,post){
   const el=document.getElementById('post-'+post.id); if(!el||cur()!==p)return;
   const sp=post.spec, sec=parseSec(post.raw||''), wp=sp.platform==='wordpress';
   const title=post.title||sec.TITLE||'';
-  const st=post.status==='done'?(post.published?'<span class="pill ok">✓ 사용 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
-  const label=wp?'워드프레스':`네이버 ${post.no}`;
-  const sum=`<summary><div class="ph">${label} · ${wp?'아무 때나':sp.publish_day+'일차'} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${kwBadges(p.keyword,title,sec.BODY||'')}${chkBadge(sec.BODY)}</div>`:''}</summary>`;
+  const KW=post.kw||p.keyword;
+  const st=post.status==='done'?(post.published?'<span class="pill ok">✓ 사용 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='research'?'<span class="pill warn">리서치 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
+  const label=wp?'워드프레스':(post.kw?'네이버':`네이버 ${post.no}`);
+  const sum=`<summary><div class="ph">${label}${post.kw?'':' · '+(wp?'아무 때나':sp.publish_day+'일차')} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${kwBadges(KW,title,sec.BODY||'')}${chkBadge(sec.BODY)}</div>`:''}</summary>`;
   let body=post.published?'<div class="usedbar">✓ 이미 사용한 글입니다. 다시 올리지 마세요.</div>':'';
-  if(post.status==='writing'){body+=`<div class="sec"><div class="raw" id="raw-${post.id}">${esc((post.raw||(p.remote?'서버에서 작성 중입니다… 끝나면 여기에 나타납니다.':'작성을 시작했습니다…')).slice(-1500))}</div></div>`}
+  if(post.status==='research'){body+=`<div class="sec hint">"${esc(KW)}" 1차 출처와 상위글을 확인하는 중입니다 (1~2분).</div>`}
+  else if(post.status==='writing'){body+=`<div class="sec"><div class="raw" id="raw-${post.id}">${esc((post.raw||(p.remote?'서버에서 작성 중입니다… 끝나면 여기에 나타납니다.':'작성을 시작했습니다…')).slice(-1500))}</div></div>`}
   else if(post.status==='wait'){body+=`<div class="sec hint">${esc(sp.angle||'')}</div>`}
   else if(post.status==='error'){body+=`<div class="err">${esc(post.error)}</div><div class="row" style="margin-top:10px"><button class="btn pri sm" data-act="redo">다시 쓰기</button></div>`}
   else{
     const photos=(sec.PHOTOS||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'').trim()).filter(Boolean);
-    body+=`<div class="sec"><h4>세부 키워드 · 각도</h4><div>${esc(sp.sub_keyword)} — ${esc(sp.angle||'')}</div>${sp.category_note?`<div class="hint">${esc(sp.category_note)}</div>`:''}</div>
+    body+=`<div class="sec"><h4>${post.kw?'키워드 · 글 방향':'세부 키워드 · 각도'}</h4><div>${esc(post.kw||sp.sub_keyword)} — ${esc(sp.angle||'')}</div>${post.usage&&(post.usage.in||post.usage.out)?`<div class="hint">사용량: ${fmtUsage(post.usage)}</div>`:''}${sp.category_note?`<div class="hint">${esc(sp.category_note)}</div>`:''}</div>
     <div class="sec"><h4>추천 카테고리</h4><div><b>${esc(sp.category)}</b></div></div>
-    <div class="sec"><h4>제목 (직접 손보세요)</h4><input type="text" data-act="title" value="${esc(title)}"><div class="row" style="margin-top:6px" data-kwchk>${kwBadges(p.keyword,title,sec.BODY||'')}</div>
+    <div class="sec"><h4>제목 (직접 손보세요)</h4><input type="text" data-act="title" value="${esc(title)}"><div class="row" style="margin-top:6px" data-kwchk>${kwBadges(KW,title,sec.BODY||'')}</div>
       <div class="row" style="margin-top:8px"><button class="btn sm" data-act="cpTitle">제목 복사</button></div></div>
     <div class="sec"><h4>본문 미리보기 ${post.truncated?'<span class="pill warn">끝부분이 잘렸을 수 있음</span>':''}</h4><div class="preview">${md(sec.BODY)}</div>
       <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="cpHtml">본문 복사(서식)</button><button class="btn sm" data-act="cpText">본문 복사(텍스트)</button></div>
@@ -885,7 +936,7 @@ function renderSet(){
   document.querySelectorAll('input[name=mode]').forEach(r=>r.checked=r.value===(S.settings.mode||'browser'));
   $('#repo').value=S.settings.repo||'';const gt=lsGet(LS_GH);$('#ghTok').value='';$('#ghTok').placeholder=gt?'저장됨 (…'+gt.slice(-4)+')':'github_pat_...';
   $('#srvBox').classList.toggle('hide',(S.settings.mode||'browser')!=='server');
-  $('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#detail').checked=S.settings.detail!==false;$('#model').value=S.settings.model;
+  $('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#detail').checked=S.settings.detail!==false;$('#model').value=S.settings.model;$('#kwModel').value=S.settings.kwModel||DEF.kwModel;
 }
 $('#keySave').addEventListener('click',()=>{
   const v=$('#apiKey').value.trim();const m=$('#keyMsg');m.style.color='';
@@ -904,7 +955,7 @@ $('#keyDel').addEventListener('click',()=>{lsDel(LS_KEY);renderSet();$('#keyMsg'
 $('#setSave').addEventListener('click',()=>{
   const cats=$('#cats').value.split(',').map(s=>s.trim()).filter(Boolean);
   if(!cats.length){toast('카테고리를 1개 이상 적어주세요');return}
-  S.settings.categories=cats.join(', ');S.settings.interest=$('#interest').value.trim();S.settings.detail=$('#detail').checked;S.settings.model=$('#model').value.trim()||DEF.model;
+  S.settings.categories=cats.join(', ');S.settings.interest=$('#interest').value.trim();S.settings.detail=$('#detail').checked;S.settings.model=$('#model').value.trim()||DEF.model;S.settings.kwModel=$('#kwModel').value.trim()||DEF.kwModel;
   saveNow();toast('저장했습니다');
 });
 $('#wipe').addEventListener('click',()=>{if(confirm('키워드·글·발행 기록을 모두 지울까요? 되돌릴 수 없습니다.')){S.keywords=[];S.projects=[];S.currentId=null;saveNow();toast('지웠습니다');renderHeader()}});
