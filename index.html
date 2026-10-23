@@ -27,13 +27,30 @@
 body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.6;-webkit-text-size-adjust:100%}
 a{color:var(--pri)}
 header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-.hrow{max-width:860px;margin:0 auto;padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between}
+.hrow{max-width:1210px;margin:0 auto;padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between}
 .brand{font-weight:700;font-size:18px}
 .hstat{font-size:13px;color:var(--muted)}
-nav{max-width:860px;margin:0 auto;padding:6px 8px 4px;display:flex;flex-wrap:wrap;gap:2px}
+nav{max-width:1210px;margin:0 auto;padding:6px 8px 4px;display:flex;flex-wrap:wrap;gap:2px}
 nav button{background:none;border:0;padding:10px 10px;font:inherit;font-size:15px;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent}
 nav button.on{color:var(--text);font-weight:700;border-bottom-color:var(--pri)}
-main{max-width:860px;margin:0 auto;padding:20px 16px 80px}
+main{min-width:0;padding:20px 16px 80px}
+.wrap{max-width:860px;margin:0 auto}
+aside{display:none}
+@media (min-width:1100px){
+  .wrap{max-width:1210px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px;padding:0 16px}
+  main{padding:20px 0 80px}
+  aside{display:block;position:sticky;top:98px;align-self:start;max-height:calc(100vh - 110px);overflow:auto;margin-top:20px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+}
+.sh{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:6px}
+.skw{font-size:13px;color:var(--muted);margin:14px 0 4px;display:flex;justify-content:space-between;gap:6px}
+.si{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:none;border:1px solid transparent;border-radius:8px;padding:7px 8px;font:inherit;color:var(--text);cursor:pointer}
+.si:hover{background:var(--bg)}
+.si.on{border-color:var(--pri-line);background:var(--pri-soft)}
+.si .ic{flex:none;width:18px;text-align:center;font-size:13px;line-height:22px}
+.si .tx{min-width:0;font-size:14px;line-height:1.45}
+.si .tx small{display:block;color:var(--muted);font-size:12px}
+.si.used .tx>span{color:var(--muted);text-decoration:line-through}
+.usedbar{background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:10px 12px;margin-top:14px;font-weight:600}
 h1{font-size:26px;margin:4px 0 2px}
 h2{font-size:20px;margin:0 0 8px}
 h3{font-size:16px;margin:0 0 6px}
@@ -113,6 +130,8 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   </nav>
 </header>
 
+<div class="wrap">
+<aside id="side" aria-label="만든 글 목록"></aside>
 <main>
 <!-- 홈 -->
 <section id="tab-home">
@@ -158,7 +177,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <!-- 발행 관리 -->
 <section id="tab-pub" class="hide">
   <h2>③ 발행 관리</h2>
-  <p class="lead">직접 업로드한 글은 체크해 두세요. 네이버는 하루 1~2개씩 나눠 올리는 게 안전합니다.</p>
+  <p class="lead">블로그에 올린 글은 사용 완료로 체크해 두세요. 네이버는 하루 1~2개씩 나눠 올리는 게 안전합니다.</p>
   <div id="pubArea"></div>
 </section>
 
@@ -210,7 +229,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <h3>2. 글 만들기</h3>
     <ol class="list">
       <li>① 키워드 찾기에서 <b>키워드 자동찾기</b>를 누르고 후보 중 하나를 고릅니다.</li>
-      <li>자동으로 1차 출처를 모으고, 상위글을 분석한 뒤 글 7개(네이버 6 + 워드프레스 1)를 씁니다. 3~6분 걸립니다.</li>
+      <li>자동으로 1차 출처를 모으고, 상위글을 분석한 뒤 글 7개(네이버 6 + 워드프레스 1)를 씁니다. 글을 1개씩 차례로 쓰고, 다 쓴 글은 왼쪽 목록에 바로 나타납니다. 다른 탭을 봐도 계속 쓰며, 탭이 닫혔다가 다시 열리면 이어서 씁니다.</li>
       <li>7개 글은 모두 메인 키워드를 제목과 본문에 넣되, 서로 다른 세부 주제를 맡습니다. 같은 내용 반복은 유사문서로 묶이기 때문입니다.</li>
     </ol>
   </div>
@@ -222,7 +241,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
       <li>사진 가이드대로 화면을 캡처해서 넣고, 경험 예시는 직접 확인한 내용으로 고쳐 씁니다.</li>
       <li>검증 체크리스트에서 ⚠️ 항목은 공고 원문과 꼭 대조하세요.</li>
       <li>따라하기의 빨간 칸은 AI가 출처에서 버튼 이름을 확인하지 못한 곳입니다. 단계별 사진을 찍으면서 실제 버튼 이름으로 고쳐 쓰세요.</li>
-      <li>올렸으면 <b>발행 완료</b>를 체크합니다.</li>
+      <li>올렸으면 <b>사용 완료로 표시</b> 버튼을 누릅니다. 왼쪽 목록에 ✓가 붙고, 다시 복사하려 하면 경고가 떠서 중복 업로드를 막아줍니다.</li>
     </ol>
   </div>
   <div class="card">
@@ -235,6 +254,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   </div>
 </section>
 </main>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -287,8 +307,31 @@ function rerender(){render(activeTab())}
 function renderHeader(){
   const all=S.projects.flatMap(p=>p.posts||[]);
   const done=all.filter(x=>x.published).length;
-  $('#hstat').textContent=all.length?`발행 ${done}/${all.length}`:'';
+  $('#hstat').textContent=all.length?`사용 완료 ${done}/${all.length}`:'';
+  renderSide();
 }
+let viewId=null;
+function renderSide(){
+  const el=$('#side'); if(!el)return;
+  const all=S.projects.flatMap(p=>p.posts||[]);
+  const hide=!!S.settings.hideUsed;
+  let h=`<div class="sh"><span>만든 글</span><span class="pill">${all.filter(x=>x.published).length}/${all.length} 사용</span></div>
+  <label class="chk" style="font-size:13px;color:var(--sub)"><input type="checkbox" id="hideUsed"${hide?' checked':''}> 사용 완료한 글 숨기기</label>`;
+  if(!all.length)h+='<div class="hint" style="margin-top:12px">아직 만든 글이 없습니다.</div>';
+  for(const p of S.projects){
+    const list=p.posts.filter(x=>!(hide&&x.published));
+    if(!list.length&&p.posts.length)continue;
+    h+=`<div class="skw"><span>${esc(p.keyword)}</span><span>${new Date(p.createdAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})}${p.running?' · 작성 중':''}</span></div>`;
+    if(!p.posts.length)h+=`<div class="hint" style="padding:0 8px">${p.running?'리서치 중…':'글 없음'}</div>`;
+    for(const x of list){
+      const ic=x.published?'<span style="color:var(--ok)">✓</span>':x.status==='done'?'<span style="color:var(--pri)">●</span>':x.status==='writing'?'<span style="color:var(--warn)">✎</span>':x.status==='error'?'<span style="color:var(--bad)">!</span>':'<span style="color:var(--muted)">○</span>';
+      const lab=(x.spec.platform==='wordpress'?'워드프레스':'네이버 '+x.no)+' · '+(x.published?'사용 완료':x.status==='done'?'작성 완료':x.status==='writing'?'작성 중':x.status==='error'?'오류':'대기');
+      h+=`<button class="si${x.published?' used':''}${viewId===x.id?' on':''}" data-open="${p.id}|${x.id}"><span class="ic">${ic}</span><span class="tx"><span>${esc(x.title||x.spec.sub_keyword)}</span><small>${lab}</small></span></button>`;
+    }
+  }
+  el.innerHTML=h;
+}
+document.addEventListener('change',e=>{if(e.target.id==='hideUsed'){S.settings.hideUsed=e.target.checked;save();renderSide()}});
 
 /* ---------- 홈: 지금 할 일 ---------- */
 function renderTodo(){
@@ -507,11 +550,22 @@ $('#kwList').addEventListener('click',e=>{const b=e.target.closest('[data-kw]');
 function startProject(keyword,meta){
   if(!lsGet(LS_KEY)){toast('먼저 API 키를 넣어주세요');go('set');return}
   if(S.projects.some(p=>p.running)){toast('이미 만드는 중인 글이 있습니다');go('write');return}
+  const dup=S.projects.find(p=>p.keyword.replace(/\s+/g,'')===keyword.replace(/\s+/g,''));
+  if(dup&&!confirm(`"${dup.keyword}"는 ${new Date(dup.createdAt).toLocaleDateString('ko-KR')}에 이미 글을 만든 키워드입니다. 비슷한 글이 또 생겨 중복 문서가 될 수 있어요. 그래도 새로 만들까요?`))return;
   const p={id:uid(),keyword,meta,createdAt:new Date().toISOString(),stage:'research',research:null,posts:[],error:''};
   S.projects.unshift(p); S.currentId=p.id; save(); go('write'); runProject(p);
 }
 async function runProject(p){
-  p.running=true; p.error=''; renderWrite();
+  if(navigator.locks&&navigator.locks.request){
+    return navigator.locks.request('bh-run',{ifAvailable:true},async lock=>{
+      if(!lock){toast('다른 탭에서 글을 쓰고 있습니다. 그 탭에서 확인하세요.');return}
+      await runInner(p);
+    });
+  }
+  return runInner(p);
+}
+async function runInner(p){
+  p.running=true; p.error=''; saveNow(); renderWrite(); renderSide();
   try{
     if(!p.research){
       p.stage='research'; p.t0=Date.now(); renderWrite();
@@ -524,7 +578,7 @@ async function runProject(p){
     }
     p.stage='write'; renderWrite();
     const todo=p.posts.filter(x=>x.status!=='done');
-    await pool(todo,2,x=>writePost(p,x));
+    for(const x of todo){ if(x.status!=='done') await writePost(p,x); }
     p.stage='done';
   }catch(e){p.error=e.message}
   finally{p.running=false;saveNow();rerender()}
@@ -542,7 +596,7 @@ function buildPosts(kw,plan){
 }
 async function pool(items,n,fn){let i=0;const run=async()=>{while(i<items.length){const it=items[i++];await fn(it)}};await Promise.all(Array.from({length:Math.min(n,items.length)},run))}
 async function writePost(p,post){
-  post.status='writing'; post.error=''; post.raw=''; post.title=''; updateCard(p,post);
+  post.status='writing'; post.error=''; post.raw=''; post.title=''; updateCard(p,post); renderSide();
   let last=0;
   try{
     const {sys,user}=pWrite(p,post);
@@ -551,7 +605,7 @@ async function writePost(p,post){
     if(!sec.BODY)throw new Error('본문을 읽지 못했습니다. 다시 쓰기를 눌러주세요.');
     post.title=sec.TITLE||''; post.status='done'; post.truncated=stop==='max_tokens';
   }catch(e){post.status='error';post.error=e.message}
-  save(); updateCard(p,post); renderHeader();
+  saveNow(); updateCard(p,post); renderHeader();
 }
 function parseSec(t){
   const out={}; const re=/^@@([A-Z]+)\s*$/gm; let m,marks=[];
@@ -640,10 +694,10 @@ function renderWrite(){
     const pct=p.research?15+Math.round(85*doneN/Math.max(1,p.posts.length)):5;
     h+=`<div class="card"><h3>"${esc(p.keyword)}" 진행 상황</h3><div class="bar"><i style="width:${pct}%"></i></div>
       <div class="prog"><div class="${p.research?'done':p.running?'on':''}">${p.research?'✓':'●'} 1차 출처 수집 · 상위글 분석 · 7개 글 계획 ${!p.research&&p.running?'(<span id="rsTime">0초</span>, 1~3분)':''}</div>
-      <div class="${p.stage==='done'?'done':p.research&&p.running?'on':''}">${p.stage==='done'?'✓':'●'} 글 작성 ${doneN}/${p.posts.length||7} (2개씩 동시에 씁니다)</div></div>
+      <div class="${p.stage==='done'?'done':p.research&&p.running?'on':''}">${p.stage==='done'?'✓':'●'} 글 작성 ${doneN}/${p.posts.length||7} (1개씩 차례로 씁니다)</div></div>
       ${p.error?`<div class="err">${esc(p.error)}</div>`:''}
       ${!p.running&&p.stage!=='done'?`<div class="row" style="margin-top:10px"><button class="btn pri" id="resume">이어서 만들기</button></div>`:''}
-      ${p.running?'<div class="hint">이 화면을 닫거나 새로고침하면 작성이 멈춥니다. 다른 탭은 봐도 됩니다.</div>':''}</div>`;
+      ${p.running?'<div class="hint">다른 크롬 탭을 보거나 창을 내려둬도 계속 씁니다. 이 탭을 닫으면 멈추고, 다시 열면 이어서 씁니다. 다 쓴 글은 왼쪽 목록에 바로 나타납니다.</div>':''}</div>`;
   }
   if(r){
     if(r.deadline_warning)h+=`<div class="notice"><b>마감 주의:</b> ${esc(r.deadline_warning)}</div>`;
@@ -667,16 +721,16 @@ function updateCard(p,post){
   const el=document.getElementById('post-'+post.id); if(!el||cur()!==p)return;
   const sp=post.spec, sec=parseSec(post.raw||''), wp=sp.platform==='wordpress';
   const title=post.title||sec.TITLE||'';
-  const st=post.status==='done'?(post.published?'<span class="pill ok">발행 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
+  const st=post.status==='done'?(post.published?'<span class="pill ok">✓ 사용 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
   const label=wp?'워드프레스':`네이버 ${post.no}`;
   const sum=`<summary><div class="ph">${label} · ${wp?'아무 때나':sp.publish_day+'일차'} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${kwBadges(p.keyword,title,sec.BODY||'')}${chkBadge(sec.BODY)}</div>`:''}</summary>`;
-  let body='';
-  if(post.status==='writing'){body=`<div class="sec"><div class="raw" id="raw-${post.id}">${esc((post.raw||'작성을 시작했습니다…').slice(-1500))}</div></div>`}
-  else if(post.status==='wait'){body=`<div class="sec hint">${esc(sp.angle||'')}</div>`}
-  else if(post.status==='error'){body=`<div class="err">${esc(post.error)}</div><div class="row" style="margin-top:10px"><button class="btn pri sm" data-act="redo">다시 쓰기</button></div>`}
+  let body=post.published?'<div class="usedbar">✓ 이미 사용한 글입니다. 다시 올리지 마세요.</div>':'';
+  if(post.status==='writing'){body+=`<div class="sec"><div class="raw" id="raw-${post.id}">${esc((post.raw||'작성을 시작했습니다…').slice(-1500))}</div></div>`}
+  else if(post.status==='wait'){body+=`<div class="sec hint">${esc(sp.angle||'')}</div>`}
+  else if(post.status==='error'){body+=`<div class="err">${esc(post.error)}</div><div class="row" style="margin-top:10px"><button class="btn pri sm" data-act="redo">다시 쓰기</button></div>`}
   else{
     const photos=(sec.PHOTOS||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'').trim()).filter(Boolean);
-    body=`<div class="sec"><h4>세부 키워드 · 각도</h4><div>${esc(sp.sub_keyword)} — ${esc(sp.angle||'')}</div>${sp.category_note?`<div class="hint">${esc(sp.category_note)}</div>`:''}</div>
+    body+=`<div class="sec"><h4>세부 키워드 · 각도</h4><div>${esc(sp.sub_keyword)} — ${esc(sp.angle||'')}</div>${sp.category_note?`<div class="hint">${esc(sp.category_note)}</div>`:''}</div>
     <div class="sec"><h4>추천 카테고리</h4><div><b>${esc(sp.category)}</b></div></div>
     <div class="sec"><h4>제목 (직접 손보세요)</h4><input type="text" data-act="title" value="${esc(title)}"><div class="row" style="margin-top:6px" data-kwchk>${kwBadges(p.keyword,title,sec.BODY||'')}</div>
       <div class="row" style="margin-top:8px"><button class="btn sm" data-act="cpTitle">제목 복사</button></div></div>
@@ -690,9 +744,10 @@ function updateCard(p,post){
     <div class="sec"><h4>확인 경험 문장 예시</h4><div class="preview" style="max-height:none">${md(sec.EXPERIENCE||'')}</div>
       <div class="hint" style="color:var(--warn)">직접 확인한 내용으로 고쳐 쓰세요. 확인하지 않은 내용을 그대로 쓰면 거짓 경험이 됩니다.</div></div>
     <div class="sec"><h4>검증 체크리스트 — ⚠️는 원문과 꼭 대조</h4>${md((sec.CHECK||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'')).filter(Boolean).map(l=>'| '+l+' |').join('\n').replace(/^/,'| 항목 | 값 | 확인 |\n|---|---|---|\n'))}</div>
-    <div class="sec row"><label class="chk"><input type="checkbox" data-act="pub"${post.published?' checked':''}> 업로드했어요 (발행 완료)</label></div>
+    <div class="sec">${post.published?`<div class="usedbar">✓ 사용 완료 (${new Date(post.publishedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}) — 이미 올린 글입니다</div><div class="row" style="margin-top:8px"><button class="btn sm" data-act="unuse">사용 완료 취소</button></div>`:`<button class="btn pri" data-act="use" style="width:100%;justify-content:center">블로그에 올렸어요 — 사용 완료로 표시</button><div class="hint">표시해 두면 왼쪽 목록에 ✓가 붙고, 다시 복사할 때 경고가 떠서 같은 글을 두 번 올리지 않습니다.</div>`}</div>
     <div class="sec row"><button class="btn sm" data-act="redo">이 글 다시 쓰기</button></div>`;
   }
+  if(post.open&&!el.open)el.open=true;
   const wasOpen=el.open;
   el.innerHTML=sum+`<div class="pbody">${body}</div>`;
   el.open=wasOpen;
@@ -705,6 +760,13 @@ $('#writeArea').addEventListener('click',async e=>{
   const det=b.closest('details.post'); const p=cur(); if(!det||!p)return;
   const post=p.posts.find(x=>'post-'+x.id===det.id); if(!post)return;
   const sec=parseSec(post.raw), act=b.dataset.act;
+  if(/^cp/.test(act)&&post.published&&!confirm('이미 사용 완료한 글입니다. 같은 글을 또 올리면 중복 문서가 됩니다. 그래도 복사할까요?'))return;
+  if(act==='use'||act==='unuse'){
+    if(act==='unuse'&&!confirm('사용 완료 표시를 취소할까요?'))return;
+    post.published=act==='use';post.publishedAt=post.published?new Date().toISOString():null;saveNow();updateCard(p,post);renderHeader();
+    if(post.published){toast('사용 완료로 표시했습니다');const nx=p.posts.find(x=>x.status==='done'&&!x.published);if(nx)toast(`다음 글: ${nx.title||nx.spec.sub_keyword}`)}
+    return;
+  }
   if(act==='cpTitle')copy(post.title||sec.TITLE||'');
   if(act==='cpTags')copy((sec.TAGS||'').split(/[,，]/).map(t=>t.trim().replace(/^#/,'')).filter(Boolean).map(t=>'#'+t).join(' '));
   if(act==='cpText')copy(plain(sec.BODY));
@@ -742,8 +804,8 @@ function renderPub(){
   let h=`<div class="todo"><div class="now"><b>오늘 올릴 글</b></div>${today.length?'<ul class="list">'+today.map(o=>`<li><a href="#" data-open="${o.p.id}|${o.x.id}">${esc(o.x.title||o.x.spec.sub_keyword)}</a> <span class="hint">${o.x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(o.x.spec.category)}</span></li>`).join('')+'</ul>':'<div>올릴 글이 없습니다. 새 키워드로 글을 만드세요.</div>'}</div>`;
   for(const p of S.projects){
     const d=p.posts.filter(x=>x.published).length;
-    h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(p.keyword)}</h3><span class="pill ${d===p.posts.length&&d?'ok':''}">${d}/${p.posts.length} 발행</span></div>
-    <table class="pub" style="margin-top:8px"><thead><tr><th>발행</th><th>글</th><th>일차</th></tr></thead><tbody>${p.posts.map(x=>`<tr><td><input type="checkbox" aria-label="발행 완료" data-pub="${p.id}|${x.id}"${x.published?' checked':''}${x.status!=='done'?' disabled':''}></td><td><a href="#" data-open="${p.id}|${x.id}">${esc(x.title||x.spec.sub_keyword)}</a><div class="hint">${x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(x.spec.category)}${x.status!=='done'?' · 미완성':''}${x.publishedAt?' · '+new Date(x.publishedAt).toLocaleDateString('ko-KR'):''}</div></td><td>${x.spec.platform==='wordpress'?'-':x.spec.publish_day}</td></tr>`).join('')}</tbody></table></div>`;
+    h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(p.keyword)}</h3><span class="pill ${d===p.posts.length&&d?'ok':''}">${d}/${p.posts.length} 사용</span></div>
+    <table class="pub" style="margin-top:8px"><thead><tr><th>사용</th><th>글</th><th>일차</th></tr></thead><tbody>${p.posts.map(x=>`<tr><td><input type="checkbox" aria-label="사용 완료" data-pub="${p.id}|${x.id}"${x.published?' checked':''}${x.status!=='done'?' disabled':''}></td><td><a href="#" data-open="${p.id}|${x.id}">${esc(x.title||x.spec.sub_keyword)}</a><div class="hint">${x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(x.spec.category)}${x.status!=='done'?' · 미완성':''}${x.publishedAt?' · '+new Date(x.publishedAt).toLocaleDateString('ko-KR'):''}</div></td><td>${x.spec.platform==='wordpress'?'-':x.spec.publish_day}</td></tr>`).join('')}</tbody></table></div>`;
   }
   el.innerHTML=h;
 }
@@ -755,7 +817,7 @@ $('#pubArea').addEventListener('change',e=>{
 document.addEventListener('click',e=>{
   const a=e.target.closest('[data-open]');if(!a)return;e.preventDefault();
   const [pid,xid]=a.dataset.open.split('|');const p=S.projects.find(q=>q.id===pid);if(!p)return;
-  S.currentId=pid;const x=p.posts.find(q=>q.id===xid);if(x)x.open=true;go('write');
+  S.currentId=pid;p.posts.forEach(q=>q.open=q.id===xid);viewId=xid;go('write');
   const el=document.getElementById('post-'+xid);if(el)el.scrollIntoView({block:'start'});
 });
 
@@ -806,9 +868,19 @@ $('#bkFile').addEventListener('change',async e=>{
 });
 
 /* ---------- 시작 ---------- */
-S.projects.forEach(p=>{if(p.running){p.running=false;p.posts.forEach(x=>{if(x.status==='writing'){x.status='wait';x.raw=''}})}});
 window.addEventListener('beforeunload',e=>{if(S.projects.some(p=>p.running)){e.preventDefault();e.returnValue=''}});
-go('home');
+window.addEventListener('storage',e=>{if(e.key===LS_STATE&&!S.projects.some(p=>p.running)){S=load();rerender()}});
+async function boot(){
+  const stale=S.projects.filter(p=>p.running);
+  if(stale.length&&navigator.locks&&navigator.locks.query){
+    try{const q=await navigator.locks.query();if((q.held||[]).some(l=>l.name==='bh-run')){S.projects.forEach(p=>p.running=false);go('write');toast('다른 탭에서 글을 쓰는 중입니다');return}}catch(_){}
+  }
+  stale.forEach(p=>{p.running=false;p.posts.forEach(x=>{if(x.status==='writing'){x.status='wait';x.raw=''}})});
+  const resume=stale[0];
+  if(resume&&lsGet(LS_KEY)){S.currentId=resume.id;go('write');toast('멈췄던 글쓰기를 이어서 합니다');runProject(resume)}
+  else{if(stale.length)saveNow();go('home')}
+}
+boot();
 </script>
 </body>
 </html>
