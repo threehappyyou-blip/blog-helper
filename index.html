@@ -71,6 +71,8 @@ textarea.edit{min-height:360px;font-family:inherit;font-size:14px;line-height:1.
 .ck li{padding:3px 0}
 .budget{height:8px;background:var(--line);border-radius:8px;overflow:hidden;margin:6px 0}
 .budget i{display:block;height:100%;background:var(--ok)}
+.qbox{border:1px solid var(--pri-line);background:var(--pri-soft);border-radius:10px;padding:10px 14px;margin:0 0 12px}
+.qbox p{margin:0 0 4px}.qbox ul{margin:0;padding-left:18px}
 .usedbar{background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:10px 12px;margin-top:14px;font-weight:600}
 h1{font-size:26px;margin:4px 0 2px}
 h2{font-size:20px;margin:0 0 8px}
@@ -501,6 +503,8 @@ async function claudeFetch(body,stream){
   throw new Error(last);
 }
 const sleepMs=ms=>new Promise(r=>setTimeout(r,ms));
+// 본문 다음 표시줄(@@PHOTOS 등)이 나왔으면 본문은 끝까지 온 것
+const bodyDone=t=>/@@BODY[\s\S]*\n@@(PHOTOS|TABLEIMG|EXPERIENCE|CHECK|META|SLUG|TITLES)\b/.test(t||'');
 let webBasic=true; // 검색 걸러내기는 코드 작성 토큰이 들어 오히려 잘림·비용 증가 → 일반 검색 사용
 const WEB=n=>webBasic?{type:'web_search_20250305',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}}
   :{type:'web_search_20260209',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}};
@@ -565,7 +569,7 @@ async function streamRun(system,user,maxTokens,onText,usage){
     const n=outN||full.length;if(n)addUsage(usage,{output_tokens:n},model)};
   const salvage=err=>{ // 연결이 끊겨도 본문이 충분히 왔으면 살린다 (이미 낸 비용)
     chargeOut();
-    if(/@@BODY/.test(full)&&full.length>1200)return {text:full,stop:'interrupted'};
+    if(bodyDone(full))return {text:full,stop:'interrupted'}; // 본문이 끝까지 온 경우만 살린다
     throw err;
   };
   try{
@@ -815,9 +819,10 @@ async function writePost(p,post){
   let last=0;
   try{
     const {sys,user}=pWrite(p,post);
-    const {text,stop}=await streamRun(sys,user,post.spec.platform==='wordpress'?9000:8000,full=>{post.raw=full;const n=Date.now();if(n-last>400){last=n;updateCard(p,post)}},post.usage);
+    const {text,stop}=await streamRun(sys,user,16000,full=>{post.raw=full;const n=Date.now();if(n-last>400){last=n;updateCard(p,post)}},post.usage);
     post.raw=text; const sec=parseSec(text);
     if(!sec.BODY)throw new Error('본문을 읽지 못했습니다. 다시 쓰기를 눌러주세요.');
+    if(!bodyDone(text))throw new Error('글이 중간에 끊겼습니다. "다시 쓰기"를 누르세요 (리서치는 다시 하지 않아 글쓰기 비용만 듭니다).');
     post.title=sec.TITLE||''; post.status='done'; post.truncated=stop==='max_tokens'||stop==='interrupted'; post.flow=0;
   }catch(e){post.status='error';post.error=e.message}
   saveNow(); updateCard(p,post); renderHeader();
@@ -851,7 +856,10 @@ function md(src,styled){
       out.push(`<table class="mdt"${styled?' style="border-collapse:collapse"':''}><thead><tr>${cells(h).map(c=>`<th${td}>${inl(c,styled)}</th>`).join('')}</tr></thead><tbody>${b.map(r=>`<tr>${cells(r).map(c=>`<td${td}>${inl(c,styled)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);continue}
     if(isUl(l)){const it=[];while(i<L.length&&isUl(L[i]))it.push(L[i++].replace(/^\s*[-*•]\s+/,''));out.push('<ul>'+it.map(x=>`<li>${inl(x,styled)}</li>`).join('')+'</ul>');continue}
     if(isOl(l)){const it=[];while(i<L.length&&isOl(L[i]))it.push(L[i++].replace(/^\s*\d+[.)]\s+/,''));out.push('<ol>'+it.map(x=>`<li>${inl(x,styled)}</li>`).join('')+'</ol>');continue}
-    if(/^>\s?/.test(l)){const it=[];while(i<L.length&&/^>\s?/.test(L[i]))it.push(L[i++].replace(/^>\s?/,''));out.push(`<blockquote>${it.map(x=>inl(x,styled)).join('<br>')}</blockquote>`);continue}
+    if(/^>\s?/.test(l)){const it=[];while(i<L.length&&/^>\s?/.test(L[i]))it.push(L[i++].replace(/^>\s?/,''));
+      let head='';if(it.length&&!/^\s*([-*•]|\d+[.)])\s/.test(it[0])&&it.length>1)head=it.shift();
+      const inner=(head?`<p><strong>${inl(head,styled)}</strong></p>`:'')+md(it.join('\n'),styled);
+      out.push(styled?inner:`<div class="qbox">${inner}</div>`);continue}
     if(/^-{3,}\s*$/.test(l)){out.push('<hr>');i++;continue}
     const p=[];while(i<L.length&&L[i].trim()&&!isTbl(L[i])&&!isUl(L[i])&&!isOl(L[i])&&!isH(L[i])&&!/^>\s?/.test(L[i]))p.push(L[i++]);
     out.push(`<p>${p.map(x=>inl(x,styled)).join('<br>')}</p>`);
@@ -859,7 +867,7 @@ function md(src,styled){
   return out.join('\n');
 }
 function plain(src){
-  return String(src||'').replace(/^#{1,4}\s+/gm,'').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'$1 ($2)').replace(/^\s*\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$\n?/gm,'');
+  return String(src||'').replace(/^>\s?/gm,'').replace(/^#{1,4}\s+/gm,'').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'$1 ($2)').replace(/^\s*\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$\n?/gm,'');
 }
 async function copy(text,html){
   try{
@@ -926,6 +934,7 @@ function seoScore(KW,title,body,wp){
   const kwN=KW?B.split(KW).length-1:0;
   add(T.includes(KW),15,'제목에 키워드','제목에 키워드를 그대로 넣으세요');
   add(T.indexOf(KW)>=0&&T.indexOf(KW)<=8,5,'키워드가 제목 앞쪽','키워드를 제목 앞쪽으로 옮기세요');
+  add(/\d/.test(T)||/[?？]/.test(T)||/(마감|까지|놓치|손해|라면|방법|이유|꼭|주의)/.test(T),7,'제목에 클릭 요소(숫자·마감·질문·대상)','제목에 숫자·마감·질문·대상 같은 클릭 요소를 넣으세요 (제목 후보 참고)');
   const tl=T.length;add(wp?tl>=20&&tl<=45:tl>=12&&tl<=35,8,`제목 길이 적당 (${tl}자)`,`제목 길이 ${tl}자 → ${wp?'20~45':'12~35'}자로`);
   add(first.includes(KW),10,'첫 문단에 키워드','첫 문단(200자 안)에 키워드를 넣으세요');
   add(/^>\s*/m.test(B.split('\n').slice(0,12).join('\n')),8,'맨 위 한눈에 보기 요약','맨 위에 "한눈에 보기" 요약을 넣으세요 (AI 브리핑 인용)');
@@ -1006,6 +1015,11 @@ async function wpSend(p,post,sec,btn){
   updateCard(p,post);
 }
 
+function titleOpts(sec,cur){
+  const list=[sec.TITLE].concat(String(sec.TITLES||'').split('\n')).map(t=>String(t||'').replace(/^\s*([-*•]|\d+[.)])\s*/,'').replace(/^["']|["']$/g,'').trim()).filter(Boolean);
+  const uniq=[...new Set(list)];if(uniq.length<2)return '';
+  return `<div class="hint" style="margin-top:8px">다른 제목 후보 — 눌러서 바꾸기</div><div class="row" style="margin-top:4px">${uniq.map(t=>`<button class="btn sm${t===cur?' pri':''}" data-act="pickTitle" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>`;
+}
 function chkBadge(b){const n=(String(b||'').match(/\[확인 필요/g)||[]).length;return n?`<span class="pill bad">버튼 이름 확인 ${n}곳</span>`:''}
 /* ---------- 글 만들기 화면 ---------- */
 function renderProgress(){const b=$('#progBox'),p=cur();if(b&&p)b.innerHTML=progressHtml(p)}
@@ -1075,6 +1089,7 @@ function renderWrite(){
 function updateCard(p,post){
   const el=document.getElementById('post-'+post.id); if(!el||cur()!==p)return;
   const sp=post.spec, sec=parseSec(post.raw||''), wp=sp.platform==='wordpress';
+  if(post.status==='done'&&!post.published&&!post.edited&&post.raw&&!bodyDone(post.raw)&&!p.remote){post.status='error';post.error='글이 중간에 끊겨 본문이 완성되지 않았습니다. "다시 쓰기"를 누르세요 (리서치는 재사용돼 글쓰기 비용만 듭니다).';save()}
   if(post.edited)sec.BODY=post.edited;
   const title=post.title||sec.TITLE||'';
   const KW=post.kw||p.keyword;
@@ -1094,7 +1109,8 @@ function updateCard(p,post){
     <div class="sec"><h4>SEO·AI 검색 점수 ${seoBadge(seo)}</h4>${seo.miss.length?`<ul class="ck">${seo.miss.map(m=>`<li>✗ ${esc(m)}</li>`).join('')}</ul>`:'<div class="hint">빠진 항목이 없습니다.</div>'}<details style="margin-top:4px"><summary class="hint" style="cursor:pointer">통과한 항목 ${seo.ok.length}개</summary><ul class="ck">${seo.ok.map(m=>`<li style="color:var(--ok)">✓ ${esc(m)}</li>`).join('')}</ul></details></div>
     <div class="sec"><h4>${post.kw?'키워드 · 글 방향':'세부 키워드 · 각도'}</h4><div>${esc(post.kw||sp.sub_keyword)} — ${esc(sp.angle||'')}</div>${post.usage&&(post.usage.in||post.usage.out)?`<div class="hint">사용량: ${fmtUsage(post.usage)}</div>`:''}${sp.category_note?`<div class="hint">${esc(sp.category_note)}</div>`:''}</div>
     <div class="sec"><h4>추천 카테고리</h4><div><b>${esc(sp.category)}</b></div></div>
-    <div class="sec"><h4>제목 (직접 손보세요)</h4><input type="text" data-act="title" value="${esc(title)}"><div class="row" style="margin-top:6px" data-kwchk>${kwBadges(KW,title,sec.BODY||'')}</div>
+    <div class="sec"><h4>제목 (직접 손보세요)</h4><input type="text" data-act="title" value="${esc(title)}">
+      ${titleOpts(sec,title)}<div class="row" style="margin-top:6px" data-kwchk>${kwBadges(KW,title,sec.BODY||'')}</div>
       <div class="row" style="margin-top:8px"><button class="btn sm" data-act="cpTitle">제목 복사</button></div></div>
     <div class="sec"><h4>본문 ${post.edited?'<span class="pill pri">고친 본문</span>':''} ${post.truncated?'<span class="pill warn">끝부분이 잘렸을 수 있음</span>':''}</h4>
       ${post.editing?`<textarea class="edit" data-act="editText">${esc(sec.BODY)}</textarea><div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="editSave">고친 내용 저장</button><button class="btn sm" data-act="editCancel">취소</button>${post.edited?'<button class="btn sm" data-act="editReset">AI 원본으로 되돌리기</button>':''}</div><div class="hint"># 소제목, **굵게**, | 표 | 형식을 그대로 쓰면 됩니다.</div>`
@@ -1170,6 +1186,7 @@ $('#writeArea').addEventListener('click',async e=>{
     return;
   }
   if(post.edited)sec.BODY=post.edited;
+  if(act==='pickTitle'){post.title=b.dataset.t;post.titleEdited=true;saveNow();updateCard(p,post);renderSide();toast('제목을 바꿨습니다');return}
   if(act==='edit'){post.editing=true;updateCard(p,post);return}
   if(act==='editCancel'){post.editing=false;updateCard(p,post);return}
   if(act==='editSave'){const t=det.querySelector('[data-act="editText"]');post.edited=t.value;post.editedAt=new Date().toISOString();post.editing=false;saveNow();updateCard(p,post);toast('고친 본문을 저장했습니다');return}
