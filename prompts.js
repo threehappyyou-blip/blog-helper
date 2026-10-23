@@ -2,6 +2,31 @@
 (function(root){
 'use strict';
 const ANGLES=['신청방법','대상·자격','지급일·금액','사용처·사용기한','자주 묻는 질문','놓치기 쉬운 주의사항'];
+const PRICES={
+  'claude-sonnet-5-5':{in:2,cw:2.5,cr:0.1,out:10,name:'Sonnet 5.5'},
+  'claude-haiku-5-5':{in:0.1,cw:0.125,cr:0.01,out:0.5,name:'Haiku 5.5'},
+  'claude-opus-5-5':{in:4,cw:5,cr:0.2,out:20,name:'Opus 5.5'}
+};
+const SEARCH_USD=0.01;
+// 호출 1번의 실제 비용(USD). 모르는 모델은 Opus 가격으로 넉넉히 잡는다
+function costOf(model,u){
+  if(!u)return 0;const p=PRICES[model]||PRICES['claude-opus-5-5'];
+  const inT=u.input_tokens||0,cw=u.cache_creation_input_tokens||0,cr=u.cache_read_input_tokens||0,out=u.output_tokens||0;
+  const big=model==='claude-haiku-5-5'&&inT+cw+cr>100000?5:1; // Haiku는 10만 토큰 넘는 요청이 5배
+  const srch=(u.server_tool_use&&u.server_tool_use.web_search_requests)||0;
+  return (inT*p.in+cw*p.cw+cr*p.cr+out*p.out)*big/1e6+srch*SEARCH_USD;
+}
+// 버튼 옆 예상 비용 (보수적으로)
+function estimate(kind,models){
+  const m=models||{};
+  const call=(model,inT,out,srch)=>costOf(model,{input_tokens:inT,output_tokens:out,server_tool_use:{web_search_requests:srch}});
+  if(kind==='keywords')return call(m.kw,25000,2500,4);
+  if(kind==='research')return call(m.research,35000,3500,4);
+  if(kind==='write')return call(m.write,6000,6000,0);
+  if(kind==='series')return costOf(m.write,{input_tokens:1500,cache_read_input_tokens:4000,output_tokens:6000});
+  if(kind==='post')return estimate('research',m)+estimate('write',m);
+  return 0;
+}
 function todayKST(){const d=new Date(Date.now()+9*3600e3);return d.toISOString().slice(0,10)}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function extractJSON(t){
@@ -42,11 +67,12 @@ function pKeywords(exclude){
 후보 중 최소 2개는 "${S.settings.interest||'생활 실무'}" 분야처럼 생활 경험을 쓰기 쉬운 장기형 키워드로 넣는다.
 ${exclude.length?`이미 글을 쓴 키워드라 제외할 것(같은 주제의 변형도 제외): ${exclude.join(', ')}
 `:''}wordpress_fit: 구글 검색으로 오래 찾을 정리형 주제면 true (보통 장기형).
+opportunity: 1~5. 검색 수요는 큰데 상위 글이 부실하거나 적을수록 높게. 공식 출처가 있어 정확하게 쓸 수 있으면 +1.
 각 키워드는 사람들이 실제로 검색창에 칠 법한 2~4단어 형태로 쓴다.
-검색은 3~5회 이내로 한다(정책·지원금 뉴스, 생활 이슈, 정부 공고 등 넓게 한 번씩). reason은 짧게 한 문장.
+검색은 4회 이내로 한다(정책·지원금 뉴스, 생활 이슈, 정부 공고 등 넓게 한 번씩). reason은 짧게 한 문장. JSON 앞뒤에 설명 문장을 쓰지 않는다.
 category는 다음 목록 중 하나: ${S.settings.categories}
 결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
-형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":"","wordpress_fit":false}]}`;
+형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":"","wordpress_fit":false,"opportunity":3}]}`;
   return {sys,user:'오늘 기준 서로 다른 키워드 후보 10개를 찾아줘.'};
 }
 function pResearch(kw){
@@ -78,7 +104,8 @@ function pResearchOne(kw,platform){
 할 일:
 1) 1차 출처(정부24, 정부·지자체 공고문, 정부 보도자료, 기관 공식 홈페이지)에서 날짜·금액·대상·신청기간·신청방법·사용처 등 핵심 사실을 찾는다. 확정되지 않은 정보는 confirmed:false로 두고 추정치를 만들지 않는다.
 2) 이 키워드로 상위에 노출되는 블로그·뉴스 글 1~3개를 찾아 공통점, 모두 빠뜨린 정보, 틀리거나 오래된 정보를 정리한다.
-검색은 꼭 필요한 만큼만 3~5회 한다(1차 출처 1~2회, 상위글 1~2회). 같은 내용을 반복 검색하지 않는다.
+검색은 최대 4회(1차 출처 2회, 상위글 2회). 같은 내용을 반복 검색하지 않는다.
+답은 짧게: JSON 앞뒤에 설명 문장을 쓰지 않는다. facts는 15개 이하, 각 value는 한 줄. procedures는 경로 2개 이하·단계 8개 이하. competitors의 각 목록은 5개 이하, 한 줄씩. sources는 6개 이하. series는 5개 이하.
 3) 이 키워드로 쓸 글 1개의 방향(plan)을 정한다: 검색하는 사람이 가장 알고 싶은 것을 중심으로, 상위글이 빠뜨린 정보를 차별점으로. ${wp?'워드프레스 글은 비교표와 FAQ 중심 정리형.':''}
  - category는 다음 목록 중 하나: ${S.settings.categories}. 맞는 게 없으면 가장 가까운 것을 고르고 category_note에 이유를 적는다.
 6) 이 글 다음에 같은 키워드로 이어 쓸 시리즈 편 4~5개를 series에 제안한다. 첫 글(plan)과도, 서로도 겹치지 않게, 위 조사 자료만으로 쓸 수 있는 주제로. sub_keyword는 키워드를 글자 그대로 포함.
@@ -112,8 +139,11 @@ ${compact(r)}
 공통 규칙:
 - 제목: 아래 [메인 키워드]를 글자 그대로 포함하고 가능한 앞쪽에 둔다. [이 글의 세부 키워드]가 있으면 나머지 단어도 자연스럽게 넣는다. 과장·낚시 표현 금지.
 - 본문: [메인 키워드]를 글자 그대로 자연스럽게 넣는다(횟수는 아래 이 글의 규칙). 첫 문단에 반드시 1회. 억지 반복 금지.
-- 도입 3~4줄에 이 글의 결론을 먼저 쓴다.
-- 소제목 4~6개(## 사용), 마크다운 표 1개 이상, 절차는 번호 목록.
+- 맨 처음은 "> 한눈에 보기" 인용 블록 3~4줄: 누가·얼마·언제까지·어디서를 한 줄씩, 숫자와 날짜는 단위와 함께. (검색 AI 요약이 그대로 인용하기 좋은 형태)
+- 이어지는 첫 문단 150자 안에 [메인 키워드]와 이 글의 핵심 답을 쓰고, "${todayKST().replace(/^(\d+)-(\d+)-(\d+)$/,(m,y,mo,d)=>y+'년 '+(+mo)+'월 '+(+d)+'일')} 기준"처럼 기준일을 밝힌다.
+- 소제목 4~6개(## 사용). 그중 2개 이상은 사람들이 실제로 검색하는 질문형(예: "○○ 신청은 어디서 하나요?")으로 쓰고, 질문형 소제목 바로 아래 첫 1~2문장에서 답부터 말한 뒤 설명한다. 소제목 1~2개에는 [메인 키워드]를 자연스럽게 넣는다.
+- 제도·기관·앱은 처음 나올 때 공식 명칭 그대로 쓴다(예: 국세청 홈택스). 같은 대상을 여러 이름으로 바꿔 부르지 않는다.
+- 마크다운 표 1개 이상, 절차는 번호 목록. 한 문단은 3줄 이내.
 - 조사 자료의 missing_in_competitors(상위글이 모두 빠뜨린 정보) 중 이 글 방향에 맞는 것을 담은 섹션을 최소 1개 넣는다. errors_in_competitors가 있으면 바른 정보로 짚어준다.
 - 사실은 조사 자료에 있는 것만 쓴다. confirmed:false 정보는 "아직 확정되지 않았다"고 쓴다. 숫자·날짜를 지어내지 않는다.
 ${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 독자가 직접 해야 하는 일(신청·조회·사용·확인 등)이 있으면 "## ○○ 따라하기" 소제목을 만들고, 컴퓨터를 잘 모르는 60대도 그대로 따라 할 수 있게 쓴다.
@@ -131,7 +161,7 @@ ${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 
   · 이 글 각도에 직접 해야 하는 일이 없으면 따라하기 섹션은 넣지 않는다. 다른 글의 따라하기와 같은 절차를 반복하지 않는다.
 `:''}- [사진 넣기: 무엇을] 자리를 ${detail?'따라하기 단계마다 + 그 밖에 1~2곳':'2~3곳'}, [경험 넣기: 어떤 경험] 자리를 2곳 본문 흐름에 맞게 넣는다. 경험 내용은 지어내지 않고 자리만 표시한다.
 - [같은 시리즈의 다른 글]이 주어지면: 그 글들이 다루는 내용은 한두 줄로만 언급하고 이 글의 방향에 집중한다. 출처 바로 앞에 "## 함께 보면 좋은 글" 소제목을 두고 다른 글마다 "- 글 제목 [링크 넣기: 글 제목]" 한 줄씩 쓴다.
-- 끝부분: "## 출처" 소제목 아래 1차 출처 링크 목록(마크다운 링크), 3줄 요약, 댓글을 유도하는 질문 1줄.
+- 끝부분 순서: "## 자주 묻는 질문" (질문 3~5개, "### 질문" 아래 답 1~2문장) → "## 출처" 1차 출처 링크 목록(마크다운 링크) → 3줄 요약 → 댓글을 유도하는 질문 1줄.
 - 금지 표현: ${BANNED}.
 
 출력 형식 (이 순서, 표시줄 그대로, 다른 말 없이):
@@ -149,7 +179,11 @@ ${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 
 본문의 [경험 넣기] 자리마다: 자리 이름 한 줄, 그 아래 예시 문장 2~3개(- 로 시작). 직접 신청하지 않아도 쓸 수 있는 "확인한 경험" 형태.
 @@CHECK
 - 항목 | 본문에 쓴 값 | ✅ 출처와 일치 또는 ⚠️ 확인 필요
-(본문의 [확인 필요] 버튼·메뉴 이름도 ⚠️ 항목으로 모두 넣는다)`;
+(본문의 [확인 필요] 버튼·메뉴 이름도 ⚠️ 항목으로 모두 넣는다)
+@@META
+검색 결과에 보일 설명 한 줄, 80~150자, [메인 키워드] 포함
+@@SLUG
+워드프레스 글 주소용 영어 소문자-하이픈 3~6단어 (네이버 글이면 빈 줄)`;
   // 2) 이 글 전용 부분
   const spec=`[플랫폼] ${wp?'워드프레스(구글 검색 유입용)':'네이버 블로그'}
 [메인 키워드] ${KW}
@@ -159,7 +193,8 @@ ${sibs.length?`[같은 시리즈의 다른 글 — 내용이 겹치지 않게]\n
 - 제목 ${wp?'40자 안팎':'30자 안팎'}.
 - 본문에 [메인 키워드] ${wp?'4~6':'3~5'}회.
 ${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.`;
-  return {sys:[{type:'text',text:common,cache_control:{type:'ephemeral'}},{type:'text',text:spec}],user:`위 규칙대로 "${showSub?sp.sub_keyword:KW}" 글을 써줘.`};
+  const useCache=!!post.researchFrom||(pr.posts||[]).some(x=>x.researchFrom===post.id&&x.status!=='done');
+  return {sys:[Object.assign({type:'text',text:common},useCache?{cache_control:{type:'ephemeral'}}:{}),{type:'text',text:spec}],user:`위 규칙대로 "${showSub?sp.sub_keyword:KW}" 글을 써줘.`};
 }
 function pSeries(pr,post){
   const r=researchOf(pr,post), KW=post.kw||pr.keyword;
@@ -207,5 +242,5 @@ function applyPlan(post,r){
 }
   return {pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf};
 }
-root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,version:6};
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,version:9};
 })(typeof globalThis!=='undefined'?globalThis:this);
