@@ -348,7 +348,8 @@ function renderSide(){
     if(!p.posts.length)h+=`<div class="hint" style="padding:0 8px">${p.running||(p.remote&&LIVE.includes(p.status))?'리서치 중…':p.status==='error'?'멈춤 — 눌러서 확인':'글 없음'}</div>`;
     for(const x of list){
       const ic=x.published?'<span style="color:var(--ok)">✓</span>':x.status==='done'?'<span style="color:var(--pri)">●</span>':(x.status==='writing'||x.status==='research')?'<span style="color:var(--warn)">✎</span>':x.status==='error'?'<span style="color:var(--bad)">!</span>':'<span style="color:var(--muted)">○</span>';
-      const lab=(x.spec.platform==='wordpress'?'워드프레스':x.kw?'네이버':'네이버 '+x.no)+' · '+(x.published?'사용 완료':x.status==='done'?'작성 완료':x.status==='writing'?'작성 중':x.status==='research'?'리서치 중':x.status==='error'?'오류':'대기');
+      const sn=x.researchFrom?p.posts.filter(y=>y.researchFrom===x.researchFrom).indexOf(x)+2:(x.kw&&p.posts.some(y=>y.researchFrom===x.id)?1:0);
+      const lab=(x.spec.platform==='wordpress'?'워드프레스':sn?`시리즈 ${sn}편`:x.kw?'네이버':'네이버 '+x.no)+' · '+(x.published?'사용 완료':x.status==='done'?'작성 완료':x.status==='writing'?'작성 중':x.status==='research'?'리서치 중':x.status==='error'?'오류':'대기');
       h+=`<button class="si${x.published?' used':''}${viewId===x.id?' on':''}" data-open="${p.id}|${x.id}"><span class="ic">${ic}</span><span class="tx"><span>${esc(x.title||x.spec.sub_keyword)}</span><small>${lab}</small></span></button>`;
     }
   }
@@ -408,7 +409,7 @@ const sleepMs=ms=>new Promise(r=>setTimeout(r,ms));
 let webBasic=false;
 const WEB=n=>webBasic?{type:'web_search_20250305',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}}
   :{type:'web_search_20260209',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}};
-function addUsage(acc,u){if(!acc||!u)return;acc.in=(acc.in||0)+(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0);acc.out=(acc.out||0)+(u.output_tokens||0);acc.search=(acc.search||0)+((u.server_tool_use&&u.server_tool_use.web_search_requests)||0)}
+function addUsage(acc,u){if(!acc||!u)return;acc.cache=(acc.cache||0)+(u.cache_read_input_tokens||0);acc.in=(acc.in||0)+(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0);acc.out=(acc.out||0)+(u.output_tokens||0);acc.search=(acc.search||0)+((u.server_tool_use&&u.server_tool_use.web_search_requests)||0)}
 async function searchRun(system,user,maxTokens,maxUses,opt={}){
   let messages=[{role:'user',content:user}],text='';
   for(let i=0;i<6;i++){
@@ -628,7 +629,7 @@ async function runInner(p){
     if(p.multi){
       for(const x of p.posts){
         if(x.status==='done')continue;
-        if(!x.research){
+        if(!x.research&&!x.researchFrom){
           x.status='research';x.error='';x.usage=x.usage||{};updateCard(p,x);renderSide();renderProgress();
           try{const {sys,user}=P().pResearchOne(x.kw,x.spec.platform);P().applyPlan(x,extractJSON(await searchRun(sys,user,6000,5,{usage:x.usage})));saveNow()}
           catch(e){x.status='error';x.error='리서치 실패: '+e.message;saveNow();updateCard(p,x);continue}
@@ -657,7 +658,7 @@ async function runInner(p){
 }
 async function pool(items,n,fn){let i=0;const run=async()=>{while(i<items.length){const it=items[i++];await fn(it)}};await Promise.all(Array.from({length:Math.min(n,items.length)},run))}
 async function writePost(p,post){
-  if(post.kw&&!post.research){
+  if(post.kw&&!post.research&&!post.researchFrom){
     post.status='research';post.error='';updateCard(p,post);renderSide();
     try{const {sys,user}=P().pResearchOne(post.kw,post.spec.platform);post.usage=post.usage||{};P().applyPlan(post,extractJSON(await searchRun(sys,user,6000,5,{usage:post.usage})))}
     catch(e){post.status='error';post.error='리서치 실패: '+e.message;saveNow();updateCard(p,post);renderHeader();return}
@@ -740,20 +741,47 @@ function kwBadges(kw,title,body){
   return tb+bb;
 }
 
-function fmtUsage(u){const k=n=>n>=1000?(n/1000).toFixed(1)+'천':String(n||0);return `입력 ${k(u.in)} · 출력 ${k(u.out)} 토큰 · 웹 검색 ${u.search||0}회`}
+function fmtUsage(u){const k=n=>n>=1000?(n/1000).toFixed(1)+'천':String(n||0);return `입력 ${k(u.in)}${u.cache?` (캐시 ${k(u.cache)})`:''} · 출력 ${k(u.out)} 토큰 · 웹 검색 ${u.search||0}회`}
+function seriesHtml(p,post){
+  if(!post.kw||post.researchFrom||post.spec.platform==='wordpress')return '';
+  const r=post.research||{}; const ideas=(r.series&&r.series.length?r.series:post.seriesIdeas)||[];
+  const have=p.posts.filter(x=>x.researchFrom===post.id).map(x=>nsp(x.spec.sub_keyword));
+  const left=ideas.map((it,i)=>({it,i})).filter(o=>!have.includes(nsp(o.it.sub_keyword&&String(o.it.sub_keyword).includes(post.kw)?o.it.sub_keyword:post.kw+' '+(o.it.sub_keyword||''))));
+  const busy=p.running||(p.remote&&LIVE.includes(p.status));
+  return `<div class="sec"><h4>시리즈로 더 쓰기 <span class="pill ok">웹 검색 없음</span></h4>
+    <div class="hint" style="margin-bottom:8px">이 글의 리서치를 그대로 써서 검색 비용 없이 같은 키워드로 이어 씁니다. 하루 1편씩 올리고, 글 끝 "함께 보면 좋은 글"에 서로 링크를 거세요.</div>
+    ${left.length?`<div class="list" style="padding:0">${left.map(o=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:nowrap"><div style="min-width:0"><div>${esc(o.it.sub_keyword)}</div><div class="hint">${esc(o.it.angle||'')}</div></div><button class="btn sm" data-act="ser" data-i="${o.i}" style="flex:none"${busy?' disabled':''}>이 편 쓰기</button></div>`).join('')}</div>
+      <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="serAll"${busy?' disabled':''}>추천 ${left.length}편 모두 차례로 쓰기</button></div>`
+      :`<div class="row"><button class="btn sm" data-act="serIdeas">시리즈 편 추천받기 (검색 없음)</button></div>`}
+    <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input type="text" data-act="serText" placeholder="직접 추가: 예) ${esc(post.kw)} 자주 하는 실수"><button class="btn sm" data-act="serAdd" style="flex:none"${busy?' disabled':''}>추가해서 쓰기</button></div>
+    ${busy?'<div class="hint">지금 쓰는 글이 끝나면 누를 수 있습니다.</div>':''}</div>`;
+}
+async function addSeries(p,src,items){
+  items=items.filter(it=>it&&String(it.sub_keyword||'').trim());
+  if(!items.length)return;
+  const posts=P().buildSeries(p,src,items);
+  if(p.remote){
+    try{await remoteUpdate(p,d=>{d.posts.push(...JSON.parse(JSON.stringify(posts)));d.status='writing'},'시리즈 추가: '+src.kw);toast(`시리즈 ${posts.length}편을 서버에 맡겼습니다. 창을 닫아도 됩니다`);renderWrite();renderHeader();schedulePoll()}
+    catch(e){alert(e.message)}
+    return;
+  }
+  p.posts.push(...posts);p.stage='write';saveNow();renderWrite();renderHeader();
+  if(!p.running)runProject(p);
+}
 function chkBadge(b){const n=(String(b||'').match(/\[확인 필요/g)||[]).length;return n?`<span class="pill bad">버튼 이름 확인 ${n}곳</span>`:''}
 /* ---------- 글 만들기 화면 ---------- */
 function renderProgress(){const b=$('#progBox'),p=cur();if(b&&p)b.innerHTML=progressHtml(p)}
 function ago(t){if(!t)return '';const m=Math.round((Date.now()-new Date(t))/60000);return m<1?'방금':m<60?m+'분 전':Math.round(m/60)+'시간 전'}
 function progressHtml(p){
   const doneN=p.posts.filter(x=>x.status==='done').length, total=p.posts.length||7;
-  if(p.multi&&p.posts.length===1){
-    const x=p.posts[0];
+  if(p.multi){
+    const x=p.posts.find(y=>y.status!=='done')||p.posts[0];
     if(x.status==='done'&&!p.error)return '';
+    const many=p.posts.length>1;
     const live=p.remote?LIVE.includes(p.status):p.running;
     const stale=p.remote&&live&&p.updatedAt&&Date.now()-new Date(p.updatedAt)>15*60000;
-    const step=x.status==='research'?'1차 출처·상위글 확인 중 (1~2분)':x.status==='writing'?'글 작성 중 (1~3분)':x.status==='error'?'멈췄습니다':p.status==='queued'?'서버 대기 중 — 보통 1분 안에 시작합니다':'대기 중';
-    const pct=x.status==='research'?30:x.status==='writing'?70:x.status==='done'?100:5;
+    const step=(many?`${doneN}/${total}편 완료 · 지금 "${x.spec.sub_keyword}" `:'')+(x.status==='research'?'1차 출처·상위글 확인 중 (1~2분)':x.status==='writing'?'글 작성 중 (1~3분)':x.status==='error'?'멈췄습니다':p.status==='queued'?'서버 대기 중 — 보통 1분 안에 시작합니다':'대기 중');
+    const pct=many?Math.max(5,Math.round(100*doneN/total)):x.status==='research'?30:x.status==='writing'?70:x.status==='done'?100:5;
     return `<div class="card"><h3>"${esc(p.keyword)}" 진행 상황 <span class="pill ${p.remote?'pri':''}">${p.remote?'서버':'이 브라우저'}</span></h3><div class="bar"><i style="width:${pct}%"></i></div>
       <div class="prog"><div class="on">${esc(step)}</div>${p.remote?`<div class="hint">마지막 진행: ${ago(p.updatedAt||p.createdAt)}</div>`:''}</div>
       ${x.error||p.error?`<div class="err">${esc(x.error||p.error)}</div>`:''}
@@ -785,7 +813,7 @@ function renderWrite(){
   if(!S.projects.length){sel.innerHTML='';area.innerHTML='<div class="card">아직 만든 글이 없습니다. <a href="#" data-go="kw">① 키워드 찾기</a>에서 시작하세요.</div>';return}
   if(!cur())S.currentId=S.projects[0].id;
   sel.innerHTML=`<select id="projSel" aria-label="키워드 선택" style="flex:1">${S.projects.map(p=>`<option value="${p.id}"${p.id===S.currentId?' selected':''}>${esc(p.keyword)} · ${new Date(p.createdAt).toLocaleDateString('ko-KR')}</option>`).join('')}</select>`;
-  const p=cur(); const r=p.research||(p.multi&&p.posts.length===1?p.posts[0].research:null);
+  const p=cur(); const r=p.research||(p.multi&&p.posts[0]?p.posts[0].research:null);
   const doneN=p.posts.filter(x=>x.status==='done').length;
   let h='<div id="progBox">'+progressHtml(p)+'</div>';
   if(r){
@@ -802,7 +830,7 @@ function renderWrite(){
     </div></details>`;
   }
   h+=`<div id="posts">${p.posts.map(x=>`<details class="post" id="post-${x.id}"${x.open?' open':''}></details>`).join('')}</div>`;
-  if(p.posts.length&&!p.running)h+=`<div class="row" style="margin-top:6px"><button class="btn sm" id="delProj">${p.multi&&p.posts.length===1?'이 글 삭제':'이 키워드 글 모두 삭제'}</button></div>`;
+  if(p.posts.length&&!p.running)h+=`<div class="row" style="margin-top:6px"><button class="btn sm" id="delProj">${p.multi&&p.posts.length===1?'이 글 삭제':'이 키워드 글 모두 삭제 ('+p.posts.length+'개)'}</button></div>`;
   area.innerHTML=h;
   p.posts.forEach(x=>updateCard(p,x));
 }
@@ -812,7 +840,8 @@ function updateCard(p,post){
   const title=post.title||sec.TITLE||'';
   const KW=post.kw||p.keyword;
   const st=post.status==='done'?(post.published?'<span class="pill ok">✓ 사용 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='research'?'<span class="pill warn">리서치 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
-  const label=wp?'워드프레스':(post.kw?'네이버':`네이버 ${post.no}`);
+  const sIdx=post.researchFrom?p.posts.filter(y=>y.researchFrom===post.researchFrom).indexOf(post)+2:0;
+  const label=wp?'워드프레스':post.series?`시리즈 ${sIdx}편`:(post.kw?(p.posts.some(y=>y.researchFrom===post.id)?'시리즈 1편 · 네이버':'네이버'):`네이버 ${post.no}`);
   const sum=`<summary><div class="ph">${label}${post.kw?'':' · '+(wp?'아무 때나':sp.publish_day+'일차')} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${kwBadges(KW,title,sec.BODY||'')}${chkBadge(sec.BODY)}</div>`:''}</summary>`;
   let body=post.published?'<div class="usedbar">✓ 이미 사용한 글입니다. 다시 올리지 마세요.</div>':'';
   if(post.status==='research'){body+=`<div class="sec hint">"${esc(KW)}" 1차 출처와 상위글을 확인하는 중입니다 (1~2분).</div>`}
@@ -835,6 +864,7 @@ function updateCard(p,post){
     <div class="sec"><h4>확인 경험 문장 예시</h4><div class="preview" style="max-height:none">${md(sec.EXPERIENCE||'')}</div>
       <div class="hint" style="color:var(--warn)">직접 확인한 내용으로 고쳐 쓰세요. 확인하지 않은 내용을 그대로 쓰면 거짓 경험이 됩니다.</div></div>
     <div class="sec"><h4>검증 체크리스트 — ⚠️는 원문과 꼭 대조</h4>${md((sec.CHECK||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'')).filter(Boolean).map(l=>'| '+l+' |').join('\n').replace(/^/,'| 항목 | 값 | 확인 |\n|---|---|---|\n'))}</div>
+    ${seriesHtml(p,post)}
     <div class="sec">${post.published?`<div class="usedbar">✓ 사용 완료 (${new Date(post.publishedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}) — 이미 올린 글입니다</div><div class="row" style="margin-top:8px"><button class="btn sm" data-act="unuse">사용 완료 취소</button></div>`:`<button class="btn pri" data-act="use" style="width:100%;justify-content:center">블로그에 올렸어요 — 사용 완료로 표시</button><div class="hint">표시해 두면 왼쪽 목록에 ✓가 붙고, 다시 복사할 때 경고가 떠서 같은 글을 두 번 올리지 않습니다.</div>`}</div>
     <div class="sec row"><button class="btn sm" data-act="redo">이 글 다시 쓰기</button></div>`;
   }
@@ -863,6 +893,23 @@ $('#writeArea').addEventListener('click',async e=>{
   const post=p.posts.find(x=>'post-'+x.id===det.id); if(!post)return;
   const sec=parseSec(post.raw), act=b.dataset.act;
   if(/^cp/.test(act)&&post.published&&!confirm('이미 사용 완료한 글입니다. 같은 글을 또 올리면 중복 문서가 됩니다. 그래도 복사할까요?'))return;
+  if(act==='ser'||act==='serAll'||act==='serAdd'||act==='serIdeas'){
+    const r=post.research||{};const ideas=(r.series&&r.series.length?r.series:post.seriesIdeas)||[];
+    if(act==='serIdeas'){
+      if(!lsGet(LS_KEY)){toast('설정에서 Claude API 키를 넣어주세요');return}
+      b.disabled=true;b.textContent='추천 받는 중…';
+      try{const {sys,user}=P().pSeries(p,post);const res=await claudeFetch({model:S.settings.kwModel||DEF.kwModel,system:sys,messages:[{role:'user',content:user}],max_tokens:1500},false);const d=await res.json();
+        addUsage(post.usage=post.usage||{},d.usage);post.seriesIdeas=(extractJSON(d.content.filter(c=>c.type==='text').map(c=>c.text).join('')).series||[]).slice(0,6);save();updateCard(p,post)}
+      catch(er){alert(er.message);b.disabled=false;b.textContent='시리즈 편 추천받기 (검색 없음)'}
+      return;
+    }
+    const have=p.posts.filter(x=>x.researchFrom===post.id).map(x=>nsp(x.spec.sub_keyword));
+    const fresh=ideas.filter(it=>!have.includes(nsp(String(it.sub_keyword||'').includes(post.kw)?it.sub_keyword:post.kw+' '+(it.sub_keyword||''))));
+    if(act==='ser')await addSeries(p,post,[ideas[+b.dataset.i]]);
+    if(act==='serAll'){if(confirm(`시리즈 ${fresh.length}편을 차례로 씁니다. 웹 검색 없이 글쓰기 비용만 듭니다. 진행할까요?`))await addSeries(p,post,fresh)}
+    if(act==='serAdd'){const inp=det.querySelector('[data-act="serText"]');const v=(inp.value||'').trim();if(!v){toast('추가할 편의 주제를 적어주세요');return}await addSeries(p,post,[{sub_keyword:v.includes(post.kw)?v:post.kw+' '+v,angle:v}])}
+    return;
+  }
   if(act==='use'||act==='unuse'){
     if(act==='unuse'&&!confirm('사용 완료 표시를 취소할까요?'))return;
     setUsed(post,act==='use');updateCard(p,post);renderHeader();

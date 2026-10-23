@@ -81,6 +81,7 @@ function pResearchOne(kw,platform){
 검색은 꼭 필요한 만큼만 3~5회 한다(1차 출처 1~2회, 상위글 1~2회). 같은 내용을 반복 검색하지 않는다.
 3) 이 키워드로 쓸 글 1개의 방향(plan)을 정한다: 검색하는 사람이 가장 알고 싶은 것을 중심으로, 상위글이 빠뜨린 정보를 차별점으로. ${wp?'워드프레스 글은 비교표와 FAQ 중심 정리형.':''}
  - category는 다음 목록 중 하나: ${S.settings.categories}. 맞는 게 없으면 가장 가까운 것을 고르고 category_note에 이유를 적는다.
+6) 이 글 다음에 같은 키워드로 이어 쓸 시리즈 편 4~5개를 series에 제안한다. 첫 글(plan)과도, 서로도 겹치지 않게, 위 조사 자료만으로 쓸 수 있는 주제로. sub_keyword는 키워드를 글자 그대로 포함.
 4) 신청 기간이 이미 끝났거나 7일 안에 끝나면 deadline_warning에 적는다. 아니면 빈 문자열.
 5) 따라하기 절차를 수집한다. 신청·조회·사용 등 사람이 직접 해야 하는 일이 있으면, 공식 안내문·이용 가이드·FAQ에서 실제 화면 순서를 찾아 procedures에 정리한다.
  - channel: "온라인(사이트 이름)", "앱(앱 이름)", "방문" 등 경로별로 나눈다.
@@ -88,29 +89,32 @@ function pResearchOne(kw,platform){
  - 메뉴·버튼 이름을 출처에서 직접 확인했으면 verified:true, 아니면 verified:false. 이름을 추측해서 채우지 않는다.
  - 절차가 필요 없는 키워드면 빈 배열.
 결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
-형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"procedures":[{"channel":"","url":"","need":["준비물"],"steps":[{"where":"","action":"","input":"","result":"","verified":true}],"source":"URL"}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"plan":{"angle":"이 글이 다룰 내용 한 문장","category":"","category_note":""}}`;
+형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"procedures":[{"channel":"","url":"","need":["준비물"],"steps":[{"where":"","action":"","input":"","result":"","verified":true}],"source":"URL"}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"plan":{"angle":"이 글이 다룰 내용 한 문장","category":"","category_note":""},"series":[{"sub_keyword":"","angle":""}]}`;
   return {sys,user:`"${kw}" 리서치와 글 방향을 정리해줘.`};
+}
+function researchOf(pr,post){
+  if(post.research)return post.research;
+  if(post.researchFrom){const src=(pr.posts||[]).find(x=>x.id===post.researchFrom);if(src&&src.research)return src.research}
+  return pr.research||{};
 }
 function pWrite(pr,post){
   const sp=post.spec, wp=sp.platform==='wordpress', detail=S.settings.detail!==false;
-  const r=post.research||pr.research||{};
+  const r=researchOf(pr,post);
   const KW=post.kw||pr.keyword, multi=!!post.kw;
-  const others=multi?'':pr.posts.filter(x=>x!==post).map(x=>'- '+x.spec.sub_keyword+': '+x.spec.angle).join('\n');
-  const sys=`너는 한국어 블로그 글 작가다. 사람이 직접 쓴 것처럼 자연스럽고 구체적으로 쓴다. 오늘은 ${todayKST()}이다.
-[플랫폼] ${wp?'워드프레스(구글 검색 유입용)':'네이버 블로그'}
-[메인 키워드] ${KW}
-${multi?'':`[이 글의 세부 키워드] ${sp.sub_keyword}\n`}[이 글의 방향] ${sp.angle||'검색하는 사람이 가장 알고 싶은 것 중심'}
-[카테고리] ${sp.category}
-${multi?'':`[같은 키워드의 다른 글들 — 이 내용과 겹치지 않게, 이 글의 각도에 집중]\n${others}`}
+  const root=post.researchFrom||post.id;
+  const sibs=(pr.posts||[]).filter(x=>x!==post&&(multi?(x.id===root||x.researchFrom===root):true));
+  const showSub=sp.sub_keyword&&sp.sub_keyword!==KW;
+  // 1) 공통 부분 — 같은 리서치를 쓰는 시리즈 글끼리 똑같아서 캐시로 싸게 재사용된다
+  const common=`너는 한국어 블로그 글 작가다. 사람이 직접 쓴 것처럼 자연스럽고 구체적으로 쓴다. 오늘은 ${todayKST()}이다.
 [조사 자료]
 ${compact(r)}
 
-규칙:
-- 제목: 메인 키워드 "${KW}"를 글자 그대로 포함하고 가능한 앞쪽에 둔다.${multi?'':' 세부 키워드의 나머지 단어도 자연스럽게 넣는다.'} ${wp?'40자 안팎':'30자 안팎'}.
-- 본문: 메인 키워드 "${KW}"를 글자 그대로 ${wp?'4~6':'3~5'}회 자연스럽게 넣는다. 첫 문단에 반드시 1회. 억지 반복 금지.
-- 도입 3~4줄에 결론(누가, 얼마, 언제까지, 어디서)을 먼저 쓴다.
+공통 규칙:
+- 제목: 아래 [메인 키워드]를 글자 그대로 포함하고 가능한 앞쪽에 둔다. [이 글의 세부 키워드]가 있으면 나머지 단어도 자연스럽게 넣는다. 과장·낚시 표현 금지.
+- 본문: [메인 키워드]를 글자 그대로 자연스럽게 넣는다(횟수는 아래 이 글의 규칙). 첫 문단에 반드시 1회. 억지 반복 금지.
+- 도입 3~4줄에 이 글의 결론을 먼저 쓴다.
 - 소제목 4~6개(## 사용), 마크다운 표 1개 이상, 절차는 번호 목록.
-- 조사 자료의 missing_in_competitors(상위글이 모두 빠뜨린 정보)를 담은 섹션을 최소 1개 넣는다. errors_in_competitors가 있으면 바른 정보로 짚어준다.
+- 조사 자료의 missing_in_competitors(상위글이 모두 빠뜨린 정보) 중 이 글 방향에 맞는 것을 담은 섹션을 최소 1개 넣는다. errors_in_competitors가 있으면 바른 정보로 짚어준다.
 - 사실은 조사 자료에 있는 것만 쓴다. confirmed:false 정보는 "아직 확정되지 않았다"고 쓴다. 숫자·날짜를 지어내지 않는다.
 ${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 독자가 직접 해야 하는 일(신청·조회·사용·확인 등)이 있으면 "## ○○ 따라하기" 소제목을 만들고, 컴퓨터를 잘 모르는 60대도 그대로 따라 할 수 있게 쓴다.
   · 시작 전에 "준비물" 목록(신분증, 공동·간편인증서, 계좌 등)과 "걸리는 시간"을 먼저 적는다.
@@ -126,9 +130,9 @@ ${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 
   · 따라하기 끝에 "자주 막히는 부분" 3개 안팎(증상 → 해결)을 넣는다.
   · 이 글 각도에 직접 해야 하는 일이 없으면 따라하기 섹션은 넣지 않는다. 다른 글의 따라하기와 같은 절차를 반복하지 않는다.
 `:''}- [사진 넣기: 무엇을] 자리를 ${detail?'따라하기 단계마다 + 그 밖에 1~2곳':'2~3곳'}, [경험 넣기: 어떤 경험] 자리를 2곳 본문 흐름에 맞게 넣는다. 경험 내용은 지어내지 않고 자리만 표시한다.
+- [같은 시리즈의 다른 글]이 주어지면: 그 글들이 다루는 내용은 한두 줄로만 언급하고 이 글의 방향에 집중한다. 출처 바로 앞에 "## 함께 보면 좋은 글" 소제목을 두고 다른 글마다 "- 글 제목 [링크 넣기: 글 제목]" 한 줄씩 쓴다.
 - 끝부분: "## 출처" 소제목 아래 1차 출처 링크 목록(마크다운 링크), 3줄 요약, 댓글을 유도하는 질문 1줄.
-${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 금지 표현: ${BANNED}.
-- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.
+- 금지 표현: ${BANNED}.
 
 출력 형식 (이 순서, 표시줄 그대로, 다른 말 없이):
 @@TITLE
@@ -146,7 +150,30 @@ ${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중
 @@CHECK
 - 항목 | 본문에 쓴 값 | ✅ 출처와 일치 또는 ⚠️ 확인 필요
 (본문의 [확인 필요] 버튼·메뉴 이름도 ⚠️ 항목으로 모두 넣는다)`;
-  return {sys,user:`위 규칙대로 "${multi?KW:sp.sub_keyword}" 글을 써줘.`};
+  // 2) 이 글 전용 부분
+  const spec=`[플랫폼] ${wp?'워드프레스(구글 검색 유입용)':'네이버 블로그'}
+[메인 키워드] ${KW}
+${showSub?`[이 글의 세부 키워드] ${sp.sub_keyword}\n`:''}[이 글의 방향] ${sp.angle||'검색하는 사람이 가장 알고 싶은 것 중심'}
+[카테고리] ${sp.category}
+${sibs.length?`[같은 시리즈의 다른 글 — 내용이 겹치지 않게]\n${sibs.map(x=>'- '+(x.title||x.spec.sub_keyword)+': '+(x.spec.angle||'')).join('\n')}\n`:''}이 글의 규칙:
+- 제목 ${wp?'40자 안팎':'30자 안팎'}.
+- 본문에 [메인 키워드] ${wp?'4~6':'3~5'}회.
+${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.`;
+  return {sys:[{type:'text',text:common,cache_control:{type:'ephemeral'}},{type:'text',text:spec}],user:`위 규칙대로 "${showSub?sp.sub_keyword:KW}" 글을 써줘.`};
+}
+function pSeries(pr,post){
+  const r=researchOf(pr,post), KW=post.kw||pr.keyword;
+  const have=(pr.posts||[]).filter(x=>x.id===post.id||x.researchFrom===post.id).map(x=>'- '+(x.title||x.spec.sub_keyword)+': '+(x.spec.angle||'')).join('\n');
+  const sys=`너는 네이버 블로그 시리즈 기획자다. 웹 검색 없이 아래 조사 자료만 보고 정한다.
+키워드: "${KW}"
+이미 쓴 글:
+${have}
+[조사 자료]
+${compact(r)}
+같은 키워드로 이어서 쓸 시리즈 편 5개를 제안한다. 이미 쓴 글과도, 서로도 내용이 겹치지 않게. 조사 자료로 쓸 수 있는 내용만.
+sub_keyword는 "${KW}"를 글자 그대로 포함하고 사람들이 실제로 검색할 형태로.
+결과는 <json>...</json> 안에 JSON 하나로만: {"series":[{"sub_keyword":"","angle":"이 편이 다룰 내용 한 문장"}]}`;
+  return {sys,user:'시리즈 편 5개를 제안해줘.'};
 }
 
 function buildPosts(kw,plan){
@@ -167,12 +194,18 @@ function buildMulti(items){
     return {id:uid(),no:i+1,kw:it.keyword,research:null,status:'wait',raw:'',title:'',published:false,
       spec:{platform:wp?'wordpress':'naver',sub_keyword:it.keyword,angle:'',category:it.category||cat0,publish_day:wp?1:Math.ceil(nd/2),type:it.type||''}}});
 }
+function buildSeries(pr,src,items){
+  const sibs=(pr.posts||[]).filter(x=>x.id===src.id||x.researchFrom===src.id).length;
+  return items.map((it,i)=>{const kw=src.kw||pr.keyword;let sub=String(it.sub_keyword||'').trim()||kw;if(!sub.includes(kw))sub=(kw+' '+sub).trim();
+    return {id:uid(),no:(pr.posts||[]).length+i+1,kw,researchFrom:src.id,series:true,status:'wait',raw:'',title:'',published:false,
+      spec:{platform:'naver',sub_keyword:sub,angle:it.angle||'',category:src.spec.category,publish_day:sibs+i+1}}});
+}
 function applyPlan(post,r){
   const pl=(r&&r.plan)||{};
   post.research=r;post.spec.angle=pl.angle||post.spec.angle;
   if(pl.category)post.spec.category=pl.category;post.spec.category_note=pl.category_note||'';
 }
-  return {pKeywords,pResearch,pResearchOne,pWrite,buildPosts,buildMulti,applyPlan};
+  return {pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf};
 }
-root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,version:5};
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,version:6};
 })(typeof globalThis!=='undefined'?globalThis:this);
