@@ -360,7 +360,13 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <script src="prompts.js"></script>
 <script>
 'use strict';
-const {ANGLES,todayKST,uid,extractJSON,parseSec}=BH;
+const {ANGLES,todayKST,uid,extractJSON}=BH;
+// 단계 안의 ①②③ 번호가 빠지면(①②③⑤⑥) 단계마다 1부터 다시 매긴다
+const CIRC='①②③④⑤⑥⑦⑧⑨⑩';
+function fixNumbers(body){
+  return String(body||'').split(/(?=^#{2,4}\s)/m).map(block=>{let n=0;return block.replace(/^(\s*)[①-⑩](\s*)/gm,(m,sp,sp2)=>sp+(CIRC[n++]||'•')+(sp2||' '))}).join('');
+}
+function parseSec(t){const o=BH.parseSec(t);if(o.BODY)o.BODY=fixNumbers(o.BODY);return o}
 function P(){return BH.create(S.settings)}
 function pKeywords(){return P().pKeywords()}
 function pResearch(kw){return P().pResearch(kw)}
@@ -501,7 +507,7 @@ function renderTodo(){
       <div class="hint">${x.status==='research'?'1차 출처와 상위 글을 확인하고 있어요 (1~2분)':'글을 쓰고 있어요 (1~3분)'}${busy.remote?' · 창을 닫아도 서버에서 계속 써요':' · 다른 탭은 봐도 되지만 이 탭은 닫지 마세요'}</div>
       <button class="btn big" data-open="${busy.id}|${x.id||''}">진행 상황 보기</button></div></div>`;
   }else if(pick){
-    const sec=parseSec(pick.x.raw||'');if(pick.x.edited)sec.BODY=pick.x.edited;
+    const sec=parseSec(pick.x.raw||'');if(pick.x.edited)sec.BODY=fixNumbers(pick.x.edited);
     const KW=pick.x.kw||pick.pr.keyword,ti=pick.x.title||sec.TITLE||'',au=audit(pick.x,KW,ti,sec.BODY||'',pick.x.spec.platform==='wordpress');
     const bad=au.groups.reduce((n,g)=>n+g.it.filter(i=>!i.ok).length,0);
     h+=`<div class="step on"><div class="sth"><span class="num">2</span><b>미리 보기 · 다듬기</b><span class="stx">지금 할 일</span></div><div class="stb">
@@ -1255,7 +1261,7 @@ function updateCard(p,post){
   const el=document.getElementById('post-'+post.id); if(!el||cur()!==p)return;
   const sp=post.spec, sec=parseSec(post.raw||''), wp=sp.platform==='wordpress';
   if(post.status==='done'&&!post.published&&!post.edited&&post.raw&&!bodyDone(post.raw)&&!p.remote){post.status='error';post.error='글이 중간에 끊겨 본문이 완성되지 않았습니다. "다시 쓰기"를 누르세요 (리서치는 재사용돼 글쓰기 비용만 듭니다).';save()}
-  if(post.edited)sec.BODY=post.edited;
+  if(post.edited)sec.BODY=fixNumbers(post.edited);
   const title=post.title||sec.TITLE||'';
   const KW=post.kw||p.keyword;
   const st=post.status==='done'?(post.published?'<span class="pill ok">✓ 사용 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='research'?'<span class="pill warn">리서치 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
@@ -1351,7 +1357,7 @@ $('#writeArea').addEventListener('click',async e=>{
     if(post.published){toast('사용 완료로 표시했습니다');const nx=p.posts.find(x=>x.status==='done'&&!x.published);if(nx)toast(`다음 글: ${nx.title||nx.spec.sub_keyword}`)}
     return;
   }
-  if(post.edited)sec.BODY=post.edited;
+  if(post.edited)sec.BODY=fixNumbers(post.edited);
   if(act==='pickTitle'){post.title=b.dataset.t;post.titleEdited=true;saveNow();updateCard(p,post);renderSide();toast('제목을 바꿨습니다');return}
   if(act==='edit'){post.editing=true;updateCard(p,post);return}
   if(act==='editCancel'){post.editing=false;updateCard(p,post);return}
