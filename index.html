@@ -203,7 +203,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   <p class="lead">키워드 1개로 글 1개를 씁니다. 후보를 찾거나 직접 입력하세요.</p>
   <div class="card">
     <button class="btn pri" id="findBtn">키워드 자동찾기</button>
-    <div class="hint" id="findHint">최근 뉴스·정부/지자체 공고에서 서로 다른 후보 10개를 찾습니다. 이미 글을 쓴 키워드는 빠집니다. 1분 안팎.</div>
+    <div class="hint" id="findHint">블로그 주제 안에서 서로 다른 후보 10개를 찾습니다. 이미 글을 쓴 키워드는 빠집니다. 1분 안팎. (주제는 설정에서 바꿔요)</div>
     <div class="err" id="findErr"></div>
     <label class="f" for="manualKw">직접 입력</label>
     <input type="text" id="manualKw" placeholder="예: 민생지원금 신청방법">
@@ -257,6 +257,9 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   </div>
   <div class="card">
     <h3>글쓰기 설정</h3>
+    <label class="f" for="topic">블로그 주제 (키워드는 이 안에서만 찾아요)</label>
+    <input type="text" id="topic" placeholder="부업, 돈 아끼는 방법">
+    <div class="hint">네이버는 한 분야에 집중한 블로그를 더 자주 인용해요. 1~2개 분야로 좁게 정하세요.</div>
     <label class="f" for="cats">내 네이버 블로그 카테고리 (쉼표로 구분)</label>
     <input type="text" id="cats">
     <div class="hint">4~6개 권장. 글마다 이 중 하나를 추천해 줍니다.</div>
@@ -385,7 +388,7 @@ function pResearch(kw){return P().pResearch(kw)}
 function pWrite(pr,post){return P().pWrite(pr,post)}
 function buildPosts(kw,plan){return P().buildPosts(kw,plan)}
 const LS_STATE='bh_state_v1', LS_KEY='bh_api_key';
-const DEF={model:'claude-sonnet-5-5',categories:'지원금·정책, 생활정보, 해외직구·배송, 돈 아끼는 법, 일상·후기',interest:'해외직구·배송·통관',detail:true,mode:'browser',repo:'',kwModel:'claude-haiku-5-5',researchModel:'claude-sonnet-5-5',budgetUSD:10,rate:1400};
+const DEF={model:'claude-sonnet-5-5',topic:'부업, 돈 아끼는 방법',categories:'부업·N잡, 생활비 절약, 지원금·환급, 할인·혜택, 후기',interest:'해외직구·배송·통관',detail:true,mode:'browser',repo:'',kwModel:'claude-haiku-5-5',researchModel:'claude-sonnet-5-5',budgetUSD:10,rate:1400};
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1074,6 +1077,8 @@ function audit(post,KW,title,body,wp){
   nat.push({ok:maxRun<=3,t:maxRun<=3?'문장 끝맺음이 다양함':`같은 끝맺음("~${ends.find((e,i)=>ends.slice(i,i+maxRun).every(z=>z===e))}")이 ${maxRun}번 연속 — 기계적으로 읽혀요`,w:1});
   nat.push({ok:formal<0.5,t:formal<0.5?'친근한 말투':'"~습니다" 체가 많아 딱딱해요 — 해요체로 바꿔보세요',w:1});
   nat.push({ok:longN<=2,t:longN<=2?'문장 길이 적당':`80자 넘는 긴 문장 ${longN}개 — 나눠 쓰면 읽기 쉬워요`,w:1});
+  const talk=(plainText(body).match(/(더라구요|더라고요|던 거 같아요|던 것 같아요|거든요|었던 거 같|았던 거 같)/g)||[]).length;
+  nat.push({ok:talk>=3,t:talk>=3?`경험담 말투 ${talk}번 (자연스러움)`:`경험담 말투가 ${talk}번뿐 — "~더라구요", "~그랬던 거 같아요"를 몇 군데 섞어보세요`,w:1});
   nat.push({ok:!found.length,t:found.length?`AI 같은 표현: ${found.slice(0,4).join(', ')}`:'AI 티 나는 표현 없음',w:2});
   groups.push({n:'자연스러움',it:nat});
   // 3) AI 브리핑 인용
@@ -1531,7 +1536,7 @@ function renderSet(){
   document.querySelectorAll('input[name=mode]').forEach(r=>r.checked=r.value===(S.settings.mode||'browser'));
   $('#repo').value=S.settings.repo||'';const gt=lsGet(LS_GH);$('#ghTok').value='';$('#ghTok').placeholder=gt?'저장됨 (…'+gt.slice(-4)+')':'github_pat_...';
   $('#srvBox').classList.toggle('hide',(S.settings.mode||'browser')!=='server');
-  $('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#detail').checked=S.settings.detail!==false;
+  $('#topic').value=S.settings.topic||DEF.topic;$('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#detail').checked=S.settings.detail!==false;
 }
 $('#keySave').addEventListener('click',()=>{
   const v=$('#apiKey').value.trim();const m=$('#keyMsg');m.style.color='';
@@ -1579,7 +1584,7 @@ $('#wpTest').addEventListener('click',async()=>{
 $('#setSave').addEventListener('click',()=>{
   const cats=$('#cats').value.split(',').map(s=>s.trim()).filter(Boolean);
   if(!cats.length){toast('카테고리를 1개 이상 적어주세요');return}
-  S.settings.categories=cats.join(', ');S.settings.interest=$('#interest').value.trim();S.settings.detail=$('#detail').checked;
+  S.settings.categories=cats.join(', ');S.settings.topic=$('#topic').value.trim()||DEF.topic;S.settings.interest=$('#interest').value.trim();S.settings.detail=$('#detail').checked;
   saveNow();toast('저장했습니다');
 });
 $('#wipe').addEventListener('click',()=>{if(confirm('키워드·글·발행 기록을 모두 지울까요? 되돌릴 수 없습니다. (이번 달 사용 금액 기록은 남습니다)')){S.projects.forEach(p=>keepSpend(p.posts));S.keywords=[];S.projects=[];S.currentId=null;saveNow();toast('지웠습니다');renderHeader()}});
