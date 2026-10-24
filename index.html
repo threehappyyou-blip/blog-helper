@@ -52,6 +52,21 @@ aside{display:none}
 .si.used .tx>span{color:var(--muted);text-decoration:line-through}
 #hcost{font-size:13px;color:var(--sub)}
 #hcost.warn{color:var(--warn)} #hcost.over{color:var(--bad);font-weight:600}
+.step{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0 0 12px}
+.step.on{border:2px solid var(--pri)}
+.step.done .stb,.step.off .stb{display:none}
+.sth{display:flex;align-items:center;gap:10px;font-size:16px}
+.sth .num{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--bg);color:var(--sub);flex:none}
+.step.on .num{background:var(--pri-soft);color:var(--pri)}
+.step.done .num{background:var(--ok-soft);color:var(--ok)}
+.sth .stx{margin-left:auto;font-size:13px;color:var(--sub);text-align:right}
+.step.on .stx{color:var(--pri);font-weight:600}
+.step.off .sth b{color:var(--muted)}
+.stb{margin-top:10px}
+.stb .big{width:100%;justify-content:center;font-size:17px;padding:14px 16px;border-radius:12px}
+.mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+.mini div{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:13px;color:var(--sub)}
+.mini b{display:block;color:var(--text);font-size:15px}
 .hero{background:var(--card);border:1px solid var(--pri-line);border-radius:16px;padding:20px;margin:0 0 14px}
 .hero .big{width:100%;justify-content:center;font-size:17px;padding:14px 16px;border-radius:12px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:10px 0}
@@ -73,6 +88,9 @@ textarea.edit{min-height:360px;font-family:inherit;font-size:14px;line-height:1.
 .budget i{display:block;height:100%;background:var(--ok)}
 .qbox{border:1px solid var(--pri-line);background:var(--pri-soft);border-radius:10px;padding:10px 14px;margin:0 0 12px}
 .qbox p{margin:0 0 4px}.qbox ul{margin:0;padding-left:18px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.cards figure{margin:0}.cards img{width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+.cards figcaption{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--sub);margin-top:4px}
 .usedbar{background:var(--ok-soft);color:var(--ok);border-radius:10px;padding:10px 12px;margin-top:14px;font-weight:600}
 h1{font-size:26px;margin:4px 0 2px}
 h2{font-size:20px;margin:0 0 8px}
@@ -158,17 +176,17 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <main>
 <!-- 홈 -->
 <section id="tab-home">
-  <h1>블로그 도우미</h1>
-  <p class="lead">키워드 찾기 · 키워드 1개로 글 1개 · 발행 관리</p>
-  <div class="hero" id="hero">
-    <h2 style="margin:0 0 4px">오늘 글 1개 쓰기</h2>
-    <div class="hint">키워드 찾기 → 가장 좋은 키워드 고르기 → 리서치 → 글 완성까지 버튼 하나로. 이미 쓴 키워드는 자동으로 빠집니다.</div>
-    <div class="seg" role="radiogroup" aria-label="글 종류"><label><input type="radio" name="onePf" value="naver" checked>네이버</label><label><input type="radio" name="onePf" value="wordpress">워드프레스</label></div>
-    <button class="btn pri big" id="oneBtn">추천 키워드로 글 쓰기</button>
-    <div class="err" id="oneErr"></div>
+  <div class="step" id="st1">
+    <div class="sth"><span class="num" id="st1n">1</span><b>키워드 · 글 쓰기</b><span class="stx" id="st1s"></span></div>
+    <div class="stb">
+      <div class="hint" id="st1h">실제로 검색되는 키워드를 골라 리서치부터 글 완성까지 한 번에 진행해요. 이미 쓴 키워드는 빠져요.</div>
+      <div class="seg" role="radiogroup" aria-label="글 종류"><label><input type="radio" name="onePf" value="naver" checked>네이버</label><label><input type="radio" name="onePf" value="wordpress">워드프레스</label></div>
+      <button class="btn pri big" id="oneBtn">추천 키워드로 글 쓰기</button>
+      <div class="err" id="oneErr"></div>
+    </div>
   </div>
-  <div class="todo" id="todo"></div>
-  <div class="notice"><b>처음이세요?</b> <a href="#" data-go="help">도움말</a>을 열고 위에서부터 따라 하세요.</div>
+  <div id="todo"></div>
+  <div class="notice" id="firstTip"><b>처음이세요?</b> <a href="#" data-go="help">도움말</a>을 열고 위에서부터 따라 하세요.</div>
   <div class="card">
     <div class="row"><h3 style="margin:0">전체 백업</h3>
       <button class="btn sm" id="bkSave">전체 백업 받기</button>
@@ -396,7 +414,7 @@ function renderHeader(){
   $('#hstat').textContent=all.length?`사용 완료 ${done}/${all.length}`:'';
   const sp=monthSpend(),b=budget(),hc=$('#hcost');
   hc.textContent=`이번 달 ${won(sp)} / 예산 ${won(b)}`;hc.className=sp>=b?'over':sp>=b*0.8?'warn':'';
-  const ob=$('#oneBtn');if(ob&&!ob.disabled)ob.textContent='추천 키워드로 글 쓰기 · '+estWon('post');
+  const ob=$('#oneBtn');if(ob&&!ob.disabled&&!ob.dataset.goSet)ob.textContent='추천 키워드로 글 쓰기 · '+estWon('post');
   const fb=$('#findBtn');if(fb&&!fb.disabled)fb.textContent='키워드 자동찾기 · '+estWon('keywords');
   renderSide();
 }
@@ -433,6 +451,7 @@ function pickBest(pf){
 }
 let oneRunning=false;
 async function oneClick(){
+  if($('#oneBtn').dataset.goSet){go('set');return}
   if(oneRunning)return;const err=$('#oneErr');err.textContent='';
   if(!lsGet(LS_KEY)){toast('먼저 Claude API 키를 넣어주세요');go('set');return}
   if(isServer()&&!serverReady()){toast('서버 연결을 먼저 해주세요');go('set');return}
@@ -455,20 +474,50 @@ $('#oneBtn').addEventListener('click',oneClick);
 
 /* ---------- 홈: 지금 할 일 ---------- */
 function renderTodo(){
-  const key=lsGet(LS_KEY); const p=cur();
-  const allPosts=S.projects.flatMap(pr=>(pr.posts||[]).map(x=>({pr,x})));
-  const ready=allPosts.filter(o=>o.x.status==='done'&&!o.x.published);
-  const flow=`1 키워드(${S.keywords.length?S.keywords.length+'개 후보':'아직 없음'}) → 2 글 만들기(${p?(p.posts||[]).filter(x=>x.status==='done').length+'/'+(p.posts||[]).length:'-'}) → 3 발행(${allPosts.filter(o=>o.x.published).length}/${allPosts.length||0})`;
-  let now,btn,goTab;
-  if(!key){now='처음 한 번만: Claude API 키를 넣으면 키워드 찾기와 글쓰기가 모두 됩니다.';btn='API 키 넣기 (1분) →';goTab='set'}
-  else if(isServer()&&!serverReady()){now='서버 글쓰기를 쓰려면 저장소와 GitHub 토큰을 넣어주세요.';btn='서버 연결하기 →';goTab='set'}
-  else if(p&&p.remote&&LIVE.includes(p.status)){now=`"${p.keyword}" 글을 서버에서 쓰는 중입니다. 창을 닫아도 됩니다.`;btn='진행 상황 보기 →';goTab='write'}
-  else if(p&&p.running){now=`"${p.keyword}" 글을 만드는 중입니다. 화면을 닫지 마세요.`;btn='진행 상황 보기 →';goTab='write'}
-  else if(ready.length){const d=nextDay(ready);now=`업로드할 글이 ${ready.length}개 있습니다. 오늘은 ${d.length}개를 올려보세요.`;btn='발행 관리 열기 →';goTab='pub'}
-  else if(S.keywords.length){now='키워드 후보 중 하나를 골라 글을 쓰세요.';btn='키워드 고르기 →';goTab='kw'}
-  else{now='키워드 자동찾기를 눌러 오늘의 후보를 받으세요.';btn='키워드 찾기 →';goTab='kw'}
-  $('#todo').innerHTML=`<div class="flow">${esc(flow)}</div><div class="now"><b>지금 할 일:</b> ${esc(now)}</div><button class="btn pri" data-go="${goTab}">${esc(btn)}</button>`;
+  const key=lsGet(LS_KEY);
+  const all=S.projects.flatMap(pr=>(pr.posts||[]).map(x=>({pr,x})));
+  const busy=S.projects.find(p=>p.running||(p.remote&&LIVE.includes(p.status)));
+  const ready=all.filter(o=>o.x.status==='done'&&!o.x.published);
+  const failed=all.filter(o=>o.x.status==='error');
+  const pick=ready[0]||null;
+  const st1=$('#st1');
+  // 1단계
+  let s1='on';
+  if(!key||(isServer()&&!serverReady())){
+    $('#st1h').innerHTML=!key?'처음 한 번만: 설정에서 Claude API 키를 넣어주세요.':'서버 글쓰기를 쓰려면 설정에서 저장소와 토큰을 넣어주세요.';
+    $('#oneBtn').dataset.goSet='1';$('#oneBtn').textContent=!key?'API 키 넣으러 가기':'서버 연결하러 가기';
+  }else{
+    delete $('#oneBtn').dataset.goSet;$('#st1h').textContent='실제로 검색되는 키워드를 골라 리서치부터 글 완성까지 한 번에 진행해요. 이미 쓴 키워드는 빠져요.';
+    if(busy){s1='done';$('#st1s').textContent=`"${busy.keyword}" 쓰는 중`}
+    else if(pick){s1='done';$('#st1s').innerHTML=`<a href="#" data-showone="1">새 글 하나 더</a>`}
+    else $('#st1s').textContent='지금 할 일';
+  }
+  st1.className='step '+s1;$('#st1n').textContent=s1==='done'?'✓':'1';
+  // 2·3단계
+  let h='';
+  if(busy){
+    const x=busy.posts.find(y=>y.status!=='done')||busy.posts[0]||{};
+    h+=`<div class="step on"><div class="sth"><span class="num">2</span><b>글 완성 · 품질 점검</b><span class="stx">작성 중</span></div><div class="stb">
+      <div class="hint">${x.status==='research'?'1차 출처와 상위 글을 확인하고 있어요 (1~2분)':'글을 쓰고 있어요 (1~3분)'}${busy.remote?' · 창을 닫아도 서버에서 계속 써요':' · 다른 탭은 봐도 되지만 이 탭은 닫지 마세요'}</div>
+      <button class="btn big" data-open="${busy.id}|${x.id||''}">진행 상황 보기</button></div></div>`;
+  }else if(pick){
+    const sec=parseSec(pick.x.raw||'');if(pick.x.edited)sec.BODY=pick.x.edited;
+    const KW=pick.x.kw||pick.pr.keyword,ti=pick.x.title||sec.TITLE||'',au=audit(pick.x,KW,ti,sec.BODY||'',pick.x.spec.platform==='wordpress');
+    const bad=au.groups.reduce((n,g)=>n+g.it.filter(i=>!i.ok).length,0);
+    h+=`<div class="step on"><div class="sth"><span class="num">2</span><b>미리 보기 · 다듬기</b><span class="stx">지금 할 일</span></div><div class="stb">
+      <div style="font-weight:600">${esc(ti)}</div>
+      <div class="mini"><div>품질 점검<b>${au.score}점${bad?` · 고칠 곳 ${bad}`:''}</b></div><div>카드 이미지<b>${parseCards(sec.CARDS).length}장</b></div></div>
+      <button class="btn pri big" data-open="${pick.pr.id}|${pick.x.id}">글 열고 올리기 시작</button>
+      ${ready.length>1?`<div class="hint" style="margin-top:6px">올릴 글이 ${ready.length}개 있어요. 네이버는 하루 1~2개가 안전해요.</div>`:''}</div></div>`;
+  }else{
+    h+=`<div class="step off"><div class="sth"><span class="num">2</span><b>미리 보기 · 다듬기</b><span class="stx">${failed.length?`<a href="#" data-open="${failed[0].pr.id}|${failed[0].x.id}" style="color:var(--bad)">실패한 글 ${failed.length}개</a>`:''}</span></div></div>`;
+  }
+  const pub=all.filter(o=>o.x.published).length;
+  h+=`<div class="step off"><div class="sth"><span class="num">3</span><b>발행 · 노출 확인</b><span class="stx">${pub?`올린 글 ${pub}개 · <a href="#" data-go="pub">관리</a>`:''}</span></div></div>`;
+  $('#todo').innerHTML=h;
+  $('#firstTip').classList.toggle('hide',all.length>0);
 }
+document.addEventListener('click',e=>{const a=e.target.closest('[data-showone]');if(!a)return;e.preventDefault();const st=$('#st1');st.className='step on';$('#st1s').textContent='';});
 function nextDay(list){
   const naver=list.filter(o=>o.x.spec.platform==='naver').sort((a,b)=>(a.x.spec.publish_day||9)-(b.x.spec.publish_day||9));
   const out=naver.slice(0,2); const wp=list.find(o=>o.x.spec.platform==='wordpress'); if(wp)out.push(wp); return out;
@@ -504,7 +553,7 @@ async function claudeFetch(body,stream){
 }
 const sleepMs=ms=>new Promise(r=>setTimeout(r,ms));
 // 본문 다음 표시줄(@@PHOTOS 등)이 나왔으면 본문은 끝까지 온 것
-const bodyDone=t=>/@@BODY[\s\S]*\n@@(PHOTOS|TABLEIMG|EXPERIENCE|CHECK|META|SLUG|TITLES)\b/.test(t||'');
+const bodyDone=t=>/@@BODY[\s\S]*\n@@(PHOTOS|TABLEIMG|CARDS|EXPERIENCE|CHECK|META|SLUG|TITLES)\b/.test(t||'');
 let webBasic=true; // 검색 걸러내기는 코드 작성 토큰이 들어 오히려 잘림·비용 증가 → 일반 검색 사용
 const WEB=n=>webBasic?{type:'web_search_20250305',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}}
   :{type:'web_search_20260209',name:'web_search',max_uses:n,user_location:{type:'approximate',country:'KR',timezone:'Asia/Seoul'}};
@@ -934,7 +983,7 @@ function seoScore(KW,title,body,wp){
   const kwN=KW?B.split(KW).length-1:0;
   add(T.includes(KW),15,'제목에 키워드','제목에 키워드를 그대로 넣으세요');
   add(T.indexOf(KW)>=0&&T.indexOf(KW)<=8,5,'키워드가 제목 앞쪽','키워드를 제목 앞쪽으로 옮기세요');
-  add(/\d/.test(T)||/[?？]/.test(T)||/(마감|까지|놓치|손해|라면|방법|이유|꼭|주의)/.test(T),7,'제목에 클릭 요소(숫자·마감·질문·대상)','제목에 숫자·마감·질문·대상 같은 클릭 요소를 넣으세요 (제목 후보 참고)');
+  add(/\d/.test(T)||/[?？]/.test(T)||/(마감|까지|놓치|손해|라면|이유|주의|탈락|이것|하나|생기는|왜|몰라|모르면|차이|실수|진짜|함정|전에|후기|비교)/.test(T),7,'제목에 클릭 요소(숫자·마감·질문·대상)','제목에 숫자·마감·질문·대상 같은 클릭 요소를 넣으세요 (제목 후보 참고)');
   const tl=T.length;add(wp?tl>=20&&tl<=45:tl>=12&&tl<=35,8,`제목 길이 적당 (${tl}자)`,`제목 길이 ${tl}자 → ${wp?'20~45':'12~35'}자로`);
   add(first.includes(KW),10,'첫 문단에 키워드','첫 문단(200자 안)에 키워드를 넣으세요');
   add(/^>\s*/m.test(B.split('\n').slice(0,12).join('\n')),8,'맨 위 한눈에 보기 요약','맨 위에 "한눈에 보기" 요약을 넣으세요 (AI 브리핑 인용)');
@@ -949,6 +998,67 @@ function seoScore(KW,title,body,wp){
   const photos=(B.match(/\[사진 넣기/g)||[]).length;add(wp||photos>=3,5,`사진 자리 ${photos}곳`,'사진 자리를 3곳 이상 (네이버는 직접 찍은 사진이 많을수록 유리)');
   if(kwN>14){score-=8;miss.push(`키워드가 ${kwN}번으로 너무 많습니다 (반복은 감점) → 8~12번으로`)}
   return {score:Math.max(0,Math.min(100,Math.round(score))),ok,miss};
+}
+/* ---------- 품질 점검: 저품질·자연스러움·AI 인용 (사이트에서 계산 · 0원) ---------- */
+const AI_PHRASES=['알아보겠습니다','살펴보겠습니다','오늘은','결론적으로','다양한','도움이 되셨길','꼭 참고하세요','여러분','마무리하며','정리해 보겠습니다','에 대해 자세히'];
+function sentences(body){
+  return plainText(body).split(/(?<=[.?!])\s+|\n+/).map(x=>x.trim()).filter(x=>x.length>=6&&!/^[|>#-]/.test(x));
+}
+function plainText(b){return String(b||'').replace(/\[(사진|경험|확인|링크)[^\]]*\]/g,'').replace(/^\s*\|.*$/gm,'').replace(/^#+\s+/gm,'').replace(/[*>]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')}
+function ending(x){const m=x.replace(/[.?!~\s]+$/,'').match(/(습니다|입니다|해요|이에요|예요|거든요|더라고요|죠|어요|아요|네요|세요|까요|군요|다)$/);return m?m[1]:x.slice(-2)}
+function shingles(t){t=plainText(t).replace(/\s+/g,'');const out=new Set();for(let i=0;i+4<=t.length;i+=2)out.add(t.slice(i,i+4));return out}
+function similarity(a,b){if(!a.size||!b.size)return 0;let n=0;for(const x of a)if(b.has(x))n++;return n/Math.min(a.size,b.size)}
+let shCache=new Map();
+function maxSimilar(post,body){
+  const me=shingles(body);let best={v:0,t:''};
+  S.projects.forEach(p=>(p.posts||[]).forEach(x=>{
+    if(x===post||x.status!=='done'||!x.raw)return;
+    const key=x.id+':'+(x.editedAt||'')+':'+x.raw.length;let sh=shCache.get(key);
+    if(!sh){sh=shingles(x.edited||parseSec(x.raw).BODY||'');shCache.set(key,sh)}
+    const v=similarity(me,sh);if(v>best.v)best={v,t:x.title||x.spec.sub_keyword};
+  }));
+  return best;
+}
+function audit(post,KW,title,body,wp){
+  const seo=seoScore(KW,title,body,wp), groups=[];
+  // 1) 저품질 위험
+  const low=[],sim=maxSimilar(post,body),kwN=KW?body.split(KW).length-1:0;
+  low.push({ok:sim.v<0.3,t:sim.v<0.3?'다른 내 글과 겹치지 않음':`"${sim.t}"와 ${Math.round(sim.v*100)}% 비슷해요 — 같은 내용 반복은 유사문서로 묶여요. 방향을 바꿔 다시 쓰거나 고치세요`,w:sim.v>=0.5?3:2});
+  low.push({ok:kwN<=12,t:kwN<=12?`키워드 ${kwN}번 (적당)`:`키워드가 ${kwN}번 — 너무 많으면 저품질 신호예요. 8~12번으로 줄이세요`,w:2});
+  const photos=(body.match(/\[사진 넣기/g)||[]).length;
+  low.push({ok:wp||photos>=2,t:wp||photos>=2?`사진 자리 ${photos}곳 + 카드 이미지`:'사진 자리가 부족해요 — 직접 찍은 사진이 2장 이상 있어야 좋아요',w:1});
+  low.push({ok:!/\[확인 필요/.test(body),t:/\[확인 필요/.test(body)?'빨간 [확인 필요]가 남아 있어요 — 틀린 정보는 신뢰도를 떨어뜨려요':'확인 필요 항목 없음',w:1});
+  groups.push({n:'저품질 위험',it:low});
+  // 2) 자연스러움
+  const ss=sentences(body),ends=ss.map(ending);let run=1,maxRun=1;for(let i=1;i<ends.length;i++){run=ends[i]===ends[i-1]?run+1:1;if(run>maxRun)maxRun=run}
+  const formal=ends.filter(e=>e==='습니다'||e==='입니다').length/Math.max(1,ends.length);
+  const longN=ss.filter(x=>x.length>80).length,found=AI_PHRASES.filter(w=>body.includes(w));
+  const nat=[];
+  nat.push({ok:maxRun<=3,t:maxRun<=3?'문장 끝맺음이 다양함':`같은 끝맺음("~${ends.find((e,i)=>ends.slice(i,i+maxRun).every(z=>z===e))}")이 ${maxRun}번 연속 — 기계적으로 읽혀요`,w:1});
+  nat.push({ok:formal<0.5,t:formal<0.5?'친근한 말투':'"~습니다" 체가 많아 딱딱해요 — 해요체로 바꿔보세요',w:1});
+  nat.push({ok:longN<=2,t:longN<=2?'문장 길이 적당':`80자 넘는 긴 문장 ${longN}개 — 나눠 쓰면 읽기 쉬워요`,w:1});
+  nat.push({ok:!found.length,t:found.length?`AI 같은 표현: ${found.slice(0,4).join(', ')}`:'AI 티 나는 표현 없음',w:2});
+  groups.push({n:'자연스러움',it:nat});
+  // 3) AI 브리핑 인용
+  const cite=[];
+  const qBlocks=body.split(/^##\s+/m).slice(1).filter(b=>/[?？]\s*$/.test(b.split('\n')[0]));
+  const firstLines=qBlocks.map(b=>b.split('\n').slice(1).join(' ').trim().split(/(?<=[.?!])\s/)[0]||'');
+  cite.push({ok:/(은|는)\s[^.?!\n]{2,70}(제도|서비스|지원금|사업|혜택|카드|바우처|이에요|예요|입니다)/.test(plainText(body)),t:'정의 문장 ("○○은 ~하는 제도예요")',w:2});
+  cite.push({ok:/(에서|앱|사이트|누리집)[^.?!\n]{2,50}(누르|선택|신청|입력|조회)[^.?!\n]{0,20}(요|다)[.?!]?/.test(plainText(body)),t:'방법 한 문장 ("○○에서 ○○을 누르면 돼요")',w:1});
+  cite.push({ok:(body.match(/\([^)]*\d[^)]*\)/g)||[]).length>=2,t:'괄호 속 구체 정보 2곳 이상 ("(1인 295,200원)")',w:1});
+  cite.push({ok:firstLines.length>0&&firstLines.every(l=>!/^(그것|이것|그건|이건|이는|그는)/.test(l)),t:'질문형 소제목 아래 바로 답하기',w:1});
+  groups.push({n:'AI 브리핑 인용',it:cite});
+  groups.unshift({n:'검색 노출(SEO)',it:seo.ok.map(t=>({ok:true,t,w:1})).concat(seo.miss.map(t=>({ok:false,t,w:1}))),score:seo.score});
+  let tot=0,got=0;groups.slice(1).forEach(g=>g.it.forEach(x=>{tot+=x.w;if(x.ok)got+=x.w}));
+  const score=Math.round(seo.score*0.5+(tot?100*got/tot:100)*0.5);
+  const danger=low.some(x=>!x.ok&&x.w>=3);
+  return {score:danger?Math.min(score,59):score,groups,seo};
+}
+function auditBadge(a){return `<span class="seo ${a.score>=85?'g':a.score>=65?'m':'b'}">품질 ${a.score}점</span>`}
+function auditHtml(a){
+  return `<div class="sec"><h4>품질 점검 ${auditBadge(a)} <span class="pill ok">0원</span></h4>
+  ${a.groups.map(g=>{const bad=g.it.filter(x=>!x.ok);return `<details${bad.length?' open':''} style="margin:4px 0"><summary style="cursor:pointer;font-size:14px">${bad.length?'<span style="color:var(--warn)">●</span>':'<span style="color:var(--ok)">✓</span>'} ${esc(g.n)} <span class="hint">${g.it.length-bad.length}/${g.it.length}</span></summary><ul class="ck" style="margin:4px 0 0 18px">${g.it.map(x=>`<li style="${x.ok?'color:var(--ok)':''}">${x.ok?'✓':'✗'} ${esc(x.t)}</li>`).join('')}</ul></details>`}).join('')}
+  <div class="hint">점수는 사이트가 글을 직접 읽어 계산합니다(AI 호출 없음). 노출을 보장하지는 않아요.</div></div>`;
 }
 function seoBadge(r){return `<span class="seo ${r.score>=85?'g':r.score>=65?'m':'b'}">SEO ${r.score}점</span>`}
 
@@ -1019,6 +1129,61 @@ function titleOpts(sec,cur){
   const list=[sec.TITLE].concat(String(sec.TITLES||'').split('\n')).map(t=>String(t||'').replace(/^\s*([-*•]|\d+[.)])\s*/,'').replace(/^["']|["']$/g,'').trim()).filter(Boolean);
   const uniq=[...new Set(list)];if(uniq.length<2)return '';
   return `<div class="hint" style="margin-top:8px">다른 제목 후보 — 눌러서 바꾸기</div><div class="row" style="margin-top:4px">${uniq.map(t=>`<button class="btn sm${t===cur?' pri':''}" data-act="pickTitle" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>`;
+}
+/* ---------- 카드 이미지 (캔버스로 직접 그림 · 0원) ---------- */
+const cardCache=new Map();
+function parseCards(t){
+  return String(t||'').split('\n').map(l=>l.replace(/^\s*[-*•]\s*/,'').split('|').map(x=>x.trim())).filter(c=>c.length>=3&&/정의|요약|단계/.test(c[0])).map(c=>({k:c[0].replace(/\s/g,''),title:c[1],items:c.slice(2).join('|').split(/\s*;\s*/).filter(Boolean)}));
+}
+function wrapText(ctx,text,maxW){
+  const out=[];let line='';
+  for(const ch of String(text)){const t=line+ch;if(ctx.measureText(t).width>maxW&&line){const sp=line.lastIndexOf(' ');if(sp>line.length*0.6){out.push(line.slice(0,sp));line=line.slice(sp+1)+ch}else{out.push(line);line=ch.trim()}}else line=t}
+  if(line)out.push(line);return out;
+}
+async function cardPNG(c,kw){
+  const W=1080;const mc=document.createElement('canvas').getContext('2d');
+  try{await document.fonts.load('700 60px Pretendard');await document.fonts.load('500 40px Pretendard')}catch(_){}
+  const F=(w,sz)=>`${w} ${sz}px Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+  const theme={'정의':['#EEF3FF','#2453D6','한 줄 정의'],'요약':['#FFF6EA','#C26A12','한눈에 보기'],'단계':['#ECF8F1','#1F8A4C','따라하기']}[c.k]||['#F4F5F7','#333','정리'];
+  // 1) 배치 계산
+  const ops=[];let y=150;
+  ops.push(['label',y]);y+=100;
+  mc.font=F(700,64);const tl=wrapText(mc,c.title,W-220).slice(0,2);tl.forEach(l=>{ops.push(['title',y,l]);y+=82});
+  ops.push(['bar',y-20]);y+=60;
+  if(c.k==='정의'){mc.font=F(500,50);wrapText(mc,c.items.join(' '),W-220).slice(0,6).forEach(l=>{ops.push(['def',y,l]);y+=72})}
+  else c.items.slice(0,5).forEach((it,i)=>{
+    const ix=it.indexOf(':'),ab=c.k==='요약'&&ix>0?[it.slice(0,ix).trim(),it.slice(ix+1).trim()]:[null,it.trim()];
+    let tx=c.k==='단계'?196:156;mc.font=F(700,44);const aw=ab[0]?mc.measureText(ab[0]+'  ').width:0;
+    mc.font=F(500,44);const ls=wrapText(mc,ab[1],W-150-tx-aw).slice(0,2);
+    ops.push(['item',y,i,ab[0],ls,tx,aw]);y+=ls.length*58+40;
+  });
+  const H=Math.max(620,Math.min(1350,y+130));
+  // 2) 그리기
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
+  x.fillStyle=theme[0];x.fillRect(0,0,W,H);x.fillStyle='#fff';x.beginPath();x.roundRect(60,60,W-120,H-120,40);x.fill();
+  for(const o of ops){
+    if(o[0]==='label'){x.fillStyle=theme[1];x.font=F(600,34);x.fillText(theme[2],110,o[1])}
+    else if(o[0]==='title'){x.fillStyle='#1d1f23';x.font=F(700,64);x.fillText(o[2],110,o[1])}
+    else if(o[0]==='bar'){x.fillStyle=theme[1];x.fillRect(110,o[1],90,8)}
+    else if(o[0]==='def'){x.fillStyle='#2b2f36';x.font=F(500,50);x.fillText(o[2],110,o[1])}
+    else{const [,yy,i,a,ls,tx,aw]=o;
+      if(c.k==='단계'){x.fillStyle=theme[1];x.beginPath();x.arc(140,yy-16,30,0,7);x.fill();x.fillStyle='#fff';x.font=F(700,34);x.textAlign='center';x.fillText(String(i+1),140,yy-4);x.textAlign='left'}
+      else{x.fillStyle=theme[1];x.beginPath();x.arc(126,yy-16,10,0,7);x.fill()}
+      if(a){x.fillStyle='#1d1f23';x.font=F(700,44);x.fillText(a,tx,yy)}
+      x.fillStyle='#2b2f36';x.font=F(500,44);ls.forEach((l,j)=>x.fillText(l,tx+(j?0:aw),yy+j*58));
+    }
+  }
+  x.fillStyle='#8a9099';x.font=F(500,30);x.fillText(`${kw} · ${todayKST().slice(0,7).replace('-','.')} 기준`,110,H-110);
+  return cv.toDataURL('image/png');
+}
+async function drawCards(wrap,post,sec,title){
+  const cards=parseCards(sec.CARDS);const key=post.id+':'+(sec.CARDS||'').length;
+  if(wrap.dataset.done===key)return;wrap.dataset.done=key;
+  if(!cards.length){wrap.innerHTML='<div class="hint">카드 내용이 없습니다.</div>';return}
+  let urls=cardCache.get(key);
+  if(!urls){urls=[];for(const c of cards){try{urls.push(await cardPNG(c,post.kw||''))}catch(e){urls.push('')}}cardCache.set(key,urls)}
+  const base=(post.kw||'card').replace(/[^\w가-힣]+/g,'_');
+  wrap.innerHTML=cards.map((c,i)=>urls[i]?`<figure><img src="${urls[i]}" alt="${esc(c.k+': '+c.title)}"><figcaption><span>${esc(c.k)} 카드</span><a href="${urls[i]}" download="${esc(base)}_${i+1}.png">저장</a></figcaption></figure>`:'').join('');
 }
 function chkBadge(b){const n=(String(b||'').match(/\[확인 필요/g)||[]).length;return n?`<span class="pill bad">버튼 이름 확인 ${n}곳</span>`:''}
 /* ---------- 글 만들기 화면 ---------- */
@@ -1096,7 +1261,7 @@ function updateCard(p,post){
   const st=post.status==='done'?(post.published?'<span class="pill ok">✓ 사용 완료</span>':'<span class="pill pri">작성 완료</span>'):post.status==='writing'?'<span class="pill warn">작성 중…</span>':post.status==='research'?'<span class="pill warn">리서치 중…</span>':post.status==='error'?'<span class="pill bad">오류</span>':'<span class="pill">대기</span>';
   const sIdx=post.researchFrom?p.posts.filter(y=>y.researchFrom===post.researchFrom).indexOf(post)+2:0;
   const label=wp?'워드프레스':post.series?`시리즈 ${sIdx}편`:(post.kw?(p.posts.some(y=>y.researchFrom===post.id)?'시리즈 1편 · 네이버':'네이버'):`네이버 ${post.no}`);
-  const sum=`<summary><div class="ph">${label}${post.kw?'':' · '+(wp?'아무 때나':sp.publish_day+'일차')} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${seoBadge(seoScore(KW,title,sec.BODY||'',wp))}${kwBadges(KW,title,sec.BODY||'')}${chkBadge(sec.BODY)}</div>`:''}</summary>`;
+  const sum=`<summary><div class="ph">${label}${post.kw?'':' · '+(wp?'아무 때나':sp.publish_day+'일차')} · ${esc(sp.category)} ${st}</div><div class="pt">${esc(title||sp.sub_keyword)}</div>${post.status==='done'?`<div class="row">${auditBadge(audit(post,KW,title,sec.BODY||'',wp))}${kwBadges(KW,title,sec.BODY||'')}${chkBadge(sec.BODY)}</div>`:''}</summary>`;
   let body=post.published?'<div class="usedbar">✓ 이미 사용한 글입니다. 다시 올리지 마세요.</div>':'';
   if(post.status==='research'){body+=`<div class="sec hint">"${esc(KW)}" 1차 출처와 상위글을 확인하는 중입니다 (1~2분).</div>`}
   else if(post.status==='writing'){body+=`<div class="sec"><div class="raw" id="raw-${post.id}">${esc((post.raw||(p.remote?'서버에서 작성 중입니다… 끝나면 여기에 나타납니다.':'작성을 시작했습니다…')).slice(-1500))}</div></div>`}
@@ -1104,9 +1269,9 @@ function updateCard(p,post){
   else if(post.status==='error'){body+=`<div class="err">${esc(post.error)}</div>${post.usage&&(post.usage.in||post.usage.out)?`<div class="hint">이번 시도 사용량: ${fmtUsage(post.usage)}</div>`:''}<div class="row" style="margin-top:10px"><button class="btn pri sm" data-act="redo">다시 쓰기</button></div>`}
   else{
     const photos=(sec.PHOTOS||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'').trim()).filter(Boolean);
-    const seo=seoScore(KW,title,sec.BODY||'',wp);
+    const au=audit(post,KW,title,sec.BODY||'',wp);
     body+=`${post.published?'':flowHtml(post,wp,'top')}
-    <div class="sec"><h4>SEO·AI 검색 점수 ${seoBadge(seo)}</h4>${seo.miss.length?`<ul class="ck">${seo.miss.map(m=>`<li>✗ ${esc(m)}</li>`).join('')}</ul>`:'<div class="hint">빠진 항목이 없습니다.</div>'}<details style="margin-top:4px"><summary class="hint" style="cursor:pointer">통과한 항목 ${seo.ok.length}개</summary><ul class="ck">${seo.ok.map(m=>`<li style="color:var(--ok)">✓ ${esc(m)}</li>`).join('')}</ul></details></div>
+    ${auditHtml(au)}
     <div class="sec"><h4>${post.kw?'키워드 · 글 방향':'세부 키워드 · 각도'}</h4><div>${esc(post.kw||sp.sub_keyword)} — ${esc(sp.angle||'')}</div>${post.usage&&(post.usage.in||post.usage.out)?`<div class="hint">사용량: ${fmtUsage(post.usage)}</div>`:''}${sp.category_note?`<div class="hint">${esc(sp.category_note)}</div>`:''}</div>
     <div class="sec"><h4>추천 카테고리</h4><div><b>${esc(sp.category)}</b></div></div>
     <div class="sec"><h4>제목 (직접 손보세요)</h4><input type="text" data-act="title" value="${esc(title)}">
@@ -1121,7 +1286,7 @@ function updateCard(p,post){
     ${wp?wpHtml(post,sec):''}
     <div class="sec"><h4>사진 가이드 — 이 화면을 캡처하세요</h4>${photos.length?`<table class="mdt"><thead><tr><th>캡처할 화면</th><th>여는 곳</th><th>가릴 정보</th></tr></thead><tbody>${photos.map(l=>{const c=l.split('|').map(x=>x.trim());return `<tr><td>${esc(c[0]||'')}</td><td>${esc(c[1]||'')}</td><td>${esc(c[2]||'')}</td></tr>`}).join('')}</tbody></table>`:'<div class="hint">없음</div>'}
       <div class="hint">다른 블로그·뉴스 사진은 쓰지 마세요. 실제 신청을 안 해도 공고문·조회 화면 캡처면 충분합니다.</div></div>
-    <div class="sec"><h4>표 이미지 1장 (미리캔버스·캔바용)</h4>${md(sec.TABLEIMG||'')}</div>
+    ${sec.CARDS?`<div class="sec"><h4>카드 이미지 <span class="pill ok">0원</span></h4><div class="cards" data-cards="${post.id}"><div class="hint">이미지 만드는 중…</div></div><div class="hint">사이트가 직접 그린 정리 이미지예요. 폰은 이미지를 길게 눌러 저장, PC는 저장 버튼. 본문의 사진 자리에 직접 찍은 사진과 함께 넣으세요.</div></div>`:sec.TABLEIMG?`<div class="sec"><h4>표 이미지 1장 (미리캔버스·캔바용)</h4>${md(sec.TABLEIMG)}</div>`:''}
     <div class="sec"><h4>확인 경험 문장 예시</h4><div class="preview" style="max-height:none">${md(sec.EXPERIENCE||'')}</div>
       <div class="hint" style="color:var(--warn)">직접 확인한 내용으로 고쳐 쓰세요. 확인하지 않은 내용을 그대로 쓰면 거짓 경험이 됩니다.</div></div>
     <div class="sec"><h4>검증 체크리스트 — ⚠️는 원문과 꼭 대조</h4>${md((sec.CHECK||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'')).filter(Boolean).map(l=>'| '+l+' |').join('\n').replace(/^/,'| 항목 | 값 | 확인 |\n|---|---|---|\n'))}</div>
@@ -1135,6 +1300,7 @@ function updateCard(p,post){
   el.innerHTML=sum+`<div class="pbody">${body}</div>`;
   el.open=wasOpen;
   if(post.status==='writing'){const raw=document.getElementById('raw-'+post.id);if(raw)raw.scrollTop=raw.scrollHeight}
+  const cw=el.querySelector('[data-cards]');if(cw&&el.open)drawCards(cw,post,sec,title);
 }
 $('#writeArea').addEventListener('click',async e=>{
   if(e.target.id==='resume'){const p=cur();if(!p||p.running)return;
@@ -1227,6 +1393,7 @@ $('#writeArea').addEventListener('input',e=>{
   post.title=b.value; post.titleEdited=true; save();
   const chk=det.querySelector('[data-kwchk]'); if(chk)chk.innerHTML=kwBadges(post.kw||p.keyword,b.value,post.edited||parseSec(post.raw).BODY||'');
   const pt=det.querySelector('.pt'); if(pt)pt.textContent=b.value||post.spec.sub_keyword;
+  clearTimeout(post._t);post._t=setTimeout(()=>{const sb=det.querySelector('summary .seo');if(sb){const sc=parseSec(post.raw);sb.outerHTML=auditBadge(audit(post,post.kw||p.keyword,b.value,post.edited||sc.BODY||'',post.spec.platform==='wordpress'))}},400);
 });
 $('#writeArea').addEventListener('toggle',e=>{const d=e.target;if(!d.matches||!d.matches('details.post'))return;const p=cur();const post=p&&p.posts.find(x=>'post-'+x.id===d.id);if(post)post.open=d.open},true);
 $('#projSelWrap').addEventListener('change',e=>{if(e.target.id==='projSel'){S.currentId=e.target.value;save();renderWrite()}});
