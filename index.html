@@ -210,7 +210,9 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <div class="row" style="margin-top:8px">
       <button class="btn pri" data-manual="naver">네이버 글 쓰기</button>
       <button class="btn" data-manual="wordpress">워드프레스 글 쓰기</button>
+      <button class="btn" id="manualVol">검색량 확인 (0원)</button>
     </div>
+    <div id="manualVolOut"></div>
     <div class="err" id="manualErr"></div>
   </div>
   <div id="kwList"></div>
@@ -242,7 +244,8 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <div class="err" id="keyMsg"></div>
   </div>
   <div class="card">
-    <h3>글쓰는 곳</h3>
+    <h3>GitHub 연결 · 글쓰는 곳</h3>
+    <div class="hint">GitHub를 연결하면 실제 검색량 조회와 서버 글쓰기를 쓸 수 있어요.</div>
     <label class="chk" style="margin-top:6px"><input type="radio" name="mode" value="server"> GitHub 서버에서 쓰기 (추천 · 창을 닫아도 멈추지 않음)</label>
     <label class="chk" style="margin-top:6px"><input type="radio" name="mode" value="browser"> 이 브라우저에서 쓰기 (탭을 닫으면 멈춤)</label>
     <div id="srvBox">
@@ -467,7 +470,7 @@ document.addEventListener('change',e=>{if(e.target.id==='hideUsed'){S.settings.h
 /* ---------- 홈: 버튼 하나로 글 쓰기 ---------- */
 function pickBest(pf){
   const c=S.keywords.filter(k=>k&&k.keyword&&!isUsedKw(k.keyword)&&k.official_source!==false);
-  const sc=k=>(k.opportunity||3)*10+(k.type==='이슈형'?3:0)+(k.competition==='낮음'?4:k.competition==='높음'?-4:0)+(pf==='wordpress'&&k.wordpress_fit?8:0);
+  const sc=k=>(k.vol?volScore(k):(k.opportunity||3)*10+(k.competition==='낮음'?4:k.competition==='높음'?-4:0))+(k.type==='이슈형'?3:0)+(pf==='wordpress'&&k.wordpress_fit?8:0);
   return c.sort((a,b)=>sc(b)-sc(a))[0]||null;
 }
 let oneRunning=false;
@@ -484,10 +487,10 @@ async function oneClick(){
   if(!confirm(`${fresh?`추천 키워드 "${fresh.keyword}"`:'오늘의 키워드를 찾아 가장 좋은 키워드'}로 ${pf==='wordpress'?'워드프레스':'네이버'} 글 1개를 씁니다.\n예상 비용: 약 ${won(est)}\n\n진행할까요?`))return;
   oneRunning=true;const b=$('#oneBtn');b.disabled=true;
   try{
-    if(!fresh){b.textContent='① 키워드 찾는 중… (1분 안팎)';const ok=await findKeywords({noConfirm:true,errEl:err});if(!ok)return}
+    if(!fresh){b.textContent='① 키워드 찾는 중… (1분 안팎)';const ok=await findKeywords({noConfirm:true,errEl:err,statusEl:{set textContent(v){b.textContent='② '+v}}});if(!ok)return}
     const k=pickBest(pf);
     if(!k){err.textContent='새로 쓸 만한 키워드가 없습니다. 잠시 뒤 다시 찾아보세요.';return}
-    b.textContent='② 글 쓰는 중…';
+    b.textContent='③ 글 쓰는 중…';
     startProject(k.keyword,pf,k,{noConfirm:true});
   }finally{oneRunning=false;b.disabled=false;renderHeader()}
 }
@@ -676,7 +679,9 @@ async function findKeywords(opt={}){
     const text=await searchRun(sys,user,8000,4,{model:MODELS().kw,usage,onTick:n=>{searches+=n}});
     const j=extractJSON(text);
     if(!Array.isArray(j.keywords)||!j.keywords.length)throw new Error('키워드를 찾지 못했습니다. 다시 시도해 주세요.');
-    S.keywords=j.keywords.filter(k=>k&&k.keyword).sort((a,b)=>(b.opportunity||0)-(a.opportunity||0)); S.keywordsAt=new Date().toISOString(); ok=true;
+    S.keywords=j.keywords.filter(k=>k&&k.keyword).sort((a,b)=>(b.opportunity||0)-(a.opportunity||0)); S.keywordsAt=new Date().toISOString(); S.relatedKw=[]; ok=true;
+    saveNow();renderKw();
+    if(ghReady()){clearInterval(tick);btn.textContent='실제 검색량 확인 중…';await attachVolumes(opt.statusEl||$('#findHint'));$('#findHint').textContent='블로그 주제 안에서 후보 10개를 찾고, 네이버 실제 검색량 순으로 정렬했어요.'}
   }catch(e){$('#findErr').textContent=e.message;if(opt.errEl)opt.errEl.textContent=e.message}
   finally{(usage.log||[]).forEach(x=>(S.extraSpend=S.extraSpend||[]).push(Object.assign({a:'키워드 찾기'},x)));saveNow();clearInterval(tick);btn.disabled=false;btn.textContent='키워드 자동찾기 · '+estWon('keywords');finding=false;renderKw();renderHeader()}
   return ok;
@@ -688,28 +693,84 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-manual]');
   if(k.length>40){$('#manualErr').textContent='키워드가 너무 깁니다. 2~4단어로 줄여주세요.';return}
   startProject(k,b.dataset.manual,null);
 });
+/* ---------- 실제 검색량 (네이버 검색광고 API · GitHub 서버 경유 · 0원) ---------- */
+async function volLookup(keywords,onTick){
+  const id=uid(),file='requests/kw-'+id+'.json';
+  await ghPut(file,{id,status:'queued',createdAt:new Date().toISOString(),keywords},null,'검색량 조회 요청');
+  const t0=Date.now();
+  while(Date.now()-t0<180000){
+    await sleepMs(6000);onTick&&onTick(Math.round((Date.now()-t0)/1000));
+    try{const r=await ghGet(file);if(r&&r.data&&r.data.status==='done')return r.data;if(r&&r.data&&r.data.status==='error')throw new Error(r.data.error)}
+    catch(e){if(!/GitHub에 연결/.test(e.message))throw e}
+  }
+  throw new Error('검색량 조회가 3분 안에 끝나지 않았어요. GitHub Actions 탭에서 "키워드 검색량 조회"가 실행됐는지 확인하세요.');
+}
+function volScore(k){
+  if(!k.vol)return (k.opportunity||3)*10;
+  const t=k.vol.total||0,c=k.vol.comp;
+  return Math.log10(t+1)*14+(c==='낮음'?8:c==='높음'?-6:0)+(k.opportunity||3)*3+(t<100?-30:0);
+}
+function topicTokens(){return [...new Set(S.keywords.flatMap(k=>String(k.keyword).split(/\s+/)).filter(w=>w.length>=2))]}
+async function attachVolumes(statusEl){
+  if(!ghReady()||!S.keywords.length)return false;
+  try{
+    const d=await volLookup(S.keywords.map(k=>k.keyword),s=>{if(statusEl)statusEl.textContent=`실제 검색량 확인 중… ${s}초 (보통 30~90초)`});
+    const m=new Map((d.results||[]).map(r=>[nsp(r.q),r]));
+    S.keywords.forEach(k=>{const r=m.get(nsp(k.keyword));if(r)k.vol={pc:r.pc,mo:r.mo,total:r.total,comp:r.comp,none:!!r.none}});
+    S.keywords.sort((a,b)=>volScore(b)-volScore(a));
+    const tok=topicTokens();S.relatedKw=(d.related||[]).filter(r=>r.total>=300&&tok.some(w=>r.kw.includes(w))&&!isUsedKw(r.kw)).slice(0,12);
+    S.volAt=new Date().toISOString();saveNow();return true;
+  }catch(e){if(statusEl)statusEl.textContent='검색량 확인 실패: '+e.message;return false}
+}
+const fmtN=n=>(n||0).toLocaleString('ko-KR');
+function volPills(v){
+  if(!v)return '';
+  if(v.none)return '<span class="pill warn">검색량 데이터 없음</span>';
+  const t=v.total||0,cls=t>=1000?'ok':t>=100?'warn':'bad';
+  return `<span class="pill ${cls}">월 ${fmtN(t)}회 검색${t<100?' · 적음':''}</span><span class="pill">모바일 ${Math.round(100*(v.mo||0)/Math.max(1,t))}%</span>${v.comp?`<span class="pill ${v.comp==='낮음'?'ok':v.comp==='높음'?'bad':'warn'}">광고 경쟁 ${esc(v.comp)}</span>`:''}`;
+}
 function usedKeywords(){const out=new Set();S.projects.forEach(p=>{if(p.keyword)out.add(p.keyword);(p.posts||[]).forEach(x=>{if(x.kw)out.add(x.kw)})});return [...out]}
 const nsp=s=>String(s||'').replace(/\s+/g,'');
 function isUsedKw(k){const n=nsp(k);return usedKeywords().some(u=>nsp(u)===n)}
 $('#manualKw').addEventListener('input',()=>{$('#manualErr').textContent=''});
+$('#manualVol').addEventListener('click',async()=>{
+  const k=$('#manualKw').value.trim(),out=$('#manualVolOut');$('#manualErr').textContent='';
+  if(!k){$('#manualErr').textContent='키워드를 먼저 입력하세요.';return}
+  if(!ghReady()){$('#manualErr').textContent='설정에서 GitHub 저장소와 토큰을 먼저 연결하세요.';return}
+  const b=$('#manualVol');b.disabled=true;
+  try{const d=await volLookup([k],s=>{b.textContent=`확인 중… ${s}초`});const r=(d.results||[])[0];
+    out.innerHTML=`<div class="row" style="margin-top:8px">${volPills(r&&{pc:r.pc,mo:r.mo,total:r.total,comp:r.comp,none:r.none})}</div>`+relHtml((d.related||[]).filter(x=>x.total>=100&&!isUsedKw(x.kw)&&k.split(/\s+/).filter(w=>w.length>=2).some(w=>x.kw.includes(w))).slice(0,10));}
+  catch(e){$('#manualErr').textContent=e.message}
+  finally{b.disabled=false;b.textContent='검색량 확인 (0원)'}
+});
+function relHtml(list){
+  if(!list||!list.length)return '';
+  return `<div class="card"><h3>사람들이 함께 찾는 키워드 <span class="pill ok">실제 검색량</span></h3><div class="hint" style="margin-bottom:8px">누르면 위 "직접 입력"에 들어가요. 띄어쓰기를 넣어 다듬은 뒤 글을 쓰세요.</div>
+  ${list.map(r=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:nowrap"><span style="min-width:0">${esc(r.kw)}</span><span class="row" style="flex:none">${volPills(r)}<button class="btn sm" data-relkw="${esc(r.kw)}">쓰기</button></span></div>`).join('')}</div>`;
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-relkw]');if(!b)return;const i=$('#manualKw');i.value=b.dataset.relkw;i.focus();window.scrollTo({top:0,behavior:'smooth'});toast('띄어쓰기를 다듬고 글 쓰기를 누르세요')});
 function renderKw(){
   const el=$('#kwList');
   if(!S.keywords.length){el.innerHTML='';return}
   const when=S.keywordsAt?new Date(S.keywordsAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-  el.innerHTML=`<div class="hint" style="margin:0 0 8px">${esc(when)} 기준 후보 · 이슈형은 하루이틀 안에 쓰는 게 좋습니다</div>`+S.keywords.map((k,i)=>{
+  const hasVol=S.keywords.some(k=>k.vol);
+  el.innerHTML=`<div class="hint" style="margin:0 0 8px">${esc(when)} 기준 후보 · ${hasVol?'네이버 실제 월간 검색수 기준 정렬':ghReady()?'검색량을 아직 못 받았어요':'설정에서 GitHub를 연결하면 실제 검색량이 나와요'} · 이슈형은 하루이틀 안에 쓰는 게 좋아요</div>`+S.keywords.map((k,i)=>{
     const used=isUsedKw(k.keyword);
     const comp=k.competition==='높음'?'bad':k.competition==='낮음'?'ok':'warn';
     return `<div class="kw"><div class="t">${i===0&&!used?'<span class="pill ok" style="margin-right:6px">가장 추천</span>':''}${esc(k.keyword)}${k.opportunity?` <span class="pill">기회 ${'★'.repeat(Math.max(1,Math.min(5,k.opportunity)))}</span>`:''}</div>
-      <div class="row"><span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type||'')}</span><span class="pill">${esc(k.lifespan||'')}</span><span class="pill ${comp}">경쟁 ${esc(k.competition||'-')}</span><span class="pill">${esc(k.category||'')}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
+      ${k.vol?`<div class="row" style="margin-bottom:4px">${volPills(k.vol)}</div>`:''}
+      <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
       <div class="r">${esc(k.reason||'')}</div>
-      ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기 · ${estWon('post')}</button><button class="btn sm" data-kw="${i}" data-pf="wordpress">워드프레스${k.wordpress_fit?' (추천)':''}</button></div></div>`}).join('');
+      ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기 · ${estWon('post')}</button><button class="btn sm" data-kw="${i}" data-pf="wordpress">워드프레스${k.wordpress_fit?' (추천)':''}</button></div></div>`}).join('')
+    +relHtml(S.relatedKw);
 }
 $('#kwList').addEventListener('click',e=>{const b=e.target.closest('[data-kw]');if(!b)return;const k=S.keywords[+b.dataset.kw];if(k)startProject(k.keyword,b.dataset.pf,k)});
 
 /* ---------- GitHub 서버 연결 ---------- */
 const LS_GH='bh_gh_token';
 const isServer=()=>S.settings.mode==='server';
-const serverReady=()=>isServer()&&!!lsGet(LS_GH)&&/^[\w.-]+\/[\w.-]+$/.test(S.settings.repo||'');
+const ghReady=()=>!!lsGet(LS_GH)&&/^[\w.-]+\/[\w.-]+$/.test(S.settings.repo||'');
+const serverReady=()=>isServer()&&ghReady();
 function ghErr(status,m){
   if(status===401)return 'GitHub 토큰이 올바르지 않거나 만료됐습니다. 설정에서 다시 넣어주세요.';
   if(status===403)return 'GitHub 토큰 권한이 부족합니다(Contents·Actions 읽기/쓰기 필요). '+m;
@@ -1535,7 +1596,7 @@ function renderSet(){
   const k=lsGet(LS_KEY);$('#apiKey').value='';$('#apiKey').placeholder=k?'저장됨 (sk-ant-…'+k.slice(-4)+')':'sk-ant-...';
   document.querySelectorAll('input[name=mode]').forEach(r=>r.checked=r.value===(S.settings.mode||'browser'));
   $('#repo').value=S.settings.repo||'';const gt=lsGet(LS_GH);$('#ghTok').value='';$('#ghTok').placeholder=gt?'저장됨 (…'+gt.slice(-4)+')':'github_pat_...';
-  $('#srvBox').classList.toggle('hide',(S.settings.mode||'browser')!=='server');
+
   $('#topic').value=S.settings.topic||DEF.topic;$('#cats').value=S.settings.categories;$('#interest').value=S.settings.interest;$('#detail').checked=S.settings.detail!==false;
 }
 $('#keySave').addEventListener('click',()=>{
@@ -1589,13 +1650,13 @@ $('#setSave').addEventListener('click',()=>{
 });
 $('#wipe').addEventListener('click',()=>{if(confirm('키워드·글·발행 기록을 모두 지울까요? 되돌릴 수 없습니다. (이번 달 사용 금액 기록은 남습니다)')){S.projects.forEach(p=>keepSpend(p.posts));S.keywords=[];S.projects=[];S.currentId=null;saveNow();toast('지웠습니다');renderHeader()}});
 
-document.addEventListener('change',e=>{if(e.target.name==='mode')$('#srvBox').classList.toggle('hide',e.target.value!=='server')});
+
 $('#srvSave').addEventListener('click',()=>{
   const m=$('#srvMsg');m.style.color='';m.textContent='';
   const mode=(document.querySelector('input[name=mode]:checked')||{}).value||'browser';
   const repo=$('#repo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,'');
   const tok=$('#ghTok').value.trim();
-  if(mode==='server'){
+  if(mode==='server'||repo||tok){
     if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){m.textContent='저장소는 아이디/저장소 형식으로 적어주세요. 예: threehappyyou-blip/blog-helper-data';return}
     if(!tok&&!lsGet(LS_GH)){m.textContent='GitHub 토큰을 넣어주세요.';return}
     if(tok&&!/^(github_pat_|ghp_)/.test(tok)){m.textContent='github_pat_로 시작하는 토큰인지 확인하세요.';return}
@@ -1618,6 +1679,8 @@ $('#srvTest').addEventListener('click',async()=>{
     if(!wf)bad.push('작성기(.github/workflows/write.yml)가 저장소에 없습니다. 가이드 2단계를 확인하세요.');
     const pj=await gh('/contents/projects',{allow404:true});
     if(!pj)bad.push('projects 폴더가 없습니다. 가이드대로 파일을 모두 올렸는지 확인하세요.');
+    const kwf=await gh('/actions/workflows/keywords.yml',{allow404:true});
+    if(!kwf)bad.push('검색량 조회기(.github/workflows/keywords.yml)가 없어요. 새 파일 안내대로 만들어주세요.');
     if(bad.length){m.textContent=bad.join('\n');return}
     m.style.color='var(--ok)';m.textContent='서버 연결 완료. 이제 키워드를 고르면 서버가 대신 씁니다.';
     sync().then(schedulePoll);
