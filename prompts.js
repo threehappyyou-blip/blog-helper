@@ -21,6 +21,7 @@ function estimate(kind,models){
   const m=models||{};
   const call=(model,inT,out,srch)=>costOf(model,{input_tokens:inT,output_tokens:out,server_tool_use:{web_search_requests:srch}});
   if(kind==='keywords')return call(m.kw,25000,2500,4);
+  if(kind==='patterns')return call(m.research,60000,4000,6);
   if(kind==='research')return call(m.research,35000,3500,4);
   if(kind==='write')return call(m.write,6000,6000,0);
   if(kind==='series')return costOf(m.write,{input_tokens:1500,cache_read_input_tokens:4000,output_tokens:6000});
@@ -132,6 +133,28 @@ function researchOf(pr,post){
   if(post.researchFrom){const src=(pr.posts||[]).find(x=>x.id===post.researchFrom);if(src&&src.research)return src.research}
   return pr.research||{};
 }
+/* ===== 상위 글 공통 패턴 (한 달에 한 번 분석 → 모든 글쓰기에 짧게 반영) ===== */
+function pPatterns(kws){
+  kws=(kws||[]).filter(Boolean).slice(0,6);
+  const sys=`너는 한국 블로그 검색 노출 분석가다. 오늘은 ${todayKST()} (한국 시간)이다.
+[블로그 주제] ${S.settings.topic||'부업, 돈 아끼는 방법'}
+[분석할 키워드] ${kws.length?kws.join(', '):'주제 안에서 1년 내내 많이 검색되는 대표 키워드 5개를 직접 고른다'}
+할 일 (웹 검색은 최대 6회, 같은 검색 반복 금지):
+1) 구글: 키워드마다 상위에 나오는 블로그·정보 글을 보고, 글 안에서 눈으로 확인되는 공통 특징만 정리한다 — 제목 형태, 첫 문단에서 바로 답하는지, 요약 상자·목차, 소제목 수와 형태(질문형 등), 표·목록·이미지 수, 대략 글 길이, 기준 날짜·업데이트 표시, 공식 출처 표기, 자주 묻는 질문.
+2) 네이버: 네이버 블로그 상위 글을 찾을 수 있으면 같은 방식으로 정리한다. 찾지 못하면 naver.rules는 빈 목록으로 둔다(추측 금지).
+3) 블로그 운영 기간, 다른 사이트 링크, 클릭 수처럼 글 밖 요소는 확인할 수 없으니 규칙에 넣지 않는다.
+4) rules: 우리 글쓰기에 바로 적용할 규칙 6~8개. 한 줄짜리 짧은 명령문, 여러 상위 글에서 실제로 반복 확인된 것만. 키워드 반복 늘리기·낚시 제목·남의 문장 베끼기처럼 검색 품질 정책에 걸리는 요령은 절대 넣지 않는다.
+5) stats: 분석한 상위 글의 대략적인 중간값 — len(본문 글자 수), h2(소제목 수), tables(표 수), images(이미지 수). 확인 못 한 값은 0.
+6) examples: 분석한 글 최대 6개. url은 검색 결과에 나온 주소를 글자 그대로. why는 상위 이유로 보이는 글 안 특징 한 줄.
+JSON 앞뒤에 설명을 쓰지 않는다. 결과는 <json>...</json> 태그 안에 JSON 하나로만.
+형식: {"keywords":[""],"google":{"rules":[""],"stats":{"len":0,"h2":0,"tables":0,"images":0}},"naver":{"rules":[""],"stats":{"len":0,"h2":0,"tables":0,"images":0}},"examples":[{"where":"구글/네이버","kw":"","title":"","url":"","why":""}],"limits":"이번 분석의 한계 한 줄"}`;
+  return {sys,user:'상위 글 공통 패턴을 분석해줘.'};
+}
+function patternBlock(pf){
+  const P=S.settings.patterns,g=P&&P[pf];
+  if(!g||!Array.isArray(g.rules)||!g.rules.length)return '';
+  return `[상위 글 공통 패턴 (${String(P.at||'').slice(0,10)} 분석) — 글 구성에 반영한다. 조사 자료의 사실과 아래 품질 규칙이 항상 우선]\n${g.rules.slice(0,8).map(x=>'- '+String(x).slice(0,140)).join('\n')}\n\n`;
+}
 function pWrite(pr,post){
   const sp=post.spec, wp=sp.platform==='wordpress', detail=S.settings.detail!==false;
   const r=researchOf(pr,post);
@@ -144,7 +167,7 @@ function pWrite(pr,post){
 [조사 자료]
 ${compact(r)}
 
-공통 규칙:
+${patternBlock(wp?'google':'naver')}공통 규칙:
 [제목] 아래 [메인 키워드]를 글자 그대로 맨 앞에 두고, 뒤에는 궁금증을 만드는 한 구절을 붙인다.
 - 궁금증 = 답의 일부만 보여주고 나머지는 본문에 있다는 느낌. 예: "○○ 신청, 이것 하나 빠뜨려서 탈락해요", "○○ 받았는데 왜 금액이 다를까?", "○○ 12월 31일 지나면 생기는 일"
 - 숫자·대상·마감 중 하나를 꼭 넣는다(조사 자료로 사실인 것만). 숫자는 정확히, 결론은 제목에서 다 말하지 않는다.
@@ -341,7 +364,7 @@ ${en?'모든 출력(제목·본문·설명·태그)은 자연스러운 미국 �
 [조사 자료]
 ${compactAuto(r)}
 ${(recent||[]).length?`[이 블로그에 이미 올린 글 — 내용·제목이 겹치지 않게]\n${recent.slice(0,15).map(t=>'- '+t).join('\n')}\n`:''}${crossBlock(links,'html')}
-[품질 기준 — 애드센스·구글 스팸 정책 통과가 최우선]
+${en?'':patternBlock('google')}[품질 기준 — 애드센스·구글 스팸 정책 통과가 최우선]
 - 독자 질문에 실제로 답하는 독창적이고 유용한 글. 상위 글을 요약·재배열한 글이 아니라, 조사 자료의 competitors_missing(상위 글이 모두 빠뜨린 내용)과 competitors_errors 바로잡기를 담아 더 나은 글을 만든다.
 - 사실은 조사 자료에 있는 것만. confirmed:false는 ${en?'"not yet confirmed"':'"아직 확정되지 않았어요"'}라고 쓴다. 숫자·날짜·사례를 지어내지 않는다.
 - 지어낸 경험·사례 금지: ${en?'"I tried", "when I applied", "my mom"':'"제가 신청해 보니", "직접 해보니", "저희 엄마가"'} 같은 1인칭 행동·주변인 이야기를 쓰지 않는다. 대신 ${en?'"Based on the official notice", "A common mistake is"':'"공고문 기준으로 보면", "많이 헷갈리는 부분은"'}처럼 쓴다.
@@ -387,7 +410,7 @@ function pAutoFix(raw,issues){
 [고칠 점]
 ${issues.map(s=>'- '+s).join('\n')}`,user:raw};
 }
-  return {pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf,pAutoKeywords,pAutoResearch,pAutoWrite,pAutoFix};
+  return {pPatterns,pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf,pAutoKeywords,pAutoResearch,pAutoWrite,pAutoFix};
 }
 
 /* ===== 자동 발행 품질 검사 (0원 · 사이트와 서버 공용) ===== */
@@ -407,7 +430,7 @@ const BOILER=/(이 글은 [^.]*확인하세요\.?|This article summarizes[^.]*\.
 function shingles(t,k){t=nsp(String(t||'').replace(BOILER,' '));const s=new Set();for(let i=0;i+k<=t.length;i++)s.add(t.slice(i,i+k));return s}
 function textSim(a,b){const A=shingles(a,9),B=shingles(b,9);if(!A.size||!B.size)return 0;let n=0;A.forEach(g=>{if(B.has(g))n++});return n/Math.min(A.size,B.size)}
 // 발행해도 되는지 검사. fails가 하나라도 있으면 공개 발행하지 않고 임시저장으로 돌린다.
-function autoGate(sec,kw,lang,past){
+function autoGate(sec,kw,lang,past,pat){
   const en=lang==='en',L=autoLabels(en),fails=[],warns=[],fixable=[];
   const title=String(sec.TITLE||'').trim(),html=String(sec.HTML||''),text=htmlText(html),meta=String(sec.META||'').trim();
   const add=(msg,fix)=>{fails.push(msg);if(fix)fixable.push(fix)};
@@ -426,7 +449,10 @@ function autoGate(sec,kw,lang,past){
   const fi=html.search(new RegExp('<h2[^>]*>\\s*'+L.faq,'i'));
   const faqN=fi>=0?(html.slice(fi).split(/<h2[\s>]/i)[1]||'').split(/<h3[\s>]/i).length-1:0;
   if(faqN<3)add(`자주 묻는 질문이 부족해요 (${faqN}개)`,`"${L.faq}" h2 아래에 h3 질문 4~5개와 답을 넣는다`);else if(faqN<4)warns.push('자주 묻는 질문이 3개예요');
-  if(!/<table[\s>]/i.test(html))warns.push('표가 없어요');
+  const tblN=(html.match(/<table[\s>]/gi)||[]).length;
+  if(!tblN)warns.push('표가 없어요');
+  // 상위 글 패턴과 비교 (경고만 · 공개를 막지는 않음)
+  if(pat&&!en){if(pat.len>0&&len<pat.len*0.8)warns.push(`상위 글보다 짧아요 (상위 글 약 ${pat.len}자)`);if(pat.tables>=2&&tblN<pat.tables)warns.push(`상위 글보다 표가 적어요 (상위 글 약 ${pat.tables}개)`)}
   const links=(html.match(/<a\s[^>]*href="https?:\/\/[^"]+"/gi)||[]).length;
   if(!links)add('출처 링크가 없어요',`"${L.src}" 소제목 아래에 조사 자료의 공식 출처 링크를 넣는다`);
   if(/\[(사진|경험|확인|링크|이미지|TODO)|@@|lorem ipsum/i.test(html))add('자리 표시([ ])가 남아 있어요','[ ] 자리 표시를 모두 지우고 문장으로 완성한다');
@@ -443,5 +469,5 @@ function autoGate(sec,kw,lang,past){
   const score=Math.max(0,100-fails.length*20-warns.length*5);
   return {ok:!fails.length,score,fails,warns,fixable,len,sim:+maxSim.toFixed(2)};
 }
-root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:17};
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:18};
 })(typeof globalThis!=='undefined'?globalThis:this);
