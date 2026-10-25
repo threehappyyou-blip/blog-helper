@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>블로그 도우미</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMyNDUzZDYiLz48cGF0aCBkPSJNMTcgMTJoMjBsMTAgMTB2MzBhMiAyIDAgMCAxLTIgMkgxN2EyIDIgMCAwIDEtMi0yVjE0YTIgMiAwIDAgMSAyLTJ6IiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTM3IDEydjhhMiAyIDAgMCAwIDIgMmg4eiIgZmlsbD0iI2E5YmZmMiIvPjxyZWN0IHg9IjIxIiB5PSIyOSIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQiIHJ4PSIyIiBmaWxsPSIjMjQ1M2Q2Ii8+PHJlY3QgeD0iMjEiIHk9IjM4IiB3aWR0aD0iMTQiIGhlaWdodD0iNCIgcng9IjIiIGZpbGw9IiMyNDUzZDYiLz48Y2lyY2xlIGN4PSI0NiIgY3k9IjQ3IiByPSIxMSIgZmlsbD0iI2ZmYzUzMSIgc3Ryb2tlPSIjMjQ1M2Q2IiBzdHJva2Utd2lkdGg9IjMiLz48cGF0aCBkPSJNNDEgNDNsMi41IDkgMi41LTcgMi41IDcgMi41LTlNNDAgNDcuNWgxMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjQ1M2Q2IiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
 :root{
@@ -927,8 +928,11 @@ function promptsUrl(){return /^https?:/.test(location.href)?new URL('prompts.js'
 
 const LIVE=['queued','research','writing'];
 function mergeRemote(lp,rd){
+  const wasLive=LIVE.includes(lp.status)||!lp.status;let anyOpen=(lp.posts||[]).some(x=>x.open);
   lp.keyword=rd.keyword;lp.crossLinks=rd.crossLinks||lp.crossLinks;lp.createdAt=rd.createdAt||lp.createdAt;lp.status=rd.status;lp.error=rd.error||'';lp.research=rd.research||null;lp.updatedAt=rd.updatedAt||rd.createdAt;
-  lp.posts=(rd.posts||[]).map(rp=>{const old=(lp.posts||[]).find(x=>x.id===rp.id)||{};const m=Object.assign({},rp,{open:old.open,published:!!old.published,publishedAt:old.publishedAt||null});if(old.titleEdited&&rp.status==='done'&&old.raw===rp.raw){m.title=old.title;m.titleEdited=true}return m});
+  lp.posts=(rd.posts||[]).map(rp=>{const old=(lp.posts||[]).find(x=>x.id===rp.id)||{};// 서버에서 방금 작성이 끝난 글은 자동으로 펼친다 (다른 글이 펼쳐져 있지 않을 때)
+    const justDone=!anyOpen&&!old.published&&(old.status?old.status!=='done':wasLive)&&rp.status==='done';if(justDone)anyOpen=true;
+    const m=Object.assign({},rp,{open:old.open||justDone,published:!!old.published,publishedAt:old.publishedAt||null});if(old.titleEdited&&rp.status==='done'&&old.raw===rp.raw){m.title=old.title;m.titleEdited=true}return m});
   lp.stage=rd.status==='done'||rd.status==='partial'?'done':rd.research?'write':'research';
   lp.remote=true;lp.running=false;
 }
@@ -1076,6 +1080,7 @@ async function writePost(p,post){
     if(!sec.BODY)throw new Error('본문을 읽지 못했습니다. 다시 쓰기를 눌러주세요.');
     if(!bodyDone(text))throw new Error('글이 중간에 끊겼습니다. "다시 쓰기"를 누르세요 (리서치는 다시 하지 않아 글쓰기 비용만 듭니다).');
     post.title=sec.TITLE||''; post.status='done'; post.truncated=stop==='max_tokens'||stop==='interrupted'; post.flow=0;
+    if(!p.posts.some(x=>x!==post&&x.open))post.open=true; // 다 쓰면 자동으로 펼치기
   }catch(e){post.status='error';post.error=e.message}
   saveNow(); updateCard(p,post); renderHeader();
 }
