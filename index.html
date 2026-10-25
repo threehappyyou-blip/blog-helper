@@ -1732,7 +1732,7 @@ function autoMonthly(){
   return {n,usd:n*BH.estimate('auto',MODELS())};
 }
 function autoMonthSpend(){const m=monthKey(Date.now());let s=0;autoLog().forEach(e=>((e.usage&&e.usage.log)||[]).forEach(x=>{if(monthKey(x.t)===m)s+=x.c||0}));return s}
-const ST_PILL={published:['ok','발행됨'],draft:['warn','임시저장으로 보냄'],failed:['bad','실패'],skipped:['','쉼'],writing:['pri','쓰는 중'],ready:['pri','전송 대기']};
+const ST_PILL={published:['ok','발행됨'],draft:['warn','임시저장'],scheduled:['pri','예약 발행'],deleted:['','블로그에서 삭제됨'],failed:['bad','실패'],skipped:['','쉼'],writing:['pri','쓰는 중'],ready:['pri','전송 대기']};
 const ACCT_NO={'':'1번 계정','_2':'2번 계정','_3':'3번 계정','_4':'4번 계정'};
 const accts=()=>autoCfg().blogs||[];
 function acctAddr(b){
@@ -1796,6 +1796,7 @@ async function checkPending(){
   S.auto.pending=keep;save();
 }
 let autoEdit=null; // 수정 중인 계정 id 또는 'new'
+let remoteBusy=false; // 블로그 실제 상태 확인 중
 function blogForm(b){
   b=b||{type:'blogger',lang:'ko',slots:{am:true,pm:true},mode:'draft',topic:S.settings.topic,secretSuffix:''};
   const wp=b.type==='wordpress',sfxSel=s=>`<select id="bfSfx">${Object.entries(ACCT_NO).map(([v,t])=>`<option value="${v}"${(b.secretSuffix||'')===v?' selected':''}>${t}${v?' (비밀값 끝 '+v+')':' (기본)'}</option>`).join('')}</select>`;
@@ -1870,15 +1871,17 @@ function renderAuto(){
       <div style="margin-top:8px">${list.map(b=>{const its=q.filter(x=>x.blog===b.id);return its.length?`<div class="skw"><span>${esc(b.name||b.id)}</span><span>${its.length}개</span></div>`+its.map(x=>`<div class="qrow"><span>${esc(x.kw)}${x.auto?' <span class="pill">자동 후보</span>':''}${x.vol?` <span class="pill ${x.vol>=1000?'ok':'warn'}">월 ${fmtN(x.vol)}회</span>`:''}</span><button class="btn sm" data-qdel="${esc(x.id)}">빼기</button></div>`).join(''):''}).join('')||'<div class="hint">비어 있으면 서버가 주제 안에서 알아서 찾아요.</div>'}</div></details>`;
   }
   // 5) 보낸 기록
-  const rows=lg.filter(e=>e.type!=='keywords'&&['published','draft','skipped'].includes(e.status)||(e.status==='failed'&&!e.hasContent&&!e.manual)||(e.status==='writing'&&!e.manual)).slice().sort((a,b)=>(b.sentAt?Date.parse(b.sentAt):b.t||0)-(a.sentAt?Date.parse(a.sentAt):a.t||0)).slice(0,40);
-  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">보낸 기록</h3><button class="btn sm" id="autoRefresh">새로고침</button></div>
+  const rows=lg.filter(e=>e.type!=='keywords'&&['published','draft','scheduled','deleted','skipped'].includes(e.status)||(e.status==='failed'&&!e.hasContent&&!e.manual)||(e.status==='writing'&&!e.manual)).slice().sort((a,b)=>(b.sentAt?Date.parse(b.sentAt):b.t||0)-(a.sentAt?Date.parse(a.sentAt):a.t||0)).slice(0,40);
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">보낸 기록</h3><button class="btn sm" id="autoRefresh"${remoteBusy?' disabled':''}>${remoteBusy?'블로그 확인 중… (1~2분)':'새로고침 (0원)'}</button></div>
+    <div class="hint" style="margin-top:6px">블로그에서 직접 발행·예약·삭제한 글은 <b>새로고침</b>을 누르면 1~2분 뒤 실제 상태로 바뀌어요.${S.auto.log&&S.auto.log.syncedAt?' · 마지막 확인 '+new Date(S.auto.log.syncedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
+    ${S.auto.log&&(S.auto.log.syncErrors||[]).length?`<div class="why" style="color:var(--bad)">상태 확인 실패: ${esc(S.auto.log.syncErrors.join(' / '))}</div>`:''}
     ${rows.length?rows.map(e=>{const [cls,lab]=ST_PILL[e.status]||['',e.status];const cost=e.usage&&e.usage.cost;
       return `<div class="lg"><div class="t1"><span class="pill ${cls}">${lab}</span><span class="hint">${esc(e.date||'')} ${e.manual?'직접':e.slot==='am'?'자동 오전':e.slot==='pm'?'자동 오후':'자동'} · → ${esc(blogName(e.blog))}${cost?' · '+won(cost):''}</span></div>
       <div style="margin-top:4px">${e.url?`<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title||e.kw)}</a>`:`<b>${esc(e.title||e.kw||'(키워드 없음)')}</b>`}</div>
-      ${e.status==='draft'?`<div class="why">${esc(e.reason||'')}${e.editUrl?` · <a href="${esc(e.editUrl)}" target="_blank" rel="noopener">블로그에서 고치고 발행하기</a>`:''}</div>`:''}
+      ${e.status==='draft'?`<div class="why">${esc(e.reason||'')}${e.editUrl?` · <a href="${esc(e.editUrl)}" target="_blank" rel="noopener">블로그에서 고치고 발행하기</a>`:''}</div>`:['published','scheduled','deleted'].includes(e.status)&&e.syncedFrom&&e.reason?`<div class="why">${esc(e.reason)}</div>`:''}
       ${e.status==='failed'||e.status==='skipped'?`<div class="why" style="color:${e.status==='failed'?'var(--bad)':'var(--sub)'}">${esc(e.error||'')}</div>`:''}
       ${(e.crossLinks||[]).length?`<div class="why">내 다른 블로그 링크 ${e.crossLinks.length}개 넣음</div>`:''}
-      ${['published','draft'].includes(e.status)?`<div class="row" style="margin-top:6px"><button class="btn sm" data-aview="${esc(e.id)}">내용 보기</button></div><div id="av-${esc(e.id)}"></div>`:''}</div>`}).join(''):'<div class="hint" style="margin-top:8px">아직 보낸 글이 없어요.</div>'}</div>`;
+      ${['published','draft','scheduled'].includes(e.status)?`<div class="row" style="margin-top:6px"><button class="btn sm" data-aview="${esc(e.id)}">내용 보기</button></div><div id="av-${esc(e.id)}"></div>`:''}</div>`}).join(''):'<div class="hint" style="margin-top:8px">아직 보낸 글이 없어요.</div>'}</div>`;
   el.innerHTML=h;
 }
 function cleanHtml(html){
@@ -1931,7 +1934,17 @@ document.addEventListener('click',async e=>{
   if(b.dataset.qdel){const id=b.dataset.qdel;if(await saveQueue(d=>{d.items=d.items.filter(x=>x.id!==id)},'대기열에서 빼기'))renderAuto();return}
   if(b.id==='qRefill'){const blog=$('#qBlog').value;if(!canSpend(BH.estimate('keywords',MODELS())))return;
     b.disabled=true;try{await autoDispatch('refill',blog);toast('서버가 후보를 찾고 있어요. 1~2분 뒤 새로고침하세요')}catch(er){alert(er.message)}b.disabled=false;return}
-  if(b.id==='autoRefresh'){b.disabled=true;await syncAuto();return}
+  if(b.id==='autoRefresh'){b.disabled=true;b.textContent='확인 중…';await syncAuto();
+    // 블로그에 보낸 글이 있으면 서버가 블로그의 실제 상태(발행·예약·삭제)를 확인한다 (0원)
+    if(autoLog().some(e=>e.remoteId&&['draft','scheduled','published'].includes(e.status))){
+      const before=S.auto.log&&S.auto.log.syncedAt;remoteBusy=true;renderAuto();
+      try{await autoDispatch('sync','');const t0=Date.now();let done=false;
+        while(Date.now()-t0<180000){await sleepMs(8000);const r=await ghGet(AF.log);if(r&&r.data&&r.data.syncedAt&&r.data.syncedAt!==before){S.auto.log=r.data;done=true;break}}
+        if(done){const n=S.auto.log.syncChanged||0;toast((S.auto.log.syncErrors||[]).length?'일부 계정은 확인하지 못했어요':n?`${n}개 글의 상태를 바꿨어요`:'바뀐 글이 없어요')}
+        else toast('서버가 다른 작업 중이에요. 끝나면 자동으로 반영돼요')}
+      catch(er){toast('블로그 상태 확인을 요청하지 못했어요: '+er.message)}
+      remoteBusy=false;save()}
+    renderAuto();return}
   if(b.dataset.aview){const id=b.dataset.aview,box=document.getElementById('av-'+id);if(box.innerHTML){box.innerHTML='';return}
     box.innerHTML='<div class="hint">불러오는 중…</div>';
     try{const r=await ghGet('autopub/'+id+'.json');const d=r&&r.data;if(!d)throw new Error('글 파일이 없어요');const g=d.gate||{};
