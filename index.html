@@ -154,6 +154,31 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 .toast.show{opacity:1}
 .hide{display:none!important}
+.ab{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;border-top:1px solid var(--line);padding:12px 0}
+.ab:first-of-type{border-top:0}
+.ab .nm{font-weight:700}
+.ab .meta{font-size:13px;color:var(--sub);margin-top:2px}
+.ab .acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;flex:none;max-width:52%}
+.kpi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 4px}
+.kpi div{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--sub)}
+.kpi b{display:block;font-size:17px;color:var(--text);margin-top:2px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tog{position:relative;width:52px;height:30px;flex:none}
+.tog input{opacity:0;width:0;height:0}
+.tog span{position:absolute;inset:0;background:var(--line);border-radius:30px;cursor:pointer;transition:background .2s}
+.tog span:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.tog input:checked+span{background:var(--ok)}
+.tog input:checked+span:before{transform:translateX(22px)}
+.tog input:focus-visible+span{outline:2px solid var(--pri);outline-offset:2px}
+.lg{border-top:1px solid var(--line);padding:10px 0}
+.lg:first-of-type{border-top:0}
+.lg .t1{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lg .why{font-size:13px;color:var(--sub);margin-top:4px}
+.qrow{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding:7px 0;font-size:15px}
+.qrow:first-child{border-top:0}
+.split2{display:grid;grid-template-columns:1fr;gap:0 12px}
+@media (min-width:640px){.split2{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.ab{flex-direction:column}.ab .acts{max-width:none;justify-content:flex-start}.kpi div{padding:8px;font-size:11px}.kpi b{font-size:15px}}
 .split{display:grid;grid-template-columns:1fr;gap:10px}
 @media (min-width:640px){.split{grid-template-columns:1fr 1fr}}
 </style>
@@ -166,6 +191,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <button data-tab="kw">① 키워드 찾기</button>
     <button data-tab="write">② 글 만들기</button>
     <button data-tab="pub">③ 발행 관리</button>
+    <button data-tab="auto">④ 자동 발행</button>
     <button data-tab="set">설정</button>
     <button data-tab="help">도움말</button>
   </nav>
@@ -230,6 +256,13 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   <h2>③ 발행 관리</h2>
   <p class="lead">블로그에 올린 글은 사용 완료로 체크해 두세요. 네이버는 하루 1~2개씩 나눠 올리는 게 안전합니다.</p>
   <div id="pubArea"></div>
+</section>
+
+<!-- 자동 발행 -->
+<section id="tab-auto" class="hide">
+  <h2>④ 자동 발행 <span class="pill">블로그스팟 · 워드프레스</span></h2>
+  <p class="lead">매일 오전·오후에 서버가 키워드를 골라 글을 쓰고, 품질 검사를 통과한 글만 공개 발행해요. 미달이면 임시저장으로 두고 알려드려요. 네이버는 지금처럼 직접 올려요.</p>
+  <div id="autoArea"></div>
 </section>
 
 <!-- 설정 -->
@@ -363,6 +396,17 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     </ul>
   </div>
   <div class="card">
+    <h3>④ 자동 발행 (블로그스팟 · 워드프레스)</h3>
+    <ul class="list">
+      <li>처음 한 번: "자동발행-설정가이드"대로 GitHub Secrets에 워드프레스 앱 비밀번호·구글(블로그스팟) 연결값을 넣고, ④ 자동 발행 탭에서 <b>+ 블로그 추가</b> → <b>연결 확인</b>.</li>
+      <li>스위치를 켜면 매일 오전·오후에 블로그마다 1개씩, 하루 최대 2개를 씁니다. 키워드는 대기열에 넣은 것부터, 없으면 주제 안에서 서버가 찾습니다.</li>
+      <li>글마다 상위 글 1~3개를 비교해 빠진 내용을 채우고, 요약 상자·질문형 소제목·자주 묻는 질문 4~5개·공식 출처를 넣습니다.</li>
+      <li>품질 검사(분량·키워드·구성·과장 표현·지어낸 경험·예전 글과 겹침·깨진 링크)에 떨어지면 <b>공개하지 않고 임시저장</b>하고 이유를 기록에 남깁니다.</li>
+      <li>네이버 글·자동 발행 글·대기열 전체에서 같은(비슷한) 키워드는 쓰지 않습니다.</li>
+      <li>발행된 글은 다른 글의 "함께 보면 좋은 글"에 관련 있는 것만 1~3개 자동으로 연결됩니다(네이버 글 포함).</li>
+    </ul>
+  </div>
+  <div class="card">
     <h3>주의</h3>
     <ul class="list">
       <li>같은 글을 여러 블로그에 그대로 올리지 마세요. 검색에서 한 곳만 남고 나머지는 숨겨집니다.</li>
@@ -404,7 +448,7 @@ function load(){
   let s=null; try{s=JSON.parse(lsGet(LS_STATE)||'null')}catch(e){}
   s=s||{};
   s.settings=Object.assign({},DEF,s.settings||{});
-  s.keywords=s.keywords||[]; s.projects=s.projects||[];
+  s.keywords=s.keywords||[]; s.projects=s.projects||[]; s.auto=s.auto||{};
   return s;
 }
 let saveTimer=null;
@@ -427,6 +471,7 @@ function render(tab){
   if(tab==='kw')renderKw();
   if(tab==='write')renderWrite();
   if(tab==='pub')renderPub();
+  if(tab==='auto'){renderAuto();syncAuto().then(autoPoll)}
   if(tab==='set')renderSet();
 }
 function activeTab(){const b=document.querySelector('nav button.on');return b?b.dataset.tab:'home'}
@@ -600,6 +645,7 @@ function monthSpend(){
   const m=monthKey(Date.now());let sum=0;
   const add=l=>(l||[]).forEach(e=>{if(monthKey(e.t)===m)sum+=e.c||0});
   S.projects.forEach(p=>(p.posts||[]).forEach(x=>add(x.usage&&x.usage.log)));add(S.extraSpend);
+  (((S.auto||{}).log||{}).posts||[]).forEach(e=>add(e.usage&&e.usage.log)); // 자동 발행 비용도 같은 예산
   return sum;
 }
 const budget=()=>Math.max(0,+S.settings.budgetUSD||0);
@@ -729,9 +775,12 @@ function volPills(v){
   const t=v.total||0,cls=t>=1000?'ok':t>=100?'warn':'bad';
   return `<span class="pill ${cls}">월 ${fmtN(t)}회 검색${t<100?' · 적음':''}</span><span class="pill">모바일 ${Math.round(100*(v.mo||0)/Math.max(1,t))}%</span>${v.comp?`<span class="pill ${v.comp==='낮음'?'ok':v.comp==='높음'?'bad':'warn'}">광고 경쟁 ${esc(v.comp)}</span>`:''}`;
 }
-function usedKeywords(){const out=new Set();S.projects.forEach(p=>{if(p.keyword)out.add(p.keyword);(p.posts||[]).forEach(x=>{if(x.kw)out.add(x.kw)})});return [...out]}
+function usedKeywords(){const out=new Set();S.projects.forEach(p=>{if(p.keyword)out.add(p.keyword);(p.posts||[]).forEach(x=>{if(x.kw)out.add(x.kw)})});
+  // 블로그스팟·워드프레스 자동 발행에서 쓴(쓸) 키워드도 네이버 후보에서 뺀다
+  const a=S.auto||{};(((a.log||{}).posts)||[]).forEach(e=>{if(e.kw&&e.type!=='keywords'&&!['failed','skipped'].includes(e.status))out.add(e.kw)});(((a.queue||{}).items)||[]).forEach(i=>out.add(i.kw));
+  return [...out]}
 const nsp=s=>String(s||'').replace(/\s+/g,'');
-function isUsedKw(k){const n=nsp(k);return usedKeywords().some(u=>nsp(u)===n)}
+function isUsedKw(k){return usedKeywords().some(u=>BH.kwDup(u,k))}
 $('#manualKw').addEventListener('input',()=>{$('#manualErr').textContent=''});
 $('#manualVol').addEventListener('click',async()=>{
   const k=$('#manualKw').value.trim(),out=$('#manualVolOut');$('#manualErr').textContent='';
@@ -807,7 +856,7 @@ function promptsUrl(){return /^https?:/.test(location.href)?new URL('prompts.js'
 
 const LIVE=['queued','research','writing'];
 function mergeRemote(lp,rd){
-  lp.keyword=rd.keyword;lp.createdAt=rd.createdAt||lp.createdAt;lp.status=rd.status;lp.error=rd.error||'';lp.research=rd.research||null;lp.updatedAt=rd.updatedAt||rd.createdAt;
+  lp.keyword=rd.keyword;lp.crossLinks=rd.crossLinks||lp.crossLinks;lp.createdAt=rd.createdAt||lp.createdAt;lp.status=rd.status;lp.error=rd.error||'';lp.research=rd.research||null;lp.updatedAt=rd.updatedAt||rd.createdAt;
   lp.posts=(rd.posts||[]).map(rp=>{const old=(lp.posts||[]).find(x=>x.id===rp.id)||{};const m=Object.assign({},rp,{open:old.open,published:!!old.published,publishedAt:old.publishedAt||null});if(old.titleEdited&&rp.status==='done'&&old.raw===rp.raw){m.title=old.title;m.titleEdited=true}return m});
   lp.stage=rd.status==='done'||rd.status==='partial'?'done':rd.research?'write':'research';
   lp.remote=true;lp.running=false;
@@ -887,17 +936,18 @@ function startProject(keyword,platform,meta,opt={}){
   if(!opt.noConfirm&&isUsedKw(keyword)&&!confirm(`"${keyword}"는 이미 글을 쓴 키워드입니다. 비슷한 글이 또 생겨 중복 문서가 될 수 있어요. 그래도 새로 쓸까요?`))return;
   lastStart={k:keyword,t:Date.now()};
   const posts=P().buildMulti([{keyword,platform,category:meta&&meta.category,type:meta&&meta.type}]);
+  const crossLinks=crossCandidates(keyword);
   if(isServer()){
     if(!serverReady()){toast('설정에서 GitHub 저장소와 토큰을 먼저 넣어주세요');go('set');return}
     const id=uid(), now=new Date().toISOString();
-    const rd={id,keyword,multi:true,createdAt:now,status:'queued',settings:{model:MODELS().write,researchModel:MODELS().research,categories:S.settings.categories,interest:S.settings.interest,detail:S.settings.detail!==false},promptsUrl:promptsUrl(),research:null,posts};
-    const p={id,keyword,multi:true,createdAt:now,remote:true,status:'queued',stage:'research',research:null,posts:JSON.parse(JSON.stringify(posts)),error:'',pendingAt:Date.now()};
+    const rd={id,keyword,multi:true,createdAt:now,status:'queued',settings:{model:MODELS().write,researchModel:MODELS().research,categories:S.settings.categories,interest:S.settings.interest,detail:S.settings.detail!==false},promptsUrl:promptsUrl(),research:null,posts,crossLinks};
+    const p={id,keyword,multi:true,createdAt:now,remote:true,status:'queued',stage:'research',research:null,posts:JSON.parse(JSON.stringify(posts)),error:'',pendingAt:Date.now(),crossLinks};
     S.projects.unshift(p);S.currentId=id;save();go('write');
     ghPut('projects/'+id+'.json',rd,null,'새 글: '+keyword).then(sha=>{p.sha=sha;p.updatedAt=now;save();toast('서버에 등록했습니다. 이 창을 닫아도 계속 씁니다');schedulePoll()})
       .catch(e=>{S.projects=S.projects.filter(x=>x!==p);S.currentId=S.projects[0]?S.projects[0].id:null;save();rerender();alert('서버에 등록하지 못했습니다.\n'+e.message)});
     return;
   }
-  const p={id:uid(),keyword,multi:true,meta,createdAt:new Date().toISOString(),stage:'write',research:null,posts,error:'',running:true};
+  const p={id:uid(),keyword,multi:true,meta,createdAt:new Date().toISOString(),stage:'write',research:null,posts,error:'',running:true,crossLinks};
   posts[0].open=true;
   S.projects.unshift(p); S.currentId=p.id; save(); go('write'); runProject(p);
 }
@@ -1104,7 +1154,7 @@ function maxSimilar(post,body){
 function linkAudit(post,body,p){
   const r=(post&&(post.research||(post.researchFrom&&p&&((p.posts||[]).find(x=>x.id===post.researchFrom)||{}).research)))||(p&&p.research)||{};
   const known=new Set();const add=u=>{if(u&&/^https?:/.test(u))known.add(normUrl(u))};
-  (r.sources||[]).forEach(x=>add(x.url));(r.facts||[]).forEach(x=>add(x.source));(r.procedures||[]).forEach(x=>{add(x.url);add(x.source)});
+  (r.sources||[]).forEach(x=>add(x.url));(r.facts||[]).forEach(x=>add(x.source));(r.procedures||[]).forEach(x=>{add(x.url);add(x.source)});((p&&p.crossLinks)||[]).forEach(x=>add(x.url));
   const urls=[...new Set((String(body||'').match(/https?:\/\/[^\s)\]<>"']+/g)||[]).map(u=>u.replace(/[.,;:]+$/,'')))];
   const chk=(post&&post.links)||[];
   return urls.map(u=>{const c=chk.find(x=>x.url===u||x.fixed===u);return {url:u,known:known.has(normUrl(u)),ok:c?c.ok:null,status:c?c.status:null,checked:!!c,note:c&&c.note,fixedFrom:c&&c.fixed===u?c.url:null}});
@@ -1567,11 +1617,15 @@ function renderPub(){
   for(const p of S.projects){
     const d=p.posts.filter(x=>x.published).length;
     h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(p.keyword)}</h3><span class="pill ${d===p.posts.length&&d?'ok':''}">${d}/${p.posts.length} 사용</span></div>
-    <table class="pub" style="margin-top:8px"><thead><tr><th>사용</th><th>글</th><th>일차</th></tr></thead><tbody>${p.posts.map(x=>`<tr><td><input type="checkbox" aria-label="사용 완료" data-pub="${p.id}|${x.id}"${x.published?' checked':''}${x.status!=='done'?' disabled':''}></td><td><a href="#" data-open="${p.id}|${x.id}">${esc(x.title||x.spec.sub_keyword)}</a><div class="hint">${x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(x.spec.category)}${x.status!=='done'?' · 미완성':''}${x.publishedAt?' · '+new Date(x.publishedAt).toLocaleDateString('ko-KR'):''}</div></td><td>${x.spec.platform==='wordpress'?'-':x.spec.publish_day}</td></tr>`).join('')}</tbody></table></div>`;
+    <table class="pub" style="margin-top:8px"><thead><tr><th>사용</th><th>글</th><th>일차</th></tr></thead><tbody>${p.posts.map(x=>`<tr><td><input type="checkbox" aria-label="사용 완료" data-pub="${p.id}|${x.id}"${x.published?' checked':''}${x.status!=='done'?' disabled':''}></td><td><a href="#" data-open="${p.id}|${x.id}">${esc(x.title||x.spec.sub_keyword)}</a><div class="hint">${x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(x.spec.category)}${x.status!=='done'?' · 미완성':''}${x.publishedAt?' · '+new Date(x.publishedAt).toLocaleDateString('ko-KR'):''}</div>${x.published&&ghReady()?`<input type="text" data-purl="${p.id}|${x.id}" value="${esc(x.url||'')}" placeholder="올린 글 주소 붙여넣기 (선택 · 내 다른 블로그 글에서 이 글로 링크해요)" style="margin-top:6px;font-size:13px;padding:6px 8px" inputmode="url">`:''}</td><td>${x.spec.platform==='wordpress'?'-':x.spec.publish_day}</td></tr>`).join('')}</tbody></table></div>`;
   }
   el.innerHTML=costCard()+h;
 }
 $('#pubArea').addEventListener('change',e=>{
+  const u=e.target.closest('[data-purl]');
+  if(u){const [pid,xid]=u.dataset.purl.split('|');const p=S.projects.find(q=>q.id===pid);const x=p&&p.posts.find(q=>q.id===xid);if(!x)return;
+    const v=u.value.trim();if(v&&!/^https?:\/\/\S+$/.test(v)){toast('https://로 시작하는 주소를 넣어주세요');return}
+    x.url=v;saveNow();pushNaverLinks().then(()=>toast(v?'저장했어요. 다음 자동 발행 글부터 관련 있으면 이 글로 링크해요':'주소를 지웠어요'));return}
   const b=e.target.closest('[data-pub]');if(!b)return;
   const [pid,xid]=b.dataset.pub.split('|');const p=S.projects.find(q=>q.id===pid);const x=p&&p.posts.find(q=>q.id===xid);
   if(x){S.currentId=pid;setUsed(x,b.checked);renderPub();renderHeader()}
@@ -1581,6 +1635,220 @@ document.addEventListener('click',e=>{
   const [pid,xid]=a.dataset.open.split('|');const p=S.projects.find(q=>q.id===pid);if(!p)return;
   S.currentId=pid;p.posts.forEach(q=>q.open=q.id===xid);viewId=xid;go('write');
   const el=document.getElementById('post-'+xid);if(el)el.scrollIntoView({block:'start'});
+});
+
+// 네이버에 올린 글 주소를 서버에 알려서 블로그스팟·워드프레스 글의 "함께 보면 좋은 글"에 쓸 수 있게 한다
+async function pushNaverLinks(){
+  if(!ghReady())return;
+  const posts=S.projects.flatMap(p=>(p.posts||[]).filter(x=>x.published&&x.url).map(x=>({kw:x.kw||p.keyword,title:x.title||x.spec.sub_keyword,url:x.url,at:x.publishedAt})));
+  for(let a=1;a<=3;a++){try{const r=await ghGet('state/naver-links.json');await ghPut('state/naver-links.json',{posts,updatedAt:new Date().toISOString()},r&&r.sha,'네이버 글 주소 갱신');return}catch(e){if(a===3)toast('주소를 서버에 저장하지 못했어요: '+e.message);await sleepMs(700*a)}}
+}
+/* ---------- ④ 자동 발행 (블로그스팟 · 워드프레스) ---------- */
+// 서버 저장소의 state/autopub*.json 을 읽고 쓴다. 실제 글쓰기·발행은 서버(publish.yml)가 한다.
+S.auto=S.auto||{};
+const AF={cfg:'state/autopub.json',queue:'state/autopub-queue.json',log:'state/autopub-log.json',test:'state/autopub-test.json',naver:'state/keywords-naver.json'};
+const autoCfg=()=>(S.auto.cfg||{enabled:false,blogs:[]});
+const autoLog=()=>((S.auto.log||{}).posts||[]);
+const autoQueue=()=>((S.auto.queue||{}).items||[]);
+const blogName=id=>{const b=autoCfg().blogs.find(x=>x.id===id);return b?(b.name||b.id):id};
+const TYPE_NAME={wordpress:'워드프레스',blogger:'블로그스팟'};
+// 네이버 글을 쓸 때 넣을 "내 다른 블로그 글" 후보 (발행된 자동 글 중 덜 연결된 것부터)
+function crossCandidates(kw){
+  const pub=autoLog().filter(e=>e.status==='published'&&e.url&&e.title&&!BH.kwDup(e.kw||'',kw||''));
+  const inbound={};autoLog().forEach(e=>(e.crossLinks||[]).forEach(u=>{inbound[u]=(inbound[u]||0)+1}));
+  const nav=S.projects.flatMap(p=>(p.posts||[]).filter(x=>x.published&&x.url&&!BH.kwDup(x.kw||p.keyword,kw||'')).map(x=>({title:x.title||x.spec.sub_keyword,url:x.url,t:Date.parse(x.publishedAt||0)||0})));
+  return [...pub.filter(e=>/[가-힣]/.test(e.title)),...nav].sort((a,b)=>(inbound[a.url]||0)-(inbound[b.url]||0)||(b.t||0)-(a.t||0)).slice(0,15).map(e=>({title:e.title,url:e.url}));
+}
+// 키워드 중복 검사: 네이버 글 + 자동 발행 기록 + 대기열 전체
+function kwOwner(kw,exceptQid){
+  if(usedKeywordsNaver().some(u=>BH.kwDup(u,kw)))return '네이버 글';
+  const e=autoLog().find(x=>x.kw&&x.type!=='keywords'&&!['failed','skipped'].includes(x.status)&&BH.kwDup(x.kw,kw));if(e)return blogName(e.blog)+' 글';
+  const q=autoQueue().find(x=>x.id!==exceptQid&&BH.kwDup(x.kw,kw));if(q)return blogName(q.blog)+' 대기열';
+  return '';
+}
+function usedKeywordsNaver(){const out=new Set();S.projects.forEach(p=>{if(p.keyword)out.add(p.keyword);(p.posts||[]).forEach(x=>{if(x.kw)out.add(x.kw)})});return [...out]}
+let autoSyncing=false,autoT=null,autoUntil=0;
+async function syncAuto(){
+  if(!ghReady()||autoSyncing)return;autoSyncing=true;
+  try{
+    const [c,q,l,t]=await Promise.all([ghGet(AF.cfg),ghGet(AF.queue),ghGet(AF.log),ghGet(AF.test)]);
+    S.auto.cfg=c&&c.data||null;S.auto.cfgSha=c&&c.sha;S.auto.queue=q&&q.data||{items:[]};S.auto.queueSha=q&&q.sha;
+    S.auto.log=l&&l.data||{posts:[]};S.auto.test=t&&t.data||null;S.auto.at=Date.now();S.auto.err='';
+    // 네이버에서 쓴 키워드를 서버에 알려서 자동 발행이 같은 키워드를 쓰지 않게 한다
+    const mine=usedKeywordsNaver();
+    if(mine.length){const n=await ghGet(AF.naver);const have=new Set(((n&&n.data&&n.data.keywords)||[]));const add=mine.filter(k=>!have.has(k));
+      if(add.length)await ghPut(AF.naver,{keywords:[...have,...add].slice(-500),updatedAt:new Date().toISOString()},n&&n.sha,'네이버 키워드 목록 갱신')}
+    save();
+  }catch(e){S.auto.err=e.message}
+  finally{autoSyncing=false;if(activeTab()==='auto')renderAuto();renderHeader()}
+}
+function autoPoll(){
+  clearTimeout(autoT);if(!ghReady())return;
+  const live=autoLog().some(e=>e.status==='writing')||Date.now()<autoUntil;
+  if(activeTab()!=='auto'&&!live)return;
+  autoT=setTimeout(async()=>{await syncAuto();autoPoll()},live?20000:90000);
+}
+async function saveAutoCfg(mutate,msg){
+  for(let a=1;a<=4;a++){
+    try{const r=await ghGet(AF.cfg);const d=(r&&r.data)||{enabled:false,blogs:[]};d.blogs=d.blogs||[];mutate(d);
+      d.models=MODELS();d.topic=S.settings.topic;d.promptsUrl=promptsUrl();d.updatedAt=new Date().toISOString();
+      const sha=await ghPut(AF.cfg,d,r&&r.sha,msg);S.auto.cfg=d;S.auto.cfgSha=sha;save();return true}
+    catch(e){if((e.status!==409&&e.status!==422)||a===4){alert('저장하지 못했어요.\n'+e.message);return false}await sleepMs(700*a)}
+  }
+}
+async function saveQueue(mutate,msg){
+  for(let a=1;a<=4;a++){
+    try{const r=await ghGet(AF.queue);const d=(r&&r.data)||{items:[]};d.items=d.items||[];mutate(d);
+      const sha=await ghPut(AF.queue,d,r&&r.sha,msg);S.auto.queue=d;S.auto.queueSha=sha;save();return true}
+    catch(e){if((e.status!==409&&e.status!==422)||a===4){alert('저장하지 못했어요.\n'+e.message);return false}await sleepMs(700*a)}
+  }
+}
+async function autoDispatch(mode,blog){
+  await gh('/actions/workflows/publish.yml/dispatches',{method:'POST',body:{ref:'main',inputs:{mode,blog:blog||''}}});
+  autoUntil=Date.now()+20*60000;autoPoll();
+}
+const slotsOf=b=>['am','pm'].filter(s=>!b.slots||b.slots[s]!==false);
+function autoMonthly(){
+  const c=autoCfg();if(!c.enabled)return {n:0,usd:0};
+  const n=c.blogs.filter(b=>b.enabled!==false).reduce((a,b)=>a+slotsOf(b).length*30,0);
+  return {n,usd:n*BH.estimate('auto',MODELS())};
+}
+function autoMonthSpend(){const m=monthKey(Date.now());let s=0;autoLog().forEach(e=>((e.usage&&e.usage.log)||[]).forEach(x=>{if(monthKey(x.t)===m)s+=x.c||0}));return s}
+const ST_PILL={published:['ok','발행됨'],draft:['warn','임시저장'],failed:['bad','실패'],skipped:['','쉼'],writing:['pri','쓰는 중']};
+let autoEdit=null; // 수정 중인 블로그 id 또는 'new'
+function blogForm(b){
+  b=b||{type:'wordpress',lang:'ko',slots:{am:true,pm:true},mode:'publish',topic:S.settings.topic};
+  const wp=b.type!=='blogger';
+  return `<div class="card" id="blogForm" style="border-color:var(--pri-line)"><h3>${b.id?'블로그 수정':'블로그 추가'}</h3>
+  <div class="seg" role="radiogroup" aria-label="블로그 종류"><label><input type="radio" name="bfType" value="wordpress"${wp?' checked':''}>워드프레스</label><label><input type="radio" name="bfType" value="blogger"${wp?'':' checked'}>블로그스팟</label></div>
+  <label class="f" for="bfName">이름 (나만 보는 이름)</label><input type="text" id="bfName" value="${esc(b.name||'')}" placeholder="${wp?'내 워드프레스':'내 블로그스팟'}">
+  <div id="bfWp" class="${wp?'':'hide'}"><label class="f" for="bfUrl">워드프레스 사이트 주소</label><input type="text" id="bfUrl" value="${esc(b.url||'')}" placeholder="https://내사이트.com" autocomplete="off">
+    <label class="f" for="bfCat">글을 넣을 카테고리 이름 (선택)</label><input type="text" id="bfCat" value="${esc(b.wpCategory||'')}" placeholder="예: 생활비 절약">
+    <div class="hint">아이디·앱 비밀번호는 여기 말고 GitHub Secrets(WP_USER, WP_APP_PASSWORD)에 넣어요. 가이드 참고.</div></div>
+  <div id="bfBs" class="${wp?'hide':''}"><label class="f" for="bfBid">Blog ID (숫자)</label><input type="text" id="bfBid" value="${esc(b.blogId||'')}" inputmode="numeric" placeholder="예: 1234567890123456789">
+    <div class="hint">블로거 관리 화면 주소 blogger.com/blog/posts/<b>숫자</b> 부분이에요. 구글 연결값은 GitHub Secrets에 넣어요.</div></div>
+  <label class="f" for="bfTopic">이 블로그 주제</label><input type="text" id="bfTopic" value="${esc(b.topic||S.settings.topic||'')}">
+  <div class="hint">블로그마다 주제를 좁게 잡을수록 구글이 전문 블로그로 봐요. 네이버와 같은 주제여도 키워드는 절대 겹치지 않게 골라요.</div>
+  <div class="split2"><div><label class="f">글 언어</label><div class="seg"><label><input type="radio" name="bfLang" value="ko"${b.lang!=='en'?' checked':''}>한국어</label><label><input type="radio" name="bfLang" value="en"${b.lang==='en'?' checked':''}>영어</label></div></div>
+  <div><label class="f">발행 시간 (하루 최대 2개)</label><div class="row" style="margin:10px 0"><label class="chk"><input type="checkbox" id="bfAm"${!b.slots||b.slots.am!==false?' checked':''}> 오전 9시쯤</label><label class="chk"><input type="checkbox" id="bfPm"${!b.slots||b.slots.pm!==false?' checked':''}> 오후 4시쯤</label></div></div></div>
+  <label class="f">품질 검사를 통과한 글은</label><div class="seg"><label><input type="radio" name="bfMode" value="publish"${b.mode!=='draft'?' checked':''}>바로 공개 발행</label><label><input type="radio" name="bfMode" value="draft"${b.mode==='draft'?' checked':''}>임시저장 (내가 보고 발행)</label></div>
+  <div class="hint">품질 검사에 떨어진 글은 어느 쪽이든 절대 공개되지 않고 임시저장돼요. 애드센스 승인 전이거나 처음 몇 주는 "임시저장"으로 직접 확인하는 걸 추천해요.</div>
+  <div class="row" style="margin-top:12px"><button class="btn pri" id="bfSave" data-id="${esc(b.id||'')}">저장</button><button class="btn" id="bfCancel">취소</button></div><div class="err" id="bfErr"></div></div>`;
+}
+function renderAuto(){
+  const el=$('#autoArea');if(!el)return;
+  if(!ghReady()){el.innerHTML=`<div class="notice">자동 발행은 GitHub 서버에서 돌아가요. <a href="#" data-go="set">설정</a>에서 GitHub 저장소와 토큰을 먼저 연결하세요.</div>`;return}
+  const c=autoCfg(),lg=autoLog(),q=autoQueue(),t=S.auto.test;
+  if(!S.auto.at){el.innerHTML='<div class="card">불러오는 중…</div>';return}
+  const mo=autoMonthly(),sp=monthSpend(),b=budget(),left=Math.max(0,b-sp),each=BH.estimate('auto',MODELS());
+  const today=todayKST(),todayN=lg.filter(e=>e.date===today&&['published','draft'].includes(e.status)).length;
+  const pubN=lg.filter(e=>e.status==='published'&&monthKey(e.t)===monthKey(Date.now())).length;
+  let h='';
+  if(S.auto.err)h+=`<div class="notice">${esc(S.auto.err)}</div>`;
+  // 1) 켜기/끄기 + 숫자
+  h+=`<div class="card"><div class="switch"><div><h3 style="margin:0">자동 발행 ${c.enabled?'<span class="pill ok">켜짐</span>':'<span class="pill">꺼짐</span>'}</h3>
+    <div class="hint">매일 오전 9시 20분쯤 · 오후 4시 20분쯤 (GitHub 사정으로 30분~1시간 늦어질 수 있어요)</div></div>
+    <label class="tog" aria-label="자동 발행 켜기"><input type="checkbox" id="autoOn"${c.enabled?' checked':''}${c.blogs.length?'':' disabled'}><span></span></label></div>
+    <div class="kpi"><div>오늘 쓴 글<b>${todayN}개</b></div><div>이번 달 공개 발행<b>${pubN}개</b></div><div>이번 달 자동 발행 비용<b>${won(autoMonthSpend())}</b></div></div>
+    ${c.enabled?`<div class="hint">지금 설정이면 한 달 약 <b>${mo.n}개 · ${won(mo.usd)}</b> (글 1개 약 ${won(each)}). 남은 예산 ${won(left)}로는 약 ${Math.floor(left/each)}개를 더 쓸 수 있어요.</div>
+    ${mo.usd>b?`<div class="notice" style="margin:10px 0 0">한 달 예상 비용(${won(mo.usd)})이 월 예산(${won(b)})보다 커요. 예산에 닿으면 자동으로 쉬어요. <a href="#" data-go="set">설정 → 비용</a>에서 예산을 올리거나, 블로그별 발행 시간을 하나로 줄이세요.</div>`:''}`:`<div class="hint">블로그를 추가하고 켜면 시작해요.</div>`}</div>`;
+  // 2) 블로그
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">내 블로그</h3><div class="row"><button class="btn sm" id="autoTest"${c.blogs.length?'':' disabled'}>연결 확인 (0원)</button><button class="btn sm pri" id="autoAdd">+ 블로그 추가</button></div></div>`;
+  if(t&&t.at)h+=`<div class="hint" style="margin-top:6px">연결 확인 ${new Date(t.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}: ${(t.results||[]).map(r=>`${esc(r.name||r.blog)} ${r.ok?'✅':'❌ '+esc(r.msg)}`).join(' · ')}${t.anthropic===false?' · ❌ ANTHROPIC_API_KEY 없음':''}${t.pexels?'':' · 사진(PEXELS_API_KEY) 없음 — 글만 올라가요'}</div>`;
+  if(!c.blogs.length)h+=`<div class="hint" style="margin-top:10px">아직 연결한 블로그가 없어요. <b>+ 블로그 추가</b>를 누르세요. 처음이면 도움말의 "자동 발행 준비"부터 하세요.</div>`;
+  h+=c.blogs.map(b=>{const tr=t&&(t.results||[]).find(r=>r.blog===b.id);const sl=slotsOf(b);
+    return `<div class="ab"><div style="min-width:0"><div class="nm">${esc(b.name||b.id)} <span class="pill">${TYPE_NAME[b.type]||b.type}</span>${b.enabled===false?' <span class="pill">멈춤</span>':''}${tr?` <span class="pill ${tr.ok?'ok':'bad'}">${tr.ok?'연결됨':'연결 안 됨'}</span>`:''}</div>
+      <div class="meta">${esc(b.type==='wordpress'?b.url:'Blog ID '+(b.blogId||'-'))} · ${b.lang==='en'?'영어':'한국어'} · ${sl.length?sl.map(s=>s==='am'?'오전':'오후').join('·')+' 하루 '+sl.length+'개':'발행 시간 없음'} · ${b.mode==='draft'?'임시저장':'바로 발행'}</div>
+      <div class="meta">주제: ${esc(b.topic||S.settings.topic||'')} · 대기 키워드 ${q.filter(x=>x.blog===b.id).length}개</div></div>
+      <div class="acts"><button class="btn sm pri" data-anow="${esc(b.id)}">지금 1개 쓰기 · ${won(each)}</button><button class="btn sm" data-aedit="${esc(b.id)}">수정</button><button class="btn sm" data-atoggle="${esc(b.id)}">${b.enabled===false?'다시 켜기':'멈추기'}</button><button class="btn sm" data-adel="${esc(b.id)}">삭제</button></div></div>`}).join('');
+  h+=`</div>`;
+  if(autoEdit)h+=blogForm(autoEdit==='new'?null:c.blogs.find(x=>x.id===autoEdit));
+  // 3) 키워드 대기열
+  if(c.blogs.length){
+    h+=`<div class="card"><h3>다음에 쓸 키워드</h3><div class="hint" style="margin-bottom:8px">비어 있으면 서버가 블로그 주제 안에서 알아서 찾아요(네이버 실제 검색량 기준). 넣고 싶은 키워드가 있으면 여기 넣으세요. 네이버 글·다른 블로그와 겹치는 키워드는 넣을 수 없어요.</div>
+    <div class="row" style="flex-wrap:nowrap"><select id="qBlog" style="width:auto;flex:none">${c.blogs.map(b=>`<option value="${esc(b.id)}">${esc(b.name||b.id)}</option>`).join('')}</select><input type="text" id="qKw" placeholder="예: 자동차세 연납 할인"><button class="btn pri" id="qAdd" style="flex:none">넣기</button></div>
+    <div class="err" id="qErr"></div>
+    <div class="row" style="margin-top:8px"><button class="btn sm" id="qRefill">키워드 후보 미리 채우기 · ${estWon('keywords')}</button></div>
+    <div style="margin-top:10px">${c.blogs.map(b=>{const its=q.filter(x=>x.blog===b.id);return its.length?`<div class="skw"><span>${esc(b.name||b.id)}</span><span>${its.length}개</span></div>`+its.map(x=>`<div class="qrow"><span>${esc(x.kw)}${x.auto?' <span class="pill">자동 후보</span>':''}${x.vol?` <span class="pill ${x.vol>=1000?'ok':'warn'}">월 ${fmtN(x.vol)}회</span>`:''}</span><button class="btn sm" data-qdel="${esc(x.id)}" aria-label="빼기">빼기</button></div>`).join(''):''}).join('')||'<div class="hint">대기 중인 키워드가 없어요.</div>'}</div></div>`;
+  }
+  // 4) 기록
+  const rows=lg.filter(e=>e.type!=='keywords').slice().sort((a,b)=>(b.t||0)-(a.t||0)).slice(0,40);
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">발행 기록</h3><button class="btn sm" id="autoRefresh">새로고침</button></div>
+    ${rows.length?rows.map(e=>{const [cls,lab]=ST_PILL[e.status]||['',e.status];const cost=e.usage&&e.usage.cost;
+      return `<div class="lg"><div class="t1"><span class="pill ${cls}">${lab}</span><span class="hint">${esc(e.date||'')} ${e.slot==='am'?'오전':e.slot==='pm'?'오후':'직접'} · ${esc(blogName(e.blog))}${cost?' · '+won(cost):''}</span></div>
+      <div style="margin-top:4px">${e.url?`<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title||e.kw)}</a>`:`<b>${esc(e.title||e.kw||'(키워드 없음)')}</b>`}</div>
+      ${e.status==='draft'?`<div class="why">${esc(e.reason||'')}${e.editUrl?` · <a href="${esc(e.editUrl)}" target="_blank" rel="noopener">블로그에서 고치기</a>`:''}</div>`:''}
+      ${e.status==='failed'||e.status==='skipped'?`<div class="why" style="color:${e.status==='failed'?'var(--bad)':'var(--sub)'}">${esc(e.error||'')}</div>`:''}
+      ${e.gate&&e.gate.warns&&e.gate.warns.length&&e.status==='published'?`<div class="why">참고: ${esc(e.gate.warns.join(' · '))}</div>`:''}
+      ${(e.crossLinks||[]).length?`<div class="why">내 다른 블로그 링크 ${e.crossLinks.length}개 넣음</div>`:''}
+      ${['published','draft'].includes(e.status)||e.hasContent?`<div class="row" style="margin-top:6px"><button class="btn sm" data-aview="${esc(e.id)}">내용 보기</button></div><div id="av-${esc(e.id)}"></div>`:''}</div>`}).join(''):'<div class="hint" style="margin-top:8px">아직 기록이 없어요.</div>'}</div>`;
+  el.innerHTML=h;
+}
+function cleanHtml(html){
+  const d=new DOMParser().parseFromString('<div>'+String(html||'')+'</div>','text/html');
+  d.querySelectorAll('script,style,iframe,object,embed,form,link,meta').forEach(n=>n.remove());
+  d.querySelectorAll('*').forEach(n=>[...n.attributes].forEach(a=>{if(/^on/i.test(a.name)||(/^(href|src)$/i.test(a.name)&&/^\s*javascript:/i.test(a.value)))n.removeAttribute(a.name)}));
+  return d.body.firstChild.innerHTML;
+}
+document.addEventListener('click',async e=>{
+  const t=e.target;if(!t.closest||!t.closest('#autoArea'))return;
+  const b=t.closest('button');if(!b)return;
+  if(b.id==='autoAdd'){autoEdit='new';renderAuto();$('#blogForm').scrollIntoView({block:'start',behavior:'smooth'});return}
+  if(b.id==='bfCancel'){autoEdit=null;renderAuto();return}
+  if(b.dataset.aedit){autoEdit=b.dataset.aedit;renderAuto();$('#blogForm').scrollIntoView({block:'start',behavior:'smooth'});return}
+  if(b.id==='bfSave'){
+    const err=$('#bfErr');err.textContent='';
+    const type=(document.querySelector('input[name=bfType]:checked')||{}).value||'wordpress';
+    const o={type,name:$('#bfName').value.trim()||(type==='wordpress'?'내 워드프레스':'내 블로그스팟'),topic:$('#bfTopic').value.trim()||S.settings.topic,
+      lang:(document.querySelector('input[name=bfLang]:checked')||{}).value||'ko',slots:{am:$('#bfAm').checked,pm:$('#bfPm').checked},
+      mode:(document.querySelector('input[name=bfMode]:checked')||{}).value||'publish',enabled:true};
+    if(type==='wordpress'){o.url=$('#bfUrl').value.trim().replace(/\/+$/,'');o.wpCategory=$('#bfCat').value.trim();if(!/^https:\/\/[^\s/]+\.[^\s]+/.test(o.url)){err.textContent='https://로 시작하는 사이트 주소를 넣어주세요.';return}}
+    else{o.blogId=$('#bfBid').value.replace(/[^\d]/g,'');if(o.blogId.length<6){err.textContent='Blog ID(숫자)를 넣어주세요.';return}}
+    if(!o.slots.am&&!o.slots.pm){err.textContent='발행 시간을 하나 이상 고르세요.';return}
+    const id=b.dataset.id||((type==='wordpress'?'wp':'bs')+Math.random().toString(36).slice(2,6));
+    b.disabled=true;
+    if(await saveAutoCfg(d=>{const i=d.blogs.findIndex(x=>x.id===id);const keep=i>=0?d.blogs[i]:{};const nb=Object.assign({},keep,o,{id,enabled:keep.enabled!==false});if(i>=0)d.blogs[i]=nb;else d.blogs.push(nb)},'자동 발행 블로그 저장: '+o.name)){autoEdit=null;toast('저장했어요. "연결 확인"을 눌러보세요');renderAuto()}
+    else b.disabled=false;return;
+  }
+  if(b.dataset.adel){const id=b.dataset.adel;if(!confirm(`"${blogName(id)}"를 자동 발행에서 뺄까요? 이미 올린 글은 블로그에 그대로 남아요.`))return;
+    if(await saveAutoCfg(d=>{d.blogs=d.blogs.filter(x=>x.id!==id);if(!d.blogs.length)d.enabled=false},'자동 발행 블로그 삭제'))renderAuto();return}
+  if(b.dataset.atoggle){const id=b.dataset.atoggle;if(await saveAutoCfg(d=>{const x=d.blogs.find(y=>y.id===id);if(x)x.enabled=x.enabled===false},'블로그 켜기/멈추기'))renderAuto();return}
+  if(b.dataset.anow){const id=b.dataset.anow;const est=BH.estimate('auto',MODELS());if(!canSpend(est))return;
+    const done=autoLog().filter(e=>e.blog===id&&e.date===todayKST()&&['published','draft','writing'].includes(e.status)).length;
+    if(done>=2){alert('이 블로그는 오늘 이미 2개를 썼어요. 하루 2개까지만 발행해요 (저품질·스팸 판정 방지).');return}
+    if(!confirm(`"${blogName(id)}"에 지금 글 1개를 써서 올릴까요?\n예상 비용 ${won(est)} · 5~10분 걸려요. 창을 닫아도 서버가 계속해요.`))return;
+    b.disabled=true;try{await autoDispatch('now',id);toast('서버에 요청했어요. 몇 분 뒤 기록에 나타나요')}catch(er){alert('요청하지 못했어요.\n'+er.message+'\n\nblog-helper-data에 .github/workflows/publish.yml이 있는지 확인하세요.')}b.disabled=false;return}
+  if(b.id==='autoTest'){b.disabled=true;b.textContent='확인 중… (1~2분)';const before=S.auto.test&&S.auto.test.at;
+    try{await autoDispatch('test','');const t0=Date.now();while(Date.now()-t0<240000){await sleepMs(8000);const r=await ghGet(AF.test);if(r&&r.data&&r.data.at!==before){S.auto.test=r.data;break}}
+      if(!S.auto.test||S.auto.test.at===before)toast('아직 결과가 없어요. GitHub Actions 탭을 확인하세요')}
+    catch(er){alert(er.message)}renderAuto();return}
+  if(b.id==='qAdd'){const kw=$('#qKw').value.trim(),blog=$('#qBlog').value,err=$('#qErr');err.textContent='';
+    if(!kw){err.textContent='키워드를 입력하세요.';return}if(kw.length>40){err.textContent='2~6단어로 줄여주세요.';return}
+    const own=kwOwner(kw);if(own){err.textContent=`"${kw}"는 이미 ${own}에서 쓴(쓸) 키워드와 겹쳐요. 블로그끼리 같은 키워드는 쓰지 않아요.`;return}
+    b.disabled=true;if(await saveQueue(d=>{d.items.push({id:uid(),blog,kw,addedAt:new Date().toISOString()})},'대기열 추가: '+kw)){$('#qKw').value='';toast('넣었어요');renderAuto()}b.disabled=false;return}
+  if(b.dataset.qdel){const id=b.dataset.qdel;if(await saveQueue(d=>{d.items=d.items.filter(x=>x.id!==id)},'대기열에서 빼기'))renderAuto();return}
+  if(b.id==='qRefill'){const blog=$('#qBlog').value;const est=BH.estimate('keywords',MODELS());if(!canSpend(est))return;
+    b.disabled=true;try{await autoDispatch('refill',blog);toast('서버가 후보를 찾고 있어요. 1~2분 뒤 새로고침하세요')}catch(er){alert(er.message)}b.disabled=false;return}
+  if(b.id==='autoRefresh'){b.disabled=true;await syncAuto();return}
+  if(b.dataset.aview){const id=b.dataset.aview,box=document.getElementById('av-'+id);if(box.innerHTML){box.innerHTML='';return}
+    box.innerHTML='<div class="hint">불러오는 중…</div>';
+    try{const r=await ghGet('autopub/'+id+'.json');const d=r&&r.data;if(!d)throw new Error('글 파일이 없어요');const g=d.gate||{};
+      box.innerHTML=`<div class="sec"><h4>품질 검사 ${g.ok?'<span class="seo g">통과</span>':'<span class="seo b">미달</span>'} ${g.len?`<span class="hint">${fmtN(g.len)}${d.lang==='en'?'단어':'자'} · 예전 글과 겹침 ${Math.round((g.sim||0)*100)}%</span>`:''}</h4>
+        ${(g.fails||[]).length?`<ul class="ck">${g.fails.map(x=>`<li>❌ ${esc(x)}</li>`).join('')}</ul>`:''}${(g.warns||[]).length?`<ul class="ck">${g.warns.map(x=>`<li>⚠️ ${esc(x)}</li>`).join('')}</ul>`:''}</div>
+        <div class="sec"><h4>제목</h4><div>${esc(d.title)}</div></div><div class="sec"><h4>검색 설명</h4><div class="hint">${esc(d.meta||'')}</div></div>
+        <div class="sec"><h4>본문 미리보기</h4><div class="preview">${cleanHtml(d.html)}</div></div>
+        <div class="row" style="margin-top:8px"><button class="btn sm" data-acopy="t">제목 복사</button><button class="btn sm" data-acopy="h">HTML 복사</button></div>`;
+      box._d=d;}
+    catch(er){box.innerHTML=`<div class="err">${esc(er.message)}</div>`}return}
+  if(b.dataset.acopy){const box=b.closest('[id^="av-"]');const d=box&&box._d;if(!d)return;if(b.dataset.acopy==='t')copy(d.title);else copy(d.html);return}
+});
+document.addEventListener('change',async e=>{
+  const t=e.target;
+  if(t.id==='autoOn'){const on=t.checked;
+    if(on){const c=autoCfg();const n=c.blogs.filter(b=>b.enabled!==false).reduce((a,b)=>a+slotsOf(b).length*30,0);const usd=n*BH.estimate('auto',MODELS());
+      if(!confirm(`자동 발행을 켤까요?\n\n지금 설정이면 한 달 약 ${n}개 · ${won(usd)}가 들어요.\n월 예산 ${won(budget())}에 닿으면 자동으로 쉬어요.\n품질 검사에 떨어진 글은 공개하지 않고 임시저장해요.`)){t.checked=false;return}}
+    t.disabled=true;await saveAutoCfg(d=>{d.enabled=on},on?'자동 발행 켜기':'자동 발행 끄기');renderAuto();return}
+  if(t.name==='bfType'){const wp=t.value==='wordpress';$('#bfWp').classList.toggle('hide',!wp);$('#bfBs').classList.toggle('hide',wp)}
 });
 
 /* ---------- 설정 ---------- */
@@ -1681,6 +1949,8 @@ $('#srvTest').addEventListener('click',async()=>{
     if(!pj)bad.push('projects 폴더가 없습니다. 가이드대로 파일을 모두 올렸는지 확인하세요.');
     const kwf=await gh('/actions/workflows/keywords.yml',{allow404:true});
     if(!kwf)bad.push('검색량 조회기(.github/workflows/keywords.yml)가 없어요. 새 파일 안내대로 만들어주세요.');
+    const pbf=await gh('/actions/workflows/publish.yml',{allow404:true});
+    if(!pbf)bad.push('자동 발행기(.github/workflows/publish.yml)가 없어요. 블로그스팟·워드프레스 자동 발행을 쓰려면 올려주세요.');
     if(bad.length){m.textContent=bad.join('\n');return}
     m.style.color='var(--ok)';m.textContent='서버 연결 완료. 이제 키워드를 고르면 서버가 대신 씁니다.';
     sync().then(schedulePoll);
@@ -1719,7 +1989,7 @@ async function boot(){
   if(resume&&lsGet(LS_KEY)){S.currentId=resume.id;go('write');toast('멈췄던 글쓰기를 이어서 합니다');runProject(resume)}
   else{if(stale.length)saveNow();go('home')}
 }
-function bootServer(){if(serverReady()){sync().then(schedulePoll)}}
+function bootServer(){if(serverReady()){sync().then(schedulePoll)}if(ghReady())syncAuto().then(autoPoll)}
 boot();bootServer();
 </script>
 </body>

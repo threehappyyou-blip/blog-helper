@@ -25,6 +25,7 @@ function estimate(kind,models){
   if(kind==='write')return call(m.write,6000,6000,0);
   if(kind==='series')return costOf(m.write,{input_tokens:1500,cache_read_input_tokens:4000,output_tokens:6000});
   if(kind==='post')return estimate('research',m)+estimate('write',m);
+  if(kind==='auto')return (estimate('research',m)+call(m.write,7000,9000,0))*1.1; // 구글용 긴 글 + 가끔 고쳐쓰기
   return 0;
 }
 function todayKST(){const d=new Date(Date.now()+9*3600e3);return d.toISOString().slice(0,10)}
@@ -226,7 +227,7 @@ ${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 
 [메인 키워드] ${KW}
 ${showSub?`[이 글의 세부 키워드] ${sp.sub_keyword}\n`:''}[이 글의 방향] ${sp.angle||'검색하는 사람이 가장 알고 싶은 것 중심'}
 [카테고리] ${sp.category}
-${sibs.length?`[같은 시리즈의 다른 글 — 내용이 겹치지 않게]\n${sibs.map(x=>'- '+(x.title||x.spec.sub_keyword)+': '+(x.spec.angle||'')).join('\n')}\n`:''}이 글의 규칙:
+${sibs.length?`[같은 시리즈의 다른 글 — 내용이 겹치지 않게]\n${sibs.map(x=>'- '+(x.title||x.spec.sub_keyword)+': '+(x.spec.angle||'')).join('\n')}\n`:''}${crossBlock(pr.crossLinks,'md')}이 글의 규칙:
 - 제목 ${wp?'40자 안팎':'30자 안팎'}.
 - 본문에 [메인 키워드] ${wp?'4~6':'3~5'}회.
 ${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.`;
@@ -277,7 +278,168 @@ function applyPlan(post,r){
   post.research=r;post.spec.angle=pl.angle||post.spec.angle;
   if(pl.category)post.spec.category=pl.category;post.spec.category_note=pl.category_note||'';
 }
-  return {pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf};
+/* ===== 블로그스팟·워드프레스 자동 발행 (구글 검색·애드센스용) ===== */
+function langOf(blog){return (blog&&blog.lang)==='en'?'en':'ko'}
+function pAutoKeywords(blog,exclude){
+  const en=langOf(blog)==='en';exclude=(exclude||[]).filter(Boolean).slice(-200);
+  const sys=`너는 구글 검색으로 들어오는 블로그(${blog.type==='blogger'?'블로그스팟':'워드프레스'})의 키워드 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
+[블로그 주제 — 반드시 이 안에서만] ${blog.topic||S.settings.topic||'부업, 돈 아끼는 방법'}
+[독자] ${en?'미국 등 영어권 독자. 키워드는 영어로.':'한국 독자. 키워드는 한국어로.'}
+구글 애드센스 수익은 오래 검색되는 정리형(에버그린) 롱테일 키워드가 유리하다. 웹 검색 3회 이내로 주제 관련 최근 이슈와 사람들이 실제로 묻는 질문을 확인하고 후보를 고른다.
+제외할 키워드:
+- 답이 한 줄로 끝나는 것(전화번호·영업시간 등), 확정 발표가 없는 루머, 추정 금액이 필요한 것
+- 투자 종목 추천, 대출 권유, 의료 판단처럼 독자에게 손해를 줄 수 있는 주제, 수익 보장 부업, 다단계·사기 의심 부업
+- 블로그 주제와 관계없는 것
+${exclude.length?`- 이미 쓴 키워드, 그리고 단어만 바꾼 같은 주제(이것과 겹치면 안 됨): ${exclude.join(', ')}
+`:''}후보 10개. 3~6단어 롱테일(질문형 포함 가능). 서로 다른 주제여야 한다(같은 제도를 단어만 바꾼 변형은 1개로 친다).
+opportunity: 1~5. 검색 수요가 꾸준하고 상위 글이 부실할수록 높게, 공식 출처로 정확히 쓸 수 있으면 +1.
+결과는 <json>...</json> 태그 안에 JSON 하나로만. 형식: {"keywords":[{"keyword":"","reason":"한 문장","intent":"정보/방법/비교","evergreen":true,"opportunity":3}]}`;
+  return {sys,user:'서로 다른 키워드 후보 10개를 찾아줘.'};
 }
-root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,version:14};
+function pAutoResearch(kw,blog){
+  const en=langOf(blog)==='en';
+  const sys=`너는 구글 검색용 블로그 글 1개를 준비하는 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
+키워드: "${kw}" · 독자: ${en?'영어권(미국 중심)':'한국'}
+할 일 (웹 검색은 최대 4회, 같은 내용 반복 검색 금지):
+1) 벤치마킹: 구글에서 이 키워드로 상위에 나오는 글 1~3개를 찾아 소제목 구조를 본다. top에 제목·주소, common에 세 글이 모두 다루는 내용, missing에 세 글이 모두 빠뜨렸지만 독자에게 필요한 내용, errors에 틀리거나 오래된 내용.
+2) 관련 질문: 사람들이 이 키워드와 함께 묻는 질문(구글 "관련 질문"·검색 제안 형태) 5~8개를 questions에.
+3) 1차 출처(정부·공공기관·공식 홈페이지·공식 보도자료)에서 날짜·금액·대상·조건·방법 등 핵심 사실을 facts에. 확정 안 된 정보는 confirmed:false, 추정치를 만들지 않는다.
+4) outline: 이 글의 소제목(h2) 5~7개 계획. common을 기본으로 깔고, missing을 차별점으로 최소 1개, questions를 질문형 소제목에 반영. point는 그 소제목에서 다룰 내용 한 줄.
+5) 사람이 직접 해야 하는 신청·조회 절차가 있으면 procedures에 (경로 2개 이하, 단계 8개 이하). 메뉴·버튼 이름은 출처에서 확인한 것만 verified:true.
+주소(URL)는 검색 결과에 나온 주소를 글자 하나 바꾸지 않고 그대로 적는다. 주소를 추측해서 만들지 않는다.
+답은 짧게: facts 15개 이하(value 한 줄), 각 목록 5개 이하, sources 6개 이하. JSON 앞뒤에 설명을 쓰지 않는다.
+결과는 <json>...</json> 태그 안에 JSON 하나로만.
+형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"procedures":[{"channel":"","url":"","steps":[{"where":"","action":"","result":"","verified":true}]}],"sources":[{"title":"","url":""}],"competitors":{"top":[{"title":"","url":""}],"common":[""],"missing":[""],"errors":[""]},"questions":[""],"outline":[{"h2":"","point":""}]}`;
+  return {sys,user:`"${kw}" 벤치마킹·리서치와 글 구성을 정리해줘.`};
+}
+function compactAuto(r){
+  r=r||{};const c=r.competitors||{};
+  const o={deadline_warning:r.deadline_warning||undefined,
+    facts:(r.facts||[]).slice(0,20).map(f=>({item:f.item,value:f.value,confirmed:f.confirmed===false?false:undefined,source:f.source})),
+    procedures:(r.procedures||[]).slice(0,2),competitors_common:(c.common||[]).slice(0,6),competitors_missing:(c.missing||[]).slice(0,6),competitors_errors:(c.errors||[]).slice(0,4),
+    questions:(r.questions||[]).slice(0,8),outline:(r.outline||[]).slice(0,7),
+    sources:(r.sources||[]).slice(0,6).map(x=>({title:String(x.title||'').slice(0,80),url:x.url}))};
+  return JSON.stringify(o).slice(0,14000);
+}
+// 내 다른 블로그 글로 보내는 링크 (관련 있는 것만, 최대 2~3개)
+function crossBlock(list,fmt){
+  list=(list||[]).filter(x=>x&&x.url&&x.title).slice(0,15);if(!list.length)return '';
+  return `[내 다른 블로그 글 — 독자가 이어서 읽으면 도움이 될 글]
+${list.map(x=>'- '+String(x.title).replace(/\n/g,' ')+' | '+x.url).join('\n')}
+- 이 중 이 글 주제와 정말 관련 있는 글만 ${fmt==='html'?'1~3개':'1~2개'} 골라 ${fmt==='html'?'자주 묻는 질문 바로 앞에 <h2>함께 보면 좋은 글</h2><ul><li><a href="주소">제목</a></li></ul>':'출처 바로 앞 "## 함께 보면 좋은 글"에 "- [제목](주소)"'} 형식으로 넣는다. 관련 있는 글이 없으면 넣지 않는다(억지로 연결 금지). 주소는 위에 적힌 그대로 쓴다(이 주소들은 조사 자료 밖이어도 써도 된다). 같은 글을 두 번 넣지 않는다.
+`;
+}
+function pAutoWrite(kw,r,blog,recent,links){
+  const en=langOf(blog)==='en',L=autoLabels(en),d=todayKST();
+  const dateStr=en?new Date(d+'T00:00:00Z').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric',timeZone:'UTC'}):d.replace(/^(\d+)-(\d+)-(\d+)$/,(m,y,mo,dd)=>y+'년 '+(+mo)+'월 '+(+dd)+'일');
+  const sys=`너는 구글 검색 독자를 위한 정보 블로그 편집자다. 이 글은 구글 애드센스가 붙는 ${blog.type==='blogger'?'블로그스팟':'워드프레스'} 블로그에 그대로 발행된다. 오늘은 ${d}이다.
+${en?'모든 출력(제목·본문·설명·태그)은 자연스러운 미국 영어로 쓴다. 한국 기관·제도를 다루면 영어 독자가 이해하도록 짧게 풀어 준다.':'모든 출력은 한국어로 쓴다.'}
+[블로그 주제] ${blog.topic||S.settings.topic||''}
+[키워드] ${kw}
+[조사 자료]
+${compactAuto(r)}
+${(recent||[]).length?`[이 블로그에 이미 올린 글 — 내용·제목이 겹치지 않게]\n${recent.slice(0,15).map(t=>'- '+t).join('\n')}\n`:''}${crossBlock(links,'html')}
+[품질 기준 — 애드센스·구글 스팸 정책 통과가 최우선]
+- 독자 질문에 실제로 답하는 독창적이고 유용한 글. 상위 글을 요약·재배열한 글이 아니라, 조사 자료의 competitors_missing(상위 글이 모두 빠뜨린 내용)과 competitors_errors 바로잡기를 담아 더 나은 글을 만든다.
+- 사실은 조사 자료에 있는 것만. confirmed:false는 ${en?'"not yet confirmed"':'"아직 확정되지 않았어요"'}라고 쓴다. 숫자·날짜·사례를 지어내지 않는다.
+- 지어낸 경험·사례 금지: ${en?'"I tried", "when I applied", "my mom"':'"제가 신청해 보니", "직접 해보니", "저희 엄마가"'} 같은 1인칭 행동·주변인 이야기를 쓰지 않는다. 대신 ${en?'"Based on the official notice", "A common mistake is"':'"공고문 기준으로 보면", "많이 헷갈리는 부분은"'}처럼 쓴다.
+- 과장 금지: ${en?'"guaranteed", "100%", "secret", "shocking"':'"무조건", "보장", "역대급", "충격", "소름", "누구나"'}. 수익·절약 금액을 약속하지 않는다.
+- 키워드는 본문에 4~6번 자연스럽게. 억지 반복 금지. 다른 글 문장을 베끼지 않는다.
+- 돈과 관련된 주제라 신뢰가 중요하다: 공식 출처를 근거로 쓰고, 조건이 사람마다 다르면 그렇다고 밝힌다.
+
+[제목] 키워드를 글자 그대로 앞쪽에 넣고, 본문 내용과 정확히 일치하는 궁금증 한 구절을 붙인다. ${en?'50~65자(영문)':'28~40자'}. 느낌표·낚시성 표현 금지.
+
+[본문 — HTML만. 쓸 수 있는 태그: h2, h3, p, ul, ol, li, table, thead, tbody, tr, th, td, strong, em, a, div. h1·script·style·iframe·class·이미지 태그는 쓰지 않는다]
+1. 도입 <p> 2~3문장: 독자가 궁금한 것에 바로 답하고, 키워드를 넣는다.
+2. 요약 상자 (이 틀 그대로, li 3~5개, 숫자·날짜는 단위와 함께):
+<div style="${BOX_STYLE}"><p style="margin:0 0 6px"><strong>${L.box}</strong></p><ul style="margin:0;padding-left:20px"><li>…</li></ul></div>
+3. <p>${en?`As of ${dateStr}, …`:`${dateStr} 기준으로 …`}</p> 한 문장으로 기준일과 핵심 답.
+4. 조사 자료 outline을 따라 <h2> 5~7개. 2개 이상은 questions에서 가져온 질문형. 필요하면 <h3>. 한 문단 3~4문장 이내.
+   - 정의 문장 1개: "○○은(는) ~입니다/이에요" 혼자 읽어도 뜻이 통하게.
+   - 비교·조건을 정리한 <table> 1개 이상(<thead> 포함). 절차는 <ol>.
+5. (내 다른 블로그 글 중 관련 글이 있으면 여기 "함께 보면 좋은 글") 그다음 <h2>${L.faq}</h2> 아래 <h3>질문</h3><p>답 1~3문장</p> 4~5개 (questions 중 본문에서 덜 다룬 것).
+6. <h2>${L.src}</h2> <ul>에 조사 자료의 공식 출처만 <a href="주소" target="_blank" rel="noopener">이름</a>. 주소는 조사 자료에 있는 것을 글자 그대로. 본문 중간 링크는 꼭 필요한 공식 사이트 1~2개만.
+7. 마지막 <p><em>${en?`This article summarizes publicly available information as of ${dateStr}. Eligibility and amounts can change, so check the official site before you apply.`:`이 글은 ${dateStr} 기준 공개된 자료를 정리한 것이에요. 조건·금액은 바뀔 수 있으니 신청 전 공식 사이트에서 꼭 확인하세요.`}</em></p>
+분량: ${en?'1,200~1,800 단어':'본문 글자 3,000~4,500자'}.
+문체: ${en?'clear, friendly, plain English; short sentences; no fluff intros like "In today\'s world".':'친근한 해요체 정보글. 어미를 섞고(~해요/~이에요/~거든요/~죠), 같은 어미 3번 연속 금지. "알아보겠습니다", "살펴보겠습니다", "결론적으로", "도움이 되셨길 바랍니다" 금지.'}
+[ ] 같은 자리 표시, 이미지 자리, "@@" 같은 표시는 본문에 쓰지 않는다.
+
+출력 형식 (이 순서, 표시줄 그대로, 다른 말 없이):
+@@TITLE
+제목 한 줄
+@@META
+검색 결과 설명 한 줄 (${en?'140~160자':'90~150자'}, 키워드 포함)
+@@SLUG
+영어 소문자-하이픈 3~6단어
+@@LABELS
+태그 5개, 쉼표로 구분
+@@HTML
+본문 HTML
+@@IMAGE
+대표 사진 검색어 영어 2~4단어 (예: saving money budget)
+@@END`;
+  return {sys,user:`위 기준대로 "${kw}" 글을 써줘.`};
+}
+function pAutoFix(raw,issues){
+  return {sys:`너는 블로그 글 편집자다. 아래 글을 [고칠 점]만 고쳐서, 받은 것과 똑같은 출력 형식(@@TITLE부터 @@END까지 전부)으로 다시 낸다. 고칠 점과 관계없는 부분은 최대한 그대로 둔다. 사실을 새로 지어내지 않는다.
+[고칠 점]
+${issues.map(s=>'- '+s).join('\n')}`,user:raw};
+}
+  return {pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf,pAutoKeywords,pAutoResearch,pAutoWrite,pAutoFix};
+}
+
+/* ===== 자동 발행 품질 검사 (0원 · 사이트와 서버 공용) ===== */
+const BOX_STYLE='border:1px solid #d0d7e2;border-radius:10px;padding:14px 18px;margin:16px 0;background:#f7f9fc';
+function autoLabels(en){return en?{box:'Key facts',faq:'Frequently asked questions',src:'Sources'}:{box:'핵심 요약',faq:'자주 묻는 질문',src:'출처'}}
+function htmlText(h){return String(h||'').replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g,' ').trim()}
+const nsp=s=>String(s||'').toLowerCase().replace(/[\s\-_.,·!?'"()]+/g,'');
+function bigrams(s){const t=nsp(s),o=new Set();for(let i=0;i<t.length-1;i++)o.add(t.slice(i,i+2));return o}
+// 같은 키워드인지: 글자 그대로 같거나, 짧은 쪽이 긴 쪽에 거의 다 들어 있으면 같은 주제로 본다
+function kwDup(a,b){
+  const x=nsp(a),y=nsp(b);if(!x||!y)return false;if(x===y)return true;
+  const A=bigrams(a),B=bigrams(b),m=Math.min(A.size,B.size);if(m<3)return false;
+  let n=0;A.forEach(g=>{if(B.has(g))n++});return n/m>=0.8;
+}
+// 문장 단위로 겹치는지 본다 (9글자 조각). 안내 문구·요약 상자 제목처럼 모든 글에 들어가는 부분은 뺀다
+const BOILER=/(이 글은 [^.]*확인하세요\.?|This article summarizes[^.]*\.|핵심 요약|Key facts|자주 묻는 질문|Frequently asked questions|출처|Sources)/g;
+function shingles(t,k){t=nsp(String(t||'').replace(BOILER,' '));const s=new Set();for(let i=0;i+k<=t.length;i++)s.add(t.slice(i,i+k));return s}
+function textSim(a,b){const A=shingles(a,9),B=shingles(b,9);if(!A.size||!B.size)return 0;let n=0;A.forEach(g=>{if(B.has(g))n++});return n/Math.min(A.size,B.size)}
+// 발행해도 되는지 검사. fails가 하나라도 있으면 공개 발행하지 않고 임시저장으로 돌린다.
+function autoGate(sec,kw,lang,past){
+  const en=lang==='en',L=autoLabels(en),fails=[],warns=[],fixable=[];
+  const title=String(sec.TITLE||'').trim(),html=String(sec.HTML||''),text=htmlText(html),meta=String(sec.META||'').trim();
+  const add=(msg,fix)=>{fails.push(msg);if(fix)fixable.push(fix)};
+  if(!('END' in sec))add('글이 끝까지 오지 않았어요(중간에 끊김)');
+  if(!title)add('제목이 없어요','제목을 규칙대로 쓴다');
+  if(!html)add('본문이 없어요');
+  const len=en?text.split(/\s+/).length:text.replace(/\s/g,'').length,min=en?900:2200;
+  if(html&&len<min)add(`본문이 짧아요 (${len}${en?'단어':'자'} · 최소 ${min})`,`본문을 ${en?'1,200단어':'3,000자'} 이상으로 늘린다. 조사 자료의 빠진 내용·질문을 더 깊게 다룬다`);
+  if(title&&!nsp(title).includes(nsp(kw)))add('제목에 키워드가 없어요',`제목에 "${kw}"를 글자 그대로 넣는다`);
+  if(text&&!nsp(text.slice(0,en?600:300)).includes(nsp(kw)))add('도입부에 키워드가 없어요',`첫 문단에 "${kw}"를 자연스럽게 넣는다`);
+  const kwN=nsp(kw)?nsp(text).split(nsp(kw)).length-1:0;
+  if(kwN>12)add(`키워드가 너무 많이 반복돼요 (${kwN}번)`,'키워드 반복을 6번 이하로 줄인다');
+  const h2=(html.match(/<h2[\s>]/gi)||[]).length;
+  if(h2<4)add(`소제목이 부족해요 (${h2}개)`,'h2 소제목을 5개 이상으로 구성한다');
+  if(!new RegExp(L.box).test(html))add('요약 상자가 없어요',`도입 바로 아래에 "${L.box}" 요약 상자를 넣는다`);
+  const fi=html.search(new RegExp('<h2[^>]*>\\s*'+L.faq,'i'));
+  const faqN=fi>=0?(html.slice(fi).split(/<h2[\s>]/i)[1]||'').split(/<h3[\s>]/i).length-1:0;
+  if(faqN<3)add(`자주 묻는 질문이 부족해요 (${faqN}개)`,`"${L.faq}" h2 아래에 h3 질문 4~5개와 답을 넣는다`);else if(faqN<4)warns.push('자주 묻는 질문이 3개예요');
+  if(!/<table[\s>]/i.test(html))warns.push('표가 없어요');
+  const links=(html.match(/<a\s[^>]*href="https?:\/\/[^"]+"/gi)||[]).length;
+  if(!links)add('출처 링크가 없어요',`"${L.src}" 소제목 아래에 조사 자료의 공식 출처 링크를 넣는다`);
+  if(/\[(사진|경험|확인|링크|이미지|TODO)|@@|lorem ipsum/i.test(html))add('자리 표시([ ])가 남아 있어요','[ ] 자리 표시를 모두 지우고 문장으로 완성한다');
+  if(/<(script|iframe|style|form|object|embed)[\s>]/i.test(html))add('쓰면 안 되는 태그가 있어요','script·iframe·style 태그를 지운다');
+  const hype=en?/\b(guaranteed|100% (free|safe|sure)|get rich|shocking|secret trick)\b/i:/(무조건|수익\s*보장|100%\s*보장|역대급|충격|소름|대박)/;
+  const hm=(title+' '+text).match(hype);if(hm)add(`과장 표현이 있어요 ("${hm[0]}")`,`"${hm[0]}" 같은 과장 표현을 사실대로 고친다`);
+  const fake=en?/\b(I|we) (tried|applied|signed up|used it|got paid)\b|\bmy (mom|dad|wife|husband|friend)\b/i:/(제가|저는|저도)\s*(직접\s*)?(신청|해\s?보|받아\s?보|가\s?보|써\s?보|가입해)|저희\s*(엄마|아빠|남편|아내|가족|부모님)/;
+  const fm=text.match(fake);if(fm)add(`지어낸 경험처럼 보이는 문장이 있어요 ("${fm[0]}")`,`"${fm[0]}"처럼 1인칭 경험 문장을 "공고문 기준으로 보면" 같은 정보형 문장으로 바꾼다`);
+  let maxSim=0,simTitle='';(past||[]).forEach(p=>{const s=textSim(text,p.text||'');if(s>maxSim){maxSim=s;simTitle=p.title||''}});
+  if(maxSim>=0.3)add(`예전 글과 내용이 많이 겹쳐요 (${Math.round(maxSim*100)}% · ${simTitle})`);
+  if(meta&&(meta.length<(en?100:60)||meta.length>(en?170:160)))warns.push(`검색 설명 길이 ${meta.length}자`);
+  if(!meta)warns.push('검색 설명이 없어요');
+  if(title.length>(en?70:45))warns.push(`제목이 길어요 (${title.length}자)`);
+  const score=Math.max(0,100-fails.length*20-warns.length*5);
+  return {ok:!fails.length,score,fails,warns,fixable,len,sim:+maxSim.toFixed(2)};
+}
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:16};
 })(typeof globalThis!=='undefined'?globalThis:this);
