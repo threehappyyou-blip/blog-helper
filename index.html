@@ -524,7 +524,7 @@ document.addEventListener('change',e=>{if(e.target.id==='hideUsed'){S.settings.h
 /* ---------- 홈: 버튼 하나로 글 쓰기 ---------- */
 function pickBest(pf){
   const c=S.keywords.filter(k=>k&&k.keyword&&!isUsedKw(k.keyword)&&k.official_source!==false);
-  const sc=k=>(k.vol?volScore(k):(k.opportunity||3)*10+(k.competition==='낮음'?4:k.competition==='높음'?-4:0))+(k.type==='이슈형'?3:0)+((pf==='wordpress'||pf==='google')&&k.wordpress_fit?8:0)+(pf==='google'&&k.type==='이슈형'?-3:0);
+  const sc=k=>(k.vol?volScore(k):(k.opportunity||3)*10+(k.competition==='낮음'?4:k.competition==='높음'?-4:0))+(k.type==='장기형'?4:0)+((pf==='wordpress'||pf==='google')&&k.wordpress_fit?8:0)+(pf==='google'&&k.type==='이슈형'?-3:0);
   return c.sort((a,b)=>sc(b)-sc(a))[0]||null;
 }
 let oneRunning=false;
@@ -738,9 +738,9 @@ async function findKeywords(opt={}){
     const text=await searchRun(sys,user,8000,4,{model:MODELS().kw,usage,onTick:n=>{searches+=n}});
     const j=extractJSON(text);
     if(!Array.isArray(j.keywords)||!j.keywords.length)throw new Error('키워드를 찾지 못했습니다. 다시 시도해 주세요.');
-    S.keywords=j.keywords.filter(k=>k&&k.keyword).sort((a,b)=>(b.opportunity||0)-(a.opportunity||0)); S.keywordsAt=new Date().toISOString(); S.relatedKw=[]; ok=true;
+    const all=j.keywords.filter(k=>k&&k.keyword);S.keywords=all.filter(k=>!isUsedKw(k.keyword)).sort((a,b)=>(b.opportunity||0)-(a.opportunity||0));S.kwDropped=all.length-S.keywords.length; S.keywordsAt=new Date().toISOString(); S.relatedKw=[]; ok=true;
     saveNow();renderKw();
-    if(ghReady()){clearInterval(tick);btn.textContent='실제 검색량 확인 중…';await attachVolumes(opt.statusEl||$('#findHint'));$('#findHint').textContent='블로그 주제 안에서 후보 10개를 찾고, 네이버 실제 검색량 순으로 정렬했어요.'}
+    if(ghReady()){clearInterval(tick);btn.textContent='실제 검색량 확인 중…';await attachVolumes(opt.statusEl||$('#findHint'));$('#findHint').textContent=`블로그 주제 안에서 후보 ${S.keywords.length}개를 찾고, 장기형·검색량 많은 순으로 정렬했어요.${S.kwDropped?` (이미 쓴 키워드 ${S.kwDropped}개는 뺐어요)`:''}`}
   }catch(e){$('#findErr').textContent=e.message;if(opt.errEl)opt.errEl.textContent=e.message}
   finally{(usage.log||[]).forEach(x=>(S.extraSpend=S.extraSpend||[]).push(Object.assign({a:'키워드 찾기'},x)));saveNow();clearInterval(tick);btn.disabled=false;btn.textContent='키워드 자동찾기 · '+estWon('keywords');finding=false;renderKw();renderHeader()}
   return ok;
@@ -767,7 +767,8 @@ async function volLookup(keywords,onTick){
 function volScore(k){
   if(!k.vol)return (k.opportunity||3)*10;
   const t=k.vol.total||0,c=k.vol.comp;
-  return Math.log10(t+1)*14+(c==='낮음'?8:c==='높음'?-6:0)+(k.opportunity||3)*3+(t<100?-30:0);
+  // 장기형 + 검색량 많은 키워드를 위로 (오래 검색되는 글이 계속 방문자를 모은다)
+  return Math.log10(t+1)*14+(c==='낮음'?8:c==='높음'?-6:0)+(k.opportunity||3)*3+(t<100?-30:0)+(k.type==='장기형'?(t>=1000?12:t>=300?6:0):0);
 }
 function topicTokens(){return [...new Set(S.keywords.flatMap(k=>String(k.keyword).split(/\s+/)).filter(w=>w.length>=2))]}
 async function attachVolumes(statusEl){
@@ -777,11 +778,15 @@ async function attachVolumes(statusEl){
     const m=new Map((d.results||[]).map(r=>[nsp(r.q),r]));
     S.keywords.forEach(k=>{const r=m.get(nsp(k.keyword));if(r)k.vol={pc:r.pc,mo:r.mo,total:r.total,comp:r.comp,none:!!r.none}});
     S.keywords.sort((a,b)=>volScore(b)-volScore(a));
-    const tok=topicTokens();S.relatedKw=(d.related||[]).filter(r=>r.total>=300&&tok.some(w=>r.kw.includes(w))&&!isUsedKw(r.kw)).slice(0,12);
+    const tok=topicTokens();S.relatedKw=(d.related||[]).filter(r=>r.total>=300&&tok.some(w=>r.kw.includes(w))&&!isUsedKw(r.kw)).sort((a,b)=>b.total-a.total).slice(0,20);
     S.volAt=new Date().toISOString();saveNow();return true;
   }catch(e){if(statusEl)statusEl.textContent='검색량 확인 실패: '+e.message;return false}
 }
 const fmtN=n=>(n||0).toLocaleString('ko-KR');
+// 검색량 많은 장기형 = 오래 갈 글, 검색량 적은 키워드 = 단기 글감
+function lifePill(k){const t=(k.vol&&!k.vol.none&&k.vol.total)||0;
+  if(k.type==='장기형'&&t>=1000)return '<span class="pill ok">오래 갈 글</span>';
+  if(t<300)return '<span class="pill">단기 글감</span>';return ''}
 function volPills(v){
   if(!v)return '';
   if(v.none)return '<span class="pill warn">검색량 데이터 없음</span>';
@@ -823,7 +828,7 @@ function renderKw(){
     const used=isUsedKw(k.keyword);
     const comp=k.competition==='높음'?'bad':k.competition==='낮음'?'ok':'warn';
     return `<div class="kw"><div class="t">${i===0&&!used?'<span class="pill ok" style="margin-right:6px">가장 추천</span>':''}${esc(k.keyword)}${k.opportunity?` <span class="pill">기회 ${'★'.repeat(Math.max(1,Math.min(5,k.opportunity)))}</span>`:''}</div>
-      ${k.vol?`<div class="row" style="margin-bottom:4px">${volPills(k.vol)}</div>`:''}
+      ${k.vol?`<div class="row" style="margin-bottom:4px">${volPills(k.vol)}${lifePill(k)}</div>`:''}
       <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
       <div class="r">${esc(k.reason||'')}</div>
       ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기 · ${estWon('post')}</button><button class="btn sm" data-gkw="${i}">블로그스팟·워드프레스 글 쓰기${k.wordpress_fit?' (구글 추천)':''}</button></div></div>`}).join('')
