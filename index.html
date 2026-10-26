@@ -975,6 +975,10 @@ async function sync(){
     if(S.projects.length!==before){changed.add('*');if(!cur())S.currentId=S.projects[0]?S.projects[0].id:null}
     const u=await ghGet('state/used.json');const used=(u&&u.data)||{};
     for(const p of S.projects){if(!p.remote)continue;for(const x of p.posts){const at=used[x.id]||null;if(!!at!==!!x.published){x.published=!!at;x.publishedAt=at;changed.add(p.id)}}}
+    // 서버가 네이버 블로그 목록(RSS)에서 찾은 글 주소를 채운다
+    try{const nf=await ghGet('state/naver-found.json');const fp=(nf&&nf.data&&nf.data.posts)||{};S.naverFound=nf&&nf.data?{checkedAt:nf.data.checkedAt,errors:nf.data.errors||[],rssCount:nf.data.rssCount||0,n:Object.keys(fp).length}:null;
+      for(const p of S.projects)for(const x of p.posts){const f=fp[x.id];if(f&&f.url&&!x.url){x.url=f.url;x.urlAuto=true;changed.add(p.id)}}}catch(_){}
+    if(!S.settings.naverId){try{const nb=await ghGet('state/naver-blog.json');const v=nb&&nb.data&&(nb.data.blogIds||[])[0];if(v){S.settings.naverId=v;changed.add('*')}}catch(_){}}
     S.projects.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
     syncErr='';lastSync=Date.now();
     if(changed.size){save();refreshAfterSync(changed)}else renderSide();
@@ -1779,10 +1783,30 @@ function renderPub(){
   for(const p of S.projects){
     const d=p.posts.filter(x=>x.published).length;
     h+=`<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(p.keyword)}</h3><span class="pill ${d===p.posts.length&&d?'ok':''}">${d}/${p.posts.length} 사용</span></div>
-    <table class="pub" style="margin-top:8px"><thead><tr><th>사용</th><th>글</th><th>일차</th></tr></thead><tbody>${p.posts.map(x=>`<tr><td><input type="checkbox" aria-label="사용 완료" data-pub="${p.id}|${x.id}"${x.published?' checked':''}${x.status!=='done'?' disabled':''}></td><td><a href="#" data-open="${p.id}|${x.id}">${esc(x.title||x.spec.sub_keyword)}</a><div class="hint">${x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(x.spec.category)}${x.status!=='done'?' · 미완성':''}${x.publishedAt?' · '+new Date(x.publishedAt).toLocaleDateString('ko-KR'):''}</div>${x.published&&ghReady()?`<input type="text" data-purl="${p.id}|${x.id}" value="${esc(x.url||'')}" placeholder="올린 글 주소 붙여넣기 (선택 · 내 다른 블로그 글에서 이 글로 링크해요)" style="margin-top:6px;font-size:13px;padding:6px 8px" inputmode="url">`:''}</td><td>${x.spec.platform==='wordpress'?'-':x.spec.publish_day}</td></tr>`).join('')}</tbody></table></div>`;
+    <table class="pub" style="margin-top:8px"><thead><tr><th>사용</th><th>글</th><th>일차</th></tr></thead><tbody>${p.posts.map(x=>`<tr><td><input type="checkbox" aria-label="사용 완료" data-pub="${p.id}|${x.id}"${x.published?' checked':''}${x.status!=='done'?' disabled':''}></td><td><a href="#" data-open="${p.id}|${x.id}">${esc(x.title||x.spec.sub_keyword)}</a><div class="hint">${x.spec.platform==='wordpress'?'워드프레스':'네이버'} · ${esc(x.spec.category)}${x.status!=='done'?' · 미완성':''}${x.publishedAt?' · '+new Date(x.publishedAt).toLocaleDateString('ko-KR'):''}</div>${x.urlAuto&&x.url?'<div class="hint" style="margin-top:4px;color:var(--ok)">주소 자동으로 찾음</div>':''}${x.published&&ghReady()?`<input type="text" data-purl="${p.id}|${x.id}" value="${esc(x.url||'')}" placeholder="비어 있으면 하루 2번 자동으로 찾아요 (직접 붙여넣어도 돼요)" style="margin-top:6px;font-size:13px;padding:6px 8px" inputmode="url">`:''}</td><td>${x.spec.platform==='wordpress'?'-':x.spec.publish_day}</td></tr>`).join('')}</tbody></table></div>`;
   }
-  el.innerHTML=costCard()+h;
+  el.innerHTML=costCard()+naverCard()+h;
 }
+// 네이버 글 주소 자동 찾기: 서버가 내 네이버 블로그 최근 글 목록(RSS)을 읽어 제목으로 맞춘다 (0원)
+function naverCard(){
+  if(!ghReady())return '';
+  const nf=S.naverFound,id=S.settings.naverId||'';
+  return `<div class="card"><h3>네이버 글 주소 자동 찾기 <span class="pill ok">0원</span></h3>
+    <div class="hint" style="margin-bottom:8px">네이버에 글을 올리면 서버가 하루 2번(오전 9시·오후 4시쯤) 내 블로그 최근 글 목록을 읽어서, 제목이 맞는 글에 <b>주소를 채우고 사용 완료로 표시</b>해요. 제목을 조금 고쳐 올려도 찾아요. 블로그스팟 글 주소는 보낼 때 자동으로 저장되고, 블로그에서 직접 발행한 것도 같은 시간에 자동 확인해요.</div>
+    <label class="f" for="nvId">내 네이버 블로그 아이디 (blog.naver.com/<b>아이디</b>)</label>
+    <div class="row" style="flex-wrap:nowrap"><input type="text" id="nvId" value="${esc(id)}" placeholder="예: myblog123" autocomplete="off"><button class="btn" id="nvSave" style="flex:none">저장</button><button class="btn pri" id="nvNow" style="flex:none"${id?'':' disabled'}>지금 찾기</button></div>
+    ${nf&&nf.checkedAt?`<div class="hint" style="margin-top:6px">마지막 확인 ${new Date(nf.checkedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} · 최근 글 ${nf.rssCount}개 확인 · 지금까지 찾은 글 ${nf.n}개</div>`:''}
+    ${nf&&(nf.errors||[]).length?`<div class="why" style="color:var(--bad)">${esc(nf.errors.join(' / '))}</div>`:''}<div class="err" id="nvErr"></div></div>`;
+}
+document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('#nvSave,#nvNow');if(!b)return;const err=$('#nvErr');err.textContent='';
+  if(b.id==='nvSave'){let v=$('#nvId').value.trim().replace(/^https?:\/\/(m\.)?blog\.naver\.com\//,'').replace(/[/?#].*$/,'');
+    if(!/^[\w-]{3,40}$/.test(v)){err.textContent='블로그 주소 blog.naver.com/ 뒤의 아이디만 넣어주세요.';return}
+    b.disabled=true;try{const r=await ghGet('state/naver-blog.json');await ghPut('state/naver-blog.json',{blogIds:[v],updatedAt:new Date().toISOString()},r&&r.sha,'네이버 블로그 아이디 저장');S.settings.naverId=v;save();toast('저장했어요. "지금 찾기"를 눌러보세요');renderPub()}catch(er){err.textContent='저장하지 못했어요: '+er.message}b.disabled=false;return}
+  b.disabled=true;b.textContent='찾는 중… (1~2분)';const before=S.naverFound&&S.naverFound.checkedAt;
+  try{await autoDispatch('naver','');const t0=Date.now();while(Date.now()-t0<180000){await sleepMs(8000);const r=await ghGet('state/naver-found.json');if(r&&r.data&&r.data.checkedAt&&r.data.checkedAt!==before)break}
+    await sync();const nf=S.naverFound;toast(nf&&nf.checkedAt!==before?`확인 끝: 지금까지 찾은 글 ${nf.n}개`:'아직 결과가 없어요. 서버가 다른 작업 중이면 조금 뒤 반영돼요')}
+  catch(er){err.textContent='요청하지 못했어요: '+er.message}
+  renderPub()});
 $('#pubArea').addEventListener('change',e=>{
   const u=e.target.closest('[data-purl]');
   if(u){const [pid,xid]=u.dataset.purl.split('|');const p=S.projects.find(q=>q.id===pid);const x=p&&p.posts.find(q=>q.id===xid);if(!x)return;
