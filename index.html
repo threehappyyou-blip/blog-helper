@@ -1188,9 +1188,9 @@ function seriesSub(post,it){const kw=post.kw||'';let s=String((it&&it.sub_keywor
 function seriesWhere(p,post,it){
   const sub=nsp(seriesSub(post,it));
   const nx=p.posts.find(x=>x.researchFrom===post.id&&nsp(x.spec.sub_keyword)===sub);
-  if(nx)return {where:'naver',label:'네이버'+(nx.published?' · 사용 완료':nx.status==='done'?' · 작성 완료':' · 쓰는 중'),post:nx};
+  if(nx)return {where:'naver',label:'네이버'+(nx.published?' · 사용 완료':nx.status==='done'?' · 작성 완료':' · 쓰는 중'),post:nx,used:!!nx.published};
   const e=autoLog().find(x=>x.kw&&nsp(x.kw)===sub&&x.type!=='keywords'&&!['failed','skipped'].includes(x.status));
-  if(e)return {where:'google',label:blogName(e.blog)+' · '+((ST_PILL[e.status]||[])[1]||e.status)};
+  if(e)return {where:'google',label:blogName(e.blog)+' · '+((ST_PILL[e.status]||[])[1]||e.status),used:e.status==='published'};
   if((S.auto.pending||[]).some(x=>x.type==='write'&&nsp(x.kw||'')===sub))return {where:'google',label:'구글 블로그 · 서버에 요청함'};
   return null;
 }
@@ -1219,17 +1219,23 @@ function renderSeries(){
   const groups=[];S.projects.forEach(p=>(p.posts||[]).forEach(post=>{if(post.kw&&!post.researchFrom&&post.spec&&post.spec.platform!=='wordpress')groups.push({p,post})}));
   if(!groups.length){el.innerHTML='<div class="card"><div class="hint">아직 시리즈 글감이 없어요. ① 키워드 찾기에서 네이버 글을 쓰면 글마다 시리즈 글감이 생겨요.</div></div>';return}
   const accN=accts().filter(b=>b.enabled!==false).length;
-  el.innerHTML=(accN?'':'<div class="notice">구글 블로그로 쓰려면 ④ 탭에서 블로그스팟·워드프레스 계정을 먼저 추가하세요.</div>')+groups.map(({p,post})=>{
+  // 이미 쓴 편(작성 완료·사용 완료·쓰는 중)은 숨기고 아직 쓸 곳을 안 정한 편만 보여준다
+  const hide=S.settings.serHideDone!==false;let hidN=0;
+  el.innerHTML=`<label class="chk" style="margin-bottom:10px"><input type="checkbox" id="serHide"${hide?' checked':''}> 이미 쓴 편 숨기기 (아직 안 쓴 편만 보기)</label>`+(accN?'':'<div class="notice">구글 블로그로 쓰려면 ④ 탭에서 블로그스팟·워드프레스 계정을 먼저 추가하세요.</div>')+groups.map(({p,post})=>{
     const ideas=seriesIdeasOf(post),busy=p.running||(p.remote&&LIVE.includes(p.status));
-    const rows=ideas.map((it,i)=>{const sub=seriesSub(post,it),w=seriesWhere(p,post,it);
+    const vis=ideas.map((it,i)=>({it,i,w:seriesWhere(p,post,it)})).filter(o=>!(hide&&o.w));
+    const gone=ideas.length-vis.length;hidN+=gone;
+    if(hide&&ideas.length&&!vis.length)return '';
+    const rows=vis.map(({it,i,w})=>{const sub=seriesSub(post,it);
       return `<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:10px 0;align-items:flex-start"><div style="min-width:0;flex:1 1 220px"><div>${esc(sub)}${w?'':ideaFit(post,it)==='google'?' <span class="pill pri">구글 추천</span>':' <span class="pill ok">네이버 추천</span>'}</div><div class="hint">${esc(it.angle||'')}</div></div>
         ${w?`<span class="pill ${w.where==='naver'?'ok':'pri'}" style="flex:none">→ ${esc(w.label)}</span>`:`<div class="row" style="flex:none;gap:6px"><button class="btn sm${ideaFit(post,it)==='naver'?' pri':''}" data-sn="${p.id}|${post.id}|${i}"${busy?' disabled':''}>네이버 · ${estWon('series')}</button><button class="btn sm${ideaFit(post,it)==='google'?' pri':''}" data-sg="${p.id}|${post.id}|${i}"${accN?'':' disabled'}>구글 블로그 · ${estWon(gEst(p,post))}</button></div>`}</div>`}).join('');
     const done=ideas.filter(it=>seriesWhere(p,post,it)).length;
     return `<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(post.kw)}</h3><span class="pill">${done}/${ideas.length}편 씀</span></div>
       <div class="hint" style="margin:4px 0 6px">1편: <a href="#" data-open="${p.id}|${post.id}">${esc(post.title||post.spec.sub_keyword||post.kw)}</a> (네이버)${busy?' · 지금 이 키워드 글을 쓰는 중이라 네이버 편은 끝난 뒤 쓸 수 있어요':''}</div>
-      ${rows||`<div class="hint">글감이 아직 없어요. <a href="#" data-open="${p.id}|${post.id}">글을 열어</a> "시리즈 편 추천받기"를 누르세요 (검색 없음).</div>`}</div>`}).join('')
+      ${rows||(ideas.length?'<div class="hint">모든 편을 다 썼어요.</div>':`<div class="hint">글감이 아직 없어요. <a href="#" data-open="${p.id}|${post.id}">글을 열어</a> "시리즈 편 추천받기"를 누르세요 (검색 없음).</div>`)}${gone?`<div class="hint" style="margin-top:6px">이미 쓴 편 ${gone}개는 숨겼어요.</div>`:''}</div>`}).join('')
     +'<div class="hint">구글 블로그 편은 네이버 글에서 확인한 공식 자료를 다시 쓰고, 구글 상위 글만 가볍게 확인해요(검색 1회). 그래서 새 키워드로 쓰는 것보다 싸요. "추천" 표시는 글감을 만들 때 AI가 정한 어울리는 곳이에요.</div>';
 }
+document.addEventListener('change',e=>{if(e.target.id==='serHide'){S.settings.serHideDone=e.target.checked;save();renderSeries()}});
 document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-sn],[data-sg]');if(!b)return;
   const [pid,xid,i]=(b.dataset.sn||b.dataset.sg).split('|');const p=S.projects.find(q=>q.id===pid);const post=p&&p.posts.find(x=>x.id===xid);const it=post&&seriesIdeasOf(post)[+i];if(!it)return;
   if(seriesWhere(p,post,it)){toast('이미 다른 곳에 쓴 편이에요');renderSeries();return}
