@@ -23,8 +23,8 @@ function estimate(kind,models){
   if(kind==='keywords')return call(m.kw,25000,2500,4);
   if(kind==='patterns')return call(m.research,60000,4000,6);
   if(kind==='research')return call(m.research,35000,3500,4);
-  if(kind==='write')return call(m.write,6000,6000,0);
-  if(kind==='series')return costOf(m.write,{input_tokens:1500,cache_read_input_tokens:4000,output_tokens:6000});
+  if(kind==='write')return call(m.write,6000,9000,0);
+  if(kind==='series')return costOf(m.write,{input_tokens:1500,cache_read_input_tokens:4000,output_tokens:9000});
   if(kind==='post')return estimate('research',m)+estimate('write',m);
   if(kind==='auto')return (estimate('research',m)+call(m.write,7000,9000,0))*1.1; // 구글용 긴 글 + 가끔 고쳐쓰기
   if(kind==='autoLite')return (call(m.research,15000,2000,1)+call(m.write,7000,9000,0))*1.1; // 네이버 리서치 재사용 + 구글 상위 글 가볍게 확인
@@ -76,13 +76,14 @@ function pKeywords(exclude){
 장기형 중 몇 개는 "${S.settings.interest||'생활 실무'}" 분야처럼 생활 경험을 쓰기 쉬운 것으로 넣는다.
 ${exclude.length?`이미 글을 쓴 키워드라 절대 다시 내지 말 것(같은 주제의 변형도 제외): ${exclude.join(', ')}
 `:''}platform: 어디에 쓰기 좋은지 — 생활 경험·후기·지역·시즌·이슈형이라 네이버 사용자에게 맞으면 "naver", 1년 이상 검색되는 정리형(비교·기준·방법·체크리스트·계산)이라 구글 검색에 맞으면 "google". 한쪽으로 몰리지 않게 실제 성격대로.
+briefing: 네이버 AI 브리핑(검색 결과 위 AI 요약)이 뜨고 블로그 글을 인용할 가능성 — 원인·이유·정의·조건·기간 같은 정보형이면 "높음", 방법·절차형이면 "보통", 추천·비교·가격·순위 같은 상업형이나 건강·의료·투자처럼 민감한 주제, 사람마다 답이 다른 질문이면 "낮음". briefing이 낮음이면 platform은 google로 둔다.
 wordpress_fit: platform이 google이면 true.
 opportunity: 1~5. 검색 수요는 큰데 상위 글이 부실하거나 적을수록 높게. 공식 출처가 있어 정확하게 쓸 수 있으면 +1. 장기형이면서 검색 수요가 크면 높게.
 각 키워드는 사람들이 실제로 검색창에 칠 법한 2~4단어 형태로 쓴다.
 검색은 4회 이내로 한다(이슈 확인 2회, 사람들이 꾸준히 묻는 질문 확인 2회). reason은 짧게 한 문장. JSON 앞뒤에 설명 문장을 쓰지 않는다.
 category는 다음 목록 중 하나: ${S.settings.categories}
 결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
-형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":"","platform":"naver 또는 google","wordpress_fit":false,"opportunity":3}]}`;
+형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":"","platform":"naver 또는 google","briefing":"높음/보통/낮음","wordpress_fit":false,"opportunity":3}]}`;
   return {sys,user:'오늘 기준 서로 다른 키워드 후보 20개를 찾아줘. 검색량 많은 장기형 위주로.'};
 }
 function pResearch(kw){
@@ -170,7 +171,8 @@ function pWrite(pr,post){
 ${compact(r)}
 
 ${patternBlock(wp?'google':'naver')}공통 규칙:
-[제목] 아래 [메인 키워드]를 글자 그대로 맨 앞에 두고, 뒤에는 궁금증을 만드는 한 구절을 붙인다.
+[제목] 아래 [메인 키워드]를 글자 그대로 맨 앞에 두고, 뒤에는 궁금증을 만드는 한 구절을 붙인다.${wp?'':`
+- 네이버 글은 키워드 바로 뒤에 사람들이 실제로 검색창에 치는 질문 표현(○○ 조건 / ○○ 하는 법 / ○○ 기간 / ○○ 왜 ~?) 중 이 글에 맞는 것을 자연스럽게 잇고, 그다음 궁금증 구절을 붙인다. 예: "○○ 신청 조건, 이것 하나 빠뜨려서 탈락해요"`}
 - 궁금증 = 답의 일부만 보여주고 나머지는 본문에 있다는 느낌. 예: "○○ 신청, 이것 하나 빠뜨려서 탈락해요", "○○ 받았는데 왜 금액이 다를까?", "○○ 12월 31일 지나면 생기는 일"
 - 숫자·대상·마감 중 하나를 꼭 넣는다(조사 자료로 사실인 것만). 숫자는 정확히, 결론은 제목에서 다 말하지 않는다.
 - 금지: 사실이 아닌 약속, "무조건/누구나/역대급/충격/소름", 느낌표 2개 이상, 키워드 2번 반복.
@@ -196,7 +198,12 @@ ${patternBlock(wp?'google':'naver')}공통 규칙:
 - 질문형 소제목 아래 첫 문장은 "그것은/이것은"으로 시작하지 말고 대상 이름으로 시작해 바로 답한다.
 - 공식 명칭은 처음 나올 때 그대로(예: 국세청 홈택스), 같은 대상을 여러 이름으로 부르지 않는다.
 - 표 1개 이상, 절차는 번호 목록, 한 문단 3줄 이내.
-- 조사 자료 missing_in_competitors(상위글이 모두 빠뜨린 정보)를 담은 섹션 최소 1개, errors_in_competitors가 있으면 바르게 짚는다.
+- 조사 자료 missing_in_competitors(상위글이 모두 빠뜨린 정보)를 담은 섹션 최소 1개, errors_in_competitors가 있으면 바르게 짚는다.${wp?'':`
+[네이버 AI 브리핑 인용 — 꼭 지킨다]
+- 두괄식: 모든 ## 소제목 바로 아래 첫 문장은 그 소제목의 결론(답)이다. 이유·근거·예외는 그 뒤에 쓴다. 첫 문장을 "먼저", "많은 분들이", "~에 대해" 같은 말로 시작하지 않는다.
+- 금액·기간·대상·조건·기준 같은 숫자 정보는 문장 속에 섞지 말고 "- 항목: 값" 목록으로 따로 뺀다(괄호 표기도 유지). 목록은 글 전체에 3곳 이상.
+- 한 문단에는 한 가지 내용만. 결론이 흐린 문단을 만들지 않는다.
+- "## 이런 경우는 해당 안 돼요"(주제에 따라 "이런 분에게는 안 맞아요") 소제목을 1개 넣고, 조사 자료로 확인한 제외 대상·조건 미달·주의할 경우를 2~4개 목록으로 쓴다. 자료에 없는 내용은 만들지 않는다.`}
 
 [링크]
 - 본문의 주소(URL)는 조사 자료의 sources·facts·procedures에 있는 주소만, 글자 그대로 쓴다. 주소를 새로 만들거나 고치지 않는다.
@@ -218,7 +225,7 @@ ${detail?`- 따라하기 섹션 (아주 자세히): 이 글 각도와 관련해 
   · 조사 자료 procedures에서 verified:true인 메뉴·버튼 이름만 확정적으로 쓴다. verified:false이거나 자료에 없는 이름은 일반적인 표현으로 쓰고 바로 뒤에 [확인 필요: 실제 화면에서 버튼 이름 확인]을 붙인다. 버튼 이름을 지어내지 않는다.
   · 따라하기 끝에 "자주 막히는 부분" 3개 안팎(증상 → 해결)을 넣는다.
   · 이 글 각도에 직접 해야 하는 일이 없으면 따라하기 섹션은 넣지 않는다. 다른 글의 따라하기와 같은 절차를 반복하지 않는다.
-`:''}- [사진 넣기: 무엇을] 자리를 ${detail?'따라하기 단계마다 + 그 밖에 1~2곳':'2~3곳'}, [경험 넣기: 어떤 경험] 자리를 2곳 본문 흐름에 맞게 넣는다. 경험 내용은 지어내지 않고 자리만 표시한다.
+`:''}- [사진 넣기: 무엇을] 자리를 ${detail?'따라하기 단계마다 + 그 밖에 1~2곳':'2~3곳'}, [경험 넣기: ○○] 자리를 2~3곳 본문 흐름에 맞게 넣는다. ○○에는 무엇을 쓰면 좋을지 구체적으로 적는다 — 예) [경험 넣기: 신청하다 헷갈렸던 화면이나 실수한 점], [경험 넣기: 처음 생각과 실제가 달랐던 점], [경험 넣기: 실패했다가 해결한 방법]. 실제 경험·실패·해결 과정이 담긴 글이 AI 브리핑과 독자 신뢰에 유리하다. 경험 내용은 지어내지 않고 자리만 표시한다.
 - [같은 시리즈의 다른 글]이 주어지면: 그 글들이 다루는 내용은 한두 줄로만 언급하고 이 글의 방향에 집중한다. 출처 바로 앞에 "## 함께 보면 좋은 글" 소제목을 두고 다른 글마다 "- 글 제목 [링크 넣기: 글 제목]" 한 줄씩 쓴다.
 - 끝부분 순서: "## 자주 묻는 질문" (질문 3~5개, "### 질문" 아래 답은 대상 이름으로 시작하는 1~2문장) → "## 출처" 1차 출처 링크 목록(마크다운 링크) → 3줄 요약 → 댓글을 유도하는 질문 1줄.
 
@@ -257,7 +264,7 @@ ${showSub?`[이 글의 세부 키워드] ${sp.sub_keyword}\n`:''}[이 글의 방
 ${sibs.length?`[같은 시리즈의 다른 글 — 내용이 겹치지 않게]\n${sibs.map(x=>'- '+(x.title||x.spec.sub_keyword)+': '+(x.spec.angle||'')).join('\n')}\n`:''}${crossBlock(pr.crossLinks,'md')}이 글의 규칙:
 - 제목 ${wp?'40자 안팎':'30자 안팎'}.
 - 본문에 [메인 키워드] ${wp?'4~6':'3~5'}회.
-${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 분량: ${wp?'2,500~3,500자':'1,500~2,500자'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.`;
+${wp?'- FAQ 소제목 아래 질문 3~5개와 답을 넣는다. 비교표를 중심에 둔다.\n':''}- 분량: ${wp?'2,500~3,500자':'3,000~4,500자 (늘어지지 않게: 목록·표·단계로 정보 밀도를 높여서)'}${detail?' (따라하기 섹션이 있으면 그만큼 더 길어져도 된다)':''}.`;
   const useCache=!!post.researchFrom||(pr.posts||[]).some(x=>x.researchFrom===post.id&&x.status!=='done');
   return {sys:[Object.assign({type:'text',text:common},useCache?{cache_control:{type:'ephemeral'}}:{}),{type:'text',text:spec}],user:`위 규칙대로 "${showSub?sp.sub_keyword:KW}" 글을 써줘.`};
 }
@@ -490,5 +497,5 @@ function autoGate(sec,kw,lang,past,pat){
   const score=Math.max(0,100-fails.length*20-warns.length*5);
   return {ok:!fails.length,score,fails,warns,fixable,len,sim:+maxSim.toFixed(2)};
 }
-root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:20};
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:21};
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -535,7 +535,7 @@ document.addEventListener('change',e=>{if(e.target.id==='hideUsed'){S.settings.h
 /* ---------- 홈: 버튼 하나로 글 쓰기 ---------- */
 function pickBest(pf){
   const c=S.keywords.filter(k=>k&&k.keyword&&!isUsedKw(k.keyword)&&k.official_source!==false);
-  const sc=k=>(k.vol?volScore(k):(k.opportunity||3)*10+(k.competition==='낮음'?4:k.competition==='높음'?-4:0))+(k.type==='장기형'?4:0)+((pf==='wordpress'||pf==='google')&&kwPf(k)==='google'?8:0)+(pf==='naver'&&kwPf(k)==='naver'?4:0)+(pf==='google'&&k.type==='이슈형'?-3:0);
+  const sc=k=>(k.vol?volScore(k):(k.opportunity||3)*10+(k.competition==='낮음'?4:k.competition==='높음'?-4:0))+(k.type==='장기형'?4:0)+((pf==='wordpress'||pf==='google')&&kwPf(k)==='google'?8:0)+(pf==='naver'&&kwPf(k)==='naver'?4:0)+(pf==='naver'&&k.briefing==='높음'?4:0)+(pf==='google'&&k.type==='이슈형'?-3:0);
   return c.sort((a,b)=>sc(b)-sc(a))[0]||null;
 }
 let oneRunning=false;
@@ -882,7 +882,9 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
   if(confirm('상위 글 패턴을 끌까요? 다음 글부터 반영하지 않아요. (다시 분석하면 켜져요)')){S.settings.patterns=null;saveNow();renderPat();
     if(ghReady())ghGet(PAT_FILE).then(r=>r&&ghPut(PAT_FILE,{at:'',off:true},r.sha,'상위 글 패턴 끄기')).catch(()=>{})}});
 // 이 키워드가 어디에 맞는지 (키워드 찾기에서 받은 값 · 예전 후보는 구글 추천 표시로)
-const kwPf=k=>k.platform==='google'||k.platform==='naver'?k.platform:(k.wordpress_fit?'google':'naver');
+// AI 브리핑 가능성이 낮은 키워드(비교·추천·가격형 등)는 구글로 보낸다
+const kwPf=k=>k.briefing==='낮음'?'google':k.platform==='google'||k.platform==='naver'?k.platform:(k.wordpress_fit?'google':'naver');
+const briefPill=k=>['높음','보통','낮음'].includes(k.briefing)?`<span class="pill ${k.briefing==='높음'?'ok':k.briefing==='보통'?'warn':''}" title="네이버 AI 브리핑에 인용될 가능성">AI 브리핑 ${k.briefing}</span>`:'';
 function renderKw(){
   const el=$('#kwList');
   if(!S.keywords.length){el.innerHTML='';return}
@@ -893,7 +895,7 @@ function renderKw(){
     const comp=k.competition==='높음'?'bad':k.competition==='낮음'?'ok':'warn';
     return `<div class="kw"><div class="t">${i===0&&!used?'<span class="pill ok" style="margin-right:6px">가장 추천</span>':''}${esc(k.keyword)}${k.opportunity?` <span class="pill">기회 ${'★'.repeat(Math.max(1,Math.min(5,k.opportunity)))}</span>`:''}</div>
       ${k.vol?`<div class="row" style="margin-bottom:4px">${volPills(k.vol)}${lifePill(k)}</div>`:''}
-      <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span><span class="pill ${kwPf(k)==='google'?'pri':'ok'}">${kwPf(k)==='google'?'구글 적합':'네이버 적합'}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
+      <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span><span class="pill ${kwPf(k)==='google'?'pri':'ok'}">${kwPf(k)==='google'?'구글 적합':'네이버 적합'}</span>${briefPill(k)}${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
       <div class="r">${esc(k.reason||'')}</div>
       ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used||kwPf(k)==='google'?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기${kwPf(k)==='naver'?' (추천)':''} · ${estWon('post')}</button><button class="btn ${!used&&kwPf(k)==='google'?'pri':''} sm" data-gkw="${i}">블로그스팟·워드프레스 글 쓰기${kwPf(k)==='google'?' (추천)':''} · ${estWon('auto')}</button></div></div>`}).join('')
     +lowHtml(S.kwLow)+relHtml(S.relatedKw);
@@ -1260,7 +1262,7 @@ function seoScore(KW,title,body,wp){
   add(/^\s*\|.+\|\s*$/m.test(B),5,'표 포함','표를 1개 이상 넣으세요');
   add(/자주\s*묻는\s*질문|FAQ/i.test(B),8,'자주 묻는 질문 포함','"자주 묻는 질문" 섹션을 넣으세요');
   add(/https?:\/\//.test(B),5,'출처 링크 포함','공식 출처 링크를 넣으세요');
-  add(len>=(wp?2200:1300),10,`본문 ${len.toLocaleString()}자`,`본문이 짧습니다 (${len.toLocaleString()}자 → ${wp?'2,200':'1,300'}자 이상)`);
+  add(len>=(wp?2200:2500),10,`본문 ${len.toLocaleString()}자`,`본문이 짧습니다 (${len.toLocaleString()}자 → ${wp?'2,200':'2,500'}자 이상)`);
   const photos=(B.match(/\[사진 넣기/g)||[]).length;add(wp||photos>=3,5,`사진 자리 ${photos}곳`,'사진 자리를 3곳 이상 (네이버는 직접 찍은 사진이 많을수록 유리)');
   if(kwN>14){score-=8;miss.push(`키워드가 ${kwN}번으로 너무 많습니다 (반복은 감점) → 8~12번으로`)}
   return {score:Math.max(0,Math.min(100,Math.round(score))),ok,miss};
@@ -1334,6 +1336,19 @@ function audit(post,KW,title,body,wp){
   cite.push({ok:/(에서|앱|사이트|누리집)[^.?!\n]{2,50}(누르|선택|신청|입력|조회)[^.?!\n]{0,20}(요|다)[.?!]?/.test(plainText(body)),t:'방법 한 문장 ("○○에서 ○○을 누르면 돼요")',w:1});
   cite.push({ok:(body.match(/\([^)]*\d[^)]*\)/g)||[]).length>=2,t:'괄호 속 구체 정보 2곳 이상 ("(1인 295,200원)")',w:1});
   cite.push({ok:firstLines.length>0&&firstLines.every(l=>!/^(그것|이것|그건|이건|이는|그는)/.test(l)),t:'질문형 소제목 아래 바로 답하기',w:1});
+  if(!wp){
+    // 두괄식: 소제목 바로 아래 첫 문장이 결론인지 (돌려 말하는 시작이면 감점)
+    const secs=body.split(/^##\s+/m).slice(1).filter(b=>!/^(자주\s*묻는|출처|함께\s*보면)/.test(b.trim()));
+    const lead=secs.map(b=>(plainText(b.split('\n').slice(1).join('\n')).trim().split(/(?<=[.?!])\s|\n/)[0]||'').trim()).filter(Boolean);
+    const weak=lead.filter(l=>/^(먼저|우선|많은 분들|혹시|오늘|이번에는|그럼|그렇다면|사실)|에 대해/.test(l)||/[?？]$/.test(l)).length;
+    cite.push({ok:lead.length>0&&weak<=1,t:weak<=1?`두괄식 (소제목 첫 문장이 결론 · ${lead.length}곳)`:`두괄식이 약해요 — 소제목 ${weak}곳이 돌려 말하며 시작해요. 첫 문장에 답을 먼저 쓰세요`,w:2});
+    const numList=(body.match(/^\s*[-*]\s+[^\n]*\d[^\n]*$/gm)||[]).length;
+    cite.push({ok:numList>=3,t:numList>=3?`숫자·조건 목록 ${numList}줄`:'숫자·조건(금액·기간·대상)을 "- 항목: 값" 목록으로 따로 빼세요 (3줄 이상)',w:1});
+    const notFit=/^##\s+[^\n]*(해당\s*안|안\s*맞|제외|받을\s*수\s*없|대상이\s*아닌|주의할)/m.test(body);
+    cite.push({ok:notFit,t:notFit?'"해당 안 되는 경우" 안내 있음':'"이런 경우는 해당 안 돼요" 소제목을 넣으세요 (신뢰도·인용에 유리)',w:1});
+    const exp=(body.match(/\[경험 넣기/g)||[]).length;
+    if(exp)cite.push({ok:true,t:`경험 자리 ${exp}곳 — 직접 겪은 일·실수·해결 과정을 채우면 인용과 신뢰에 더 유리해요`,w:0});
+  }
   groups.push({n:'AI 브리핑 인용',it:cite});
   groups.unshift({n:'검색 노출(SEO)',it:seo.ok.map(t=>({ok:true,t,w:1})).concat(seo.miss.map(t=>({ok:false,t,w:1}))),score:seo.score});
   let tot=0,got=0;groups.slice(1).forEach(g=>g.it.forEach(x=>{tot+=x.w;if(x.ok)got+=x.w}));
