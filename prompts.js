@@ -27,6 +27,7 @@ function estimate(kind,models){
   if(kind==='series')return costOf(m.write,{input_tokens:1500,cache_read_input_tokens:4000,output_tokens:6000});
   if(kind==='post')return estimate('research',m)+estimate('write',m);
   if(kind==='auto')return (estimate('research',m)+call(m.write,7000,9000,0))*1.1; // 구글용 긴 글 + 가끔 고쳐쓰기
+  if(kind==='autoLite')return (call(m.research,15000,2000,1)+call(m.write,7000,9000,0))*1.1; // 네이버 리서치 재사용 + 구글 상위 글 가볍게 확인
   return 0;
 }
 function todayKST(){const d=new Date(Date.now()+9*3600e3);return d.toISOString().slice(0,10)}
@@ -71,17 +72,18 @@ function pKeywords(exclude){
 - 의료·투자 판단을 대신해 주는 주제(주식·코인 종목 추천 등), 정치 성향이 드러나는 주제, 사건·사고 피해자 관련 주제
 - 블로그 주제와 관계없는 키워드
 - 수익을 보장하는 부업, 다단계·불법·사기 의심 부업, 앱테크 과장("하루 10만원")처럼 독자에게 손해를 줄 수 있는 주제
-후보는 15개 — 그중 장기형 최소 10개, 이슈형 최대 5개. 서로 다른 키워드여야 한다 — 같은 제도·사건을 단어만 바꾼 변형(예: "○○ 신청방법"과 "○○ 신청기간")은 1개로 친다. 블로그 주제 안에서 세부 분야(부업, 생활비 절약, 지원금·환급, 할인·혜택 등)를 고루 섞는다.
+후보는 20개 — 그중 장기형 최소 15개, 이슈형 최대 5개. 월 검색량이 100회도 안 될 만큼 좁은 표현은 내지 않는다(검색량이 적은 후보는 자동으로 빠진다). 서로 다른 키워드여야 한다 — 같은 제도·사건을 단어만 바꾼 변형(예: "○○ 신청방법"과 "○○ 신청기간")은 1개로 친다. 블로그 주제 안에서 세부 분야(부업, 생활비 절약, 지원금·환급, 할인·혜택 등)를 고루 섞는다.
 장기형 중 몇 개는 "${S.settings.interest||'생활 실무'}" 분야처럼 생활 경험을 쓰기 쉬운 것으로 넣는다.
 ${exclude.length?`이미 글을 쓴 키워드라 절대 다시 내지 말 것(같은 주제의 변형도 제외): ${exclude.join(', ')}
-`:''}wordpress_fit: 구글 검색으로 오래 찾을 정리형 주제면 true (보통 장기형).
+`:''}platform: 어디에 쓰기 좋은지 — 생활 경험·후기·지역·시즌·이슈형이라 네이버 사용자에게 맞으면 "naver", 1년 이상 검색되는 정리형(비교·기준·방법·체크리스트·계산)이라 구글 검색에 맞으면 "google". 한쪽으로 몰리지 않게 실제 성격대로.
+wordpress_fit: platform이 google이면 true.
 opportunity: 1~5. 검색 수요는 큰데 상위 글이 부실하거나 적을수록 높게. 공식 출처가 있어 정확하게 쓸 수 있으면 +1. 장기형이면서 검색 수요가 크면 높게.
 각 키워드는 사람들이 실제로 검색창에 칠 법한 2~4단어 형태로 쓴다.
 검색은 4회 이내로 한다(이슈 확인 2회, 사람들이 꾸준히 묻는 질문 확인 2회). reason은 짧게 한 문장. JSON 앞뒤에 설명 문장을 쓰지 않는다.
 category는 다음 목록 중 하나: ${S.settings.categories}
 결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
-형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":"","wordpress_fit":false,"opportunity":3}]}`;
-  return {sys,user:'오늘 기준 서로 다른 키워드 후보 15개를 찾아줘. 장기형 위주로.'};
+형식: {"keywords":[{"keyword":"","reason":"지금 뜨는 이유 한 문장","type":"이슈형 또는 장기형","lifespan":"예상 유효기간","official_source":true,"competition":"낮음/보통/높음","category":"","platform":"naver 또는 google","wordpress_fit":false,"opportunity":3}]}`;
+  return {sys,user:'오늘 기준 서로 다른 키워드 후보 20개를 찾아줘. 검색량 많은 장기형 위주로.'};
 }
 function pResearch(kw){
   const sys=`너는 네이버 블로그 글을 준비하는 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
@@ -117,7 +119,7 @@ function pResearchOne(kw,platform){
 답은 짧게: JSON 앞뒤에 설명 문장을 쓰지 않는다. facts는 15개 이하, 각 value는 한 줄. procedures는 경로 2개 이하·단계 8개 이하. competitors의 각 목록은 5개 이하, 한 줄씩. sources는 6개 이하. series는 5개 이하.
 3) 이 키워드로 쓸 글 1개의 방향(plan)을 정한다: 검색하는 사람이 가장 알고 싶은 것을 중심으로, 상위글이 빠뜨린 정보를 차별점으로. ${wp?'워드프레스 글은 비교표와 FAQ 중심 정리형.':''}
  - category는 다음 목록 중 하나: ${S.settings.categories}. 맞는 게 없으면 가장 가까운 것을 고르고 category_note에 이유를 적는다.
-6) 이 글 다음에 같은 키워드로 이어 쓸 시리즈 편 4~5개를 series에 제안한다. 첫 글(plan)과도, 서로도 겹치지 않게, 위 조사 자료만으로 쓸 수 있는 주제로. sub_keyword는 키워드를 글자 그대로 포함.
+6) 이 글 다음에 같은 키워드로 이어 쓸 시리즈 편 4~5개를 series에 제안한다. 첫 글(plan)과도, 서로도 겹치지 않게, 위 조사 자료만으로 쓸 수 있는 주제로. sub_keyword는 키워드를 글자 그대로 포함. fit은 이 편이 어디에 더 맞는지: 비교·기준·방법·체크리스트·계산처럼 오래 검색되는 정리형이면 "google", 생활 경험·후기·지역·시즌성·이슈형이면 "naver".
 4) 신청 기간이 이미 끝났거나 7일 안에 끝나면 deadline_warning에 적는다. 아니면 빈 문자열.
 5) 따라하기 절차를 수집한다. 신청·조회·사용 등 사람이 직접 해야 하는 일이 있으면, 공식 안내문·이용 가이드·FAQ에서 실제 화면 순서를 찾아 procedures에 정리한다.
  - channel: "온라인(사이트 이름)", "앱(앱 이름)", "방문" 등 경로별로 나눈다.
@@ -125,7 +127,7 @@ function pResearchOne(kw,platform){
  - 메뉴·버튼 이름을 출처에서 직접 확인했으면 verified:true, 아니면 verified:false. 이름을 추측해서 채우지 않는다.
  - 절차가 필요 없는 키워드면 빈 배열.
 결과는 <json>...</json> 태그 안에 JSON 하나로만 낸다. 태그 밖에는 아무것도 쓰지 않는다.
-형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"procedures":[{"channel":"","url":"","need":["준비물"],"steps":[{"where":"","action":"","input":"","result":"","verified":true}],"source":"URL"}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"plan":{"angle":"이 글이 다룰 내용 한 문장","category":"","category_note":""},"series":[{"sub_keyword":"","angle":""}]}`;
+형식: {"deadline_warning":"","facts":[{"item":"","value":"","source":"URL","confirmed":true}],"procedures":[{"channel":"","url":"","need":["준비물"],"steps":[{"where":"","action":"","input":"","result":"","verified":true}],"source":"URL"}],"sources":[{"title":"","url":""}],"competitors":{"common":[""],"missing":[""],"errors":[""]},"plan":{"angle":"이 글이 다룰 내용 한 문장","category":"","category_note":""},"series":[{"sub_keyword":"","angle":"","fit":"naver 또는 google"}]}`;
   return {sys,user:`"${kw}" 리서치와 글 방향을 정리해줘.`};
 }
 function researchOf(pr,post){
@@ -270,7 +272,8 @@ ${have}
 ${compact(r)}
 같은 키워드로 이어서 쓸 시리즈 편 5개를 제안한다. 이미 쓴 글과도, 서로도 내용이 겹치지 않게. 조사 자료로 쓸 수 있는 내용만.
 sub_keyword는 "${KW}"를 글자 그대로 포함하고 사람들이 실제로 검색할 형태로.
-결과는 <json>...</json> 안에 JSON 하나로만: {"series":[{"sub_keyword":"","angle":"이 편이 다룰 내용 한 문장"}]}`;
+fit은 이 편이 어디에 더 맞는지: 비교·기준·방법·체크리스트·계산처럼 오래 검색되는 정리형이면 "google", 생활 경험·후기·지역·시즌성·이슈형이면 "naver".
+결과는 <json>...</json> 안에 JSON 하나로만: {"series":[{"sub_keyword":"","angle":"이 편이 다룰 내용 한 문장","fit":"naver 또는 google"}]}`;
   return {sys,user:'시리즈 편 5개를 제안해줘.'};
 }
 
@@ -320,6 +323,24 @@ ${exclude.length?`- 이미 쓴 키워드, 그리고 단어만 바꾼 같은 주�
 opportunity: 1~5. 검색 수요가 꾸준하고 상위 글이 부실할수록 높게, 공식 출처로 정확히 쓸 수 있으면 +1.
 결과는 <json>...</json> 태그 안에 JSON 하나로만. 형식: {"keywords":[{"keyword":"","reason":"한 문장","intent":"정보/방법/비교","evergreen":true,"opportunity":3}]}`;
   return {sys,user:'서로 다른 키워드 후보 10개를 찾아줘.'};
+}
+// 네이버 글에서 이미 확인한 공식 사실·출처를 다시 쓰고, 구글 상위 글만 가볍게 확인한다 (웹 검색 1회)
+function pAutoResearchLite(kw,blog,base){
+  base=base||{};
+  const known=JSON.stringify({deadline_warning:base.deadline_warning||undefined,facts:(base.facts||[]).slice(0,20).map(f=>({item:f.item,value:f.value,confirmed:f.confirmed===false?false:undefined})),sources:(base.sources||[]).slice(0,8).map(x=>({title:String(x.title||'').slice(0,60),url:x.url}))}).slice(0,9000);
+  const sys=`너는 구글 검색용 블로그 글 1개를 준비하는 리서처다. 오늘은 ${todayKST()} (한국 시간)이다.
+키워드: "${kw}" · 독자: 한국
+[이미 확인한 공식 자료 — 사실은 이것을 쓴다. 다시 찾지 않는다]
+${known}
+할 일 (웹 검색은 1회만):
+1) 구글에서 "${kw}"로 상위에 나오는 글 1~3개의 구성을 본다. top에 제목·주소, common에 모두 다루는 내용, missing에 모두 빠뜨렸지만 독자에게 필요한 내용, errors에 틀리거나 오래된 내용.
+2) questions: 사람들이 이 키워드와 함께 묻는 질문 5~8개.
+3) outline: 이 글의 소제목(h2) 5~7개. common을 기본으로, missing을 차별점으로 최소 1개, questions를 질문형 소제목에 반영. 위 공식 자료로 쓸 수 있는 내용만.
+4) extra_facts: 위 자료에 없는데 꼭 필요한 사실을 상위 글이 인용한 공식 출처에서 확인했을 때만, 3개 이하(source 주소 필수). 없으면 빈 목록.
+주소(URL)는 검색 결과에 나온 주소를 글자 그대로. 추측해서 만들지 않는다. JSON 앞뒤에 설명을 쓰지 않는다.
+결과는 <json>...</json> 태그 안에 JSON 하나로만.
+형식: {"competitors":{"top":[{"title":"","url":""}],"common":[""],"missing":[""],"errors":[""]},"questions":[""],"outline":[{"h2":"","point":""}],"extra_facts":[{"item":"","value":"","source":"URL","confirmed":true}]}`;
+  return {sys,user:`"${kw}" 구글 상위 글 확인과 글 구성을 정리해줘.`};
 }
 function pAutoResearch(kw,blog){
   const en=langOf(blog)==='en';
@@ -410,7 +431,7 @@ function pAutoFix(raw,issues){
 [고칠 점]
 ${issues.map(s=>'- '+s).join('\n')}`,user:raw};
 }
-  return {pPatterns,pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf,pAutoKeywords,pAutoResearch,pAutoWrite,pAutoFix};
+  return {pPatterns,pKeywords,pResearch,pResearchOne,pWrite,pSeries,buildPosts,buildMulti,buildSeries,applyPlan,researchOf,pAutoKeywords,pAutoResearch,pAutoResearchLite,pAutoWrite,pAutoFix};
 }
 
 /* ===== 자동 발행 품질 검사 (0원 · 사이트와 서버 공용) ===== */
@@ -469,5 +490,5 @@ function autoGate(sec,kw,lang,past,pat){
   const score=Math.max(0,100-fails.length*20-warns.length*5);
   return {ok:!fails.length,score,fails,warns,fixable,len,sim:+maxSim.toFixed(2)};
 }
-root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:18};
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:20};
 })(typeof globalThis!=='undefined'?globalThis:this);

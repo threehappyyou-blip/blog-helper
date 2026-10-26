@@ -202,6 +202,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <button data-tab="write">② 글 만들기</button>
     <button data-tab="pub">③ 발행 관리</button>
     <button data-tab="auto">④ 블로그스팟·워드프레스</button>
+    <button data-tab="series">⑤ 시리즈 글</button>
     <button data-tab="set">설정</button>
     <button data-tab="help">도움말</button>
   </nav>
@@ -239,7 +240,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   <p class="lead">키워드 1개로 글 1개를 씁니다. 후보를 찾거나 직접 입력하세요.</p>
   <div class="card">
     <button class="btn pri" id="findBtn">키워드 자동찾기</button>
-    <div class="hint" id="findHint">블로그 주제 안에서 서로 다른 후보 15개(장기형 위주)를 찾습니다. 이미 글을 쓴 키워드는 빠집니다. 1분 안팎. (주제는 설정에서 바꿔요)</div>
+    <div class="hint" id="findHint">블로그 주제 안에서 서로 다른 후보 20개(장기형 위주)를 찾고, 월 검색량 100회 미만은 뺍니다. 이미 글을 쓴 키워드는 빠집니다. 1분 안팎. (주제는 설정에서 바꿔요)</div>
     <div class="err" id="findErr"></div>
     <label class="f" for="manualKw">직접 입력</label>
     <input type="text" id="manualKw" placeholder="예: 민생지원금 신청방법">
@@ -274,6 +275,13 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
   <h2>④ 블로그스팟 · 워드프레스</h2>
   <p class="lead">키워드로 글을 쓰고 → 보낼 계정을 확인하고 → 전송 버튼으로 올려요. 품질 검사를 통과하지 못한 글은 공개 발행이 막혀요. 자동 발행은 계정마다 따로 켜요.</p>
   <div id="autoArea"></div>
+</section>
+
+<!-- 시리즈 글 -->
+<section id="tab-series" class="hide">
+  <h2>⑤ 시리즈 글</h2>
+  <p class="lead">네이버 글에서 나온 시리즈 글감을 한곳에 모았어요. 편마다 <b>네이버</b> 또는 <b>구글 블로그(블로그스팟·워드프레스)</b> 중 한 곳을 골라 써요. 한 편은 한 곳에만 써서 중복 문서를 막아요.</p>
+  <div id="seriesArea"></div>
 </section>
 
 <!-- 설정 -->
@@ -484,6 +492,7 @@ function render(tab){
   if(tab==='pub')renderPub();
   if(tab==='auto'){renderAuto();syncAuto().then(autoPoll)}
   if(tab==='set')renderSet();
+  if(tab==='series'){renderSeries();if(ghReady()&&!S.auto.at)syncAuto().then(renderSeries)}
 }
 function activeTab(){const b=document.querySelector('nav button.on');return b?b.dataset.tab:'home'}
 function rerender(){render(activeTab())}
@@ -526,7 +535,7 @@ document.addEventListener('change',e=>{if(e.target.id==='hideUsed'){S.settings.h
 /* ---------- 홈: 버튼 하나로 글 쓰기 ---------- */
 function pickBest(pf){
   const c=S.keywords.filter(k=>k&&k.keyword&&!isUsedKw(k.keyword)&&k.official_source!==false);
-  const sc=k=>(k.vol?volScore(k):(k.opportunity||3)*10+(k.competition==='낮음'?4:k.competition==='높음'?-4:0))+(k.type==='장기형'?4:0)+((pf==='wordpress'||pf==='google')&&k.wordpress_fit?8:0)+(pf==='google'&&k.type==='이슈형'?-3:0);
+  const sc=k=>(k.vol?volScore(k):(k.opportunity||3)*10+(k.competition==='낮음'?4:k.competition==='높음'?-4:0))+(k.type==='장기형'?4:0)+((pf==='wordpress'||pf==='google')&&kwPf(k)==='google'?8:0)+(pf==='naver'&&kwPf(k)==='naver'?4:0)+(pf==='google'&&k.type==='이슈형'?-3:0);
   return c.sort((a,b)=>sc(b)-sc(a))[0]||null;
 }
 let oneRunning=false;
@@ -741,9 +750,9 @@ async function findKeywords(opt={}){
     const text=await searchRun(sys,user,16000,4,{model:MODELS().kw,usage,onTick:n=>{searches+=n}});
     const j=extractJSON(text);
     if(!Array.isArray(j.keywords)||!j.keywords.length)throw new Error('키워드를 찾지 못했습니다. 다시 시도해 주세요.');
-    const all=j.keywords.filter(k=>k&&k.keyword);S.keywords=all.filter(k=>!isUsedKw(k.keyword)).sort((a,b)=>(b.opportunity||0)-(a.opportunity||0));S.kwDropped=all.length-S.keywords.length; S.keywordsAt=new Date().toISOString(); S.relatedKw=[]; ok=true;
+    const all=j.keywords.filter(k=>k&&k.keyword);S.kwLow=[];S.keywords=all.filter(k=>!isUsedKw(k.keyword)).sort((a,b)=>(b.opportunity||0)-(a.opportunity||0));S.kwDropped=all.length-S.keywords.length; S.keywordsAt=new Date().toISOString(); S.relatedKw=[]; ok=true;
     saveNow();renderKw();
-    if(ghReady()){clearInterval(tick);btn.textContent='실제 검색량 확인 중…';await attachVolumes(opt.statusEl||$('#findHint'));$('#findHint').textContent=`블로그 주제 안에서 후보 ${S.keywords.length}개를 찾고, 장기형·검색량 많은 순으로 정렬했어요.${S.kwDropped?` (이미 쓴 키워드 ${S.kwDropped}개는 뺐어요)`:''}`}
+    if(ghReady()){clearInterval(tick);btn.textContent='실제 검색량 확인 중…';await attachVolumes(opt.statusEl||$('#findHint'));$('#findHint').textContent=`블로그 주제 안에서 후보 ${S.keywords.length}개를 찾고, 장기형·검색량 많은 순으로 정렬했어요.${S.kwDropped?` 이미 쓴 키워드 ${S.kwDropped}개`:''}${(S.kwLow||[]).length?`${S.kwDropped?',':''} 월 검색량 100회 미만 ${S.kwLow.length}개`:''}${S.kwDropped||(S.kwLow||[]).length?'는 뺐어요.':''}`}
   }catch(e){$('#findErr').textContent=e.message;if(opt.errEl)opt.errEl.textContent=e.message}
   finally{(usage.log||[]).forEach(x=>(S.extraSpend=S.extraSpend||[]).push(Object.assign({a:'키워드 찾기'},x)));saveNow();clearInterval(tick);btn.disabled=false;btn.textContent='키워드 자동찾기 · '+estWon('keywords');finding=false;renderKw();renderHeader()}
   return ok;
@@ -780,6 +789,9 @@ async function attachVolumes(statusEl){
     const d=await volLookup(S.keywords.map(k=>k.keyword),s=>{if(statusEl)statusEl.textContent=`실제 검색량 확인 중… ${s}초 (보통 30~90초)`});
     const m=new Map((d.results||[]).map(r=>[nsp(r.q),r]));
     S.keywords.forEach(k=>{const r=m.get(nsp(k.keyword));if(r)k.vol={pc:r.pc,mo:r.mo,total:r.total,comp:r.comp,none:!!r.none}});
+    // 월 검색량 100회 미만(데이터 없음 포함)은 후보에서 빼고 아래 "검색량 적은 후보"로 접어 둔다
+    const isLow=k=>k.vol&&(k.vol.none||(k.vol.total||0)<100);
+    S.kwLow=S.keywords.filter(isLow).map(k=>({kw:k.keyword,total:k.vol.none?0:k.vol.total||0}));S.keywords=S.keywords.filter(k=>!isLow(k));
     S.keywords.sort((a,b)=>volScore(b)-volScore(a));
     const tok=topicTokens();S.relatedKw=(d.related||[]).filter(r=>r.total>=300&&tok.some(w=>r.kw.includes(w))&&!isUsedKw(r.kw)).sort((a,b)=>b.total-a.total).slice(0,20);
     S.volAt=new Date().toISOString();saveNow();return true;
@@ -869,6 +881,8 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
   if(b.id==='patBtn'){runPatterns();return}
   if(confirm('상위 글 패턴을 끌까요? 다음 글부터 반영하지 않아요. (다시 분석하면 켜져요)')){S.settings.patterns=null;saveNow();renderPat();
     if(ghReady())ghGet(PAT_FILE).then(r=>r&&ghPut(PAT_FILE,{at:'',off:true},r.sha,'상위 글 패턴 끄기')).catch(()=>{})}});
+// 이 키워드가 어디에 맞는지 (키워드 찾기에서 받은 값 · 예전 후보는 구글 추천 표시로)
+const kwPf=k=>k.platform==='google'||k.platform==='naver'?k.platform:(k.wordpress_fit?'google':'naver');
 function renderKw(){
   const el=$('#kwList');
   if(!S.keywords.length){el.innerHTML='';return}
@@ -879,11 +893,14 @@ function renderKw(){
     const comp=k.competition==='높음'?'bad':k.competition==='낮음'?'ok':'warn';
     return `<div class="kw"><div class="t">${i===0&&!used?'<span class="pill ok" style="margin-right:6px">가장 추천</span>':''}${esc(k.keyword)}${k.opportunity?` <span class="pill">기회 ${'★'.repeat(Math.max(1,Math.min(5,k.opportunity)))}</span>`:''}</div>
       ${k.vol?`<div class="row" style="margin-bottom:4px">${volPills(k.vol)}${lifePill(k)}</div>`:''}
-      <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
+      <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span><span class="pill ${kwPf(k)==='google'?'pri':'ok'}">${kwPf(k)==='google'?'구글 적합':'네이버 적합'}</span>${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
       <div class="r">${esc(k.reason||'')}</div>
-      ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기 · ${estWon('post')}</button><button class="btn sm" data-gkw="${i}">블로그스팟·워드프레스 글 쓰기${k.wordpress_fit?' (구글 추천)':''}</button></div></div>`}).join('')
-    +relHtml(S.relatedKw);
+      ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used||kwPf(k)==='google'?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기${kwPf(k)==='naver'?' (추천)':''} · ${estWon('post')}</button><button class="btn ${!used&&kwPf(k)==='google'?'pri':''} sm" data-gkw="${i}">블로그스팟·워드프레스 글 쓰기${kwPf(k)==='google'?' (추천)':''} · ${estWon('auto')}</button></div></div>`}).join('')
+    +lowHtml(S.kwLow)+relHtml(S.relatedKw);
 }
+// 검색량이 적어서 뺀 후보 (단기 글감으로 쓰고 싶으면 눌러서 직접 입력칸에 넣는다)
+function lowHtml(list){if(!list||!list.length)return '';
+  return `<details class="card"><summary style="cursor:pointer">검색량 적어서 뺀 후보 ${list.length}개 (월 100회 미만 · 단기 글감)</summary><div class="hint" style="margin:6px 0">누르면 위 "직접 입력"에 들어가요.</div>${list.map(x=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:6px 0;flex-wrap:nowrap"><span>${esc(x.kw)}</span><span class="row" style="flex:none"><span class="pill">월 ${fmtN(x.total)}회</span><button class="btn sm" data-relkw="${esc(x.kw)}">넣기</button></span></div>`).join('')}</details>`}
 $('#kwList').addEventListener('click',async e=>{const g=e.target.closest('[data-gkw]');if(g){const k=S.keywords[+g.dataset.gkw];if(k)await gWrite(k.keyword);return}
   const b=e.target.closest('[data-kw]');if(!b)return;const k=S.keywords[+b.dataset.kw];if(k)startProject(k.keyword,b.dataset.pf,k)});
 
@@ -1155,20 +1172,61 @@ function kwBadges(kw,title,body){
 }
 
 function fmtUsage(u){const k=n=>n>=1000?(n/1000).toFixed(1)+'천':String(n||0);return `<b>${won(u.cost)}</b> · 입력 ${k(u.in)}${u.cache?` (캐시 ${k(u.cache)})`:''} · 출력 ${k(u.out)} 토큰 · 웹 검색 ${u.search||0}회`}
+/* ---------- 시리즈 글감: 편마다 네이버 또는 구글 블로그 한 곳에 ---------- */
+const seriesIdeasOf=post=>{const r=post.research||{};return (r.series&&r.series.length?r.series:post.seriesIdeas)||[]};
+function seriesSub(post,it){const kw=post.kw||'';let s=String((it&&it.sub_keyword)||'').trim()||kw;if(!s.includes(kw))s=(kw+' '+s).trim();return s}
+// 이 편이 어디에 쓰였는지: 네이버 시리즈 글 / 구글 블로그 글(기록·요청 중)
+function seriesWhere(p,post,it){
+  const sub=nsp(seriesSub(post,it));
+  const nx=p.posts.find(x=>x.researchFrom===post.id&&nsp(x.spec.sub_keyword)===sub);
+  if(nx)return {where:'naver',label:'네이버'+(nx.published?' · 사용 완료':nx.status==='done'?' · 작성 완료':' · 쓰는 중'),post:nx};
+  const e=autoLog().find(x=>x.kw&&nsp(x.kw)===sub&&x.type!=='keywords'&&!['failed','skipped'].includes(x.status));
+  if(e)return {where:'google',label:blogName(e.blog)+' · '+((ST_PILL[e.status]||[])[1]||e.status)};
+  if((S.auto.pending||[]).some(x=>x.type==='write'&&nsp(x.kw||'')===sub))return {where:'google',label:'구글 블로그 · 서버에 요청함'};
+  return null;
+}
+const googleFit=sub=>/(비교|기준|체크리스트|정리|차이|순서|계산|조건|방법|고르는|총정리|표)/.test(sub);
+// 이 편이 어디에 맞는지: 글감을 만들 때 받은 값, 없으면 글감 이름으로 추정
+const ideaFit=(post,it)=>it&&(it.fit==='google'||it.fit==='naver')?it.fit:(googleFit(seriesSub(post,it))?'google':'naver');
+// 네이버 글에서 이미 확인한 공식 사실·출처 → 구글 블로그 편에서 다시 쓴다 (리서치 비용 절약)
+function reuseOf(p,post){const r=P().researchOf(p,post)||{};const facts=(r.facts||[]).filter(f=>f&&f.item).slice(0,20);if(facts.length<3)return null;
+  return {from:post.kw||'',deadline_warning:r.deadline_warning||'',facts:facts.map(f=>({item:String(f.item).slice(0,80),value:String(f.value||'').slice(0,200),source:f.source||'',confirmed:f.confirmed!==false})),procedures:(r.procedures||[]).slice(0,2),sources:(r.sources||[]).slice(0,8).map(x=>({title:String(x.title||'').slice(0,80),url:x.url}))}}
+const gEst=(p,post)=>reuseOf(p,post)?'autoLite':'auto';
 function seriesHtml(p,post){
   if(!post.kw||post.researchFrom||post.spec.platform==='wordpress')return '';
-  const r=post.research||{}; const ideas=(r.series&&r.series.length?r.series:post.seriesIdeas)||[];
-  const have=p.posts.filter(x=>x.researchFrom===post.id).map(x=>nsp(x.spec.sub_keyword));
-  const left=ideas.map((it,i)=>({it,i})).filter(o=>!have.includes(nsp(o.it.sub_keyword&&String(o.it.sub_keyword).includes(post.kw)?o.it.sub_keyword:post.kw+' '+(o.it.sub_keyword||''))));
+  const ideas=seriesIdeasOf(post);
+  const left=ideas.map((it,i)=>({it,i})).filter(o=>!seriesWhere(p,post,o.it));
   const busy=p.running||(p.remote&&LIVE.includes(p.status));
   return `<div class="sec"><h4>시리즈로 더 쓰기 <span class="pill ok">웹 검색 없음</span></h4>
-    <div class="hint" style="margin-bottom:8px">이 글의 리서치를 그대로 써서 검색 비용 없이 같은 키워드로 이어 씁니다. 하루 1편씩 올리고, 글 끝 "함께 보면 좋은 글"에 서로 링크를 거세요.</div>
-    ${left.length?`<div class="list" style="padding:0">${left.map(o=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:nowrap"><div style="min-width:0"><div>${esc(o.it.sub_keyword)}</div><div class="hint">${esc(o.it.angle||'')}</div></div><button class="btn sm" data-act="ser" data-i="${o.i}" style="flex:none"${busy?' disabled':''}>이 편 쓰기 · ${estWon('series')}</button></div>`).join('')}</div>
+    <div class="hint" style="margin-bottom:8px">네이버로 쓰면 이 글의 리서치를 그대로 써서 싸요(검색 없음). 구글 블로그로 쓰면 구글 상위 글을 새로 분석해서 써요. 한 편은 한 곳에만 쓸 수 있어요. 모든 편은 <a href="#" data-go="series">⑤ 시리즈 글</a>에서도 볼 수 있어요.</div>
+    ${left.length?`<div class="list" style="padding:0">${left.map(o=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:nowrap"><div style="min-width:0"><div>${esc(o.it.sub_keyword)}</div><div class="hint">${esc(o.it.angle||'')}</div></div><div class="row" style="flex:none;gap:6px"><button class="btn sm" data-act="ser" data-i="${o.i}"${busy?' disabled':''}>네이버${ideaFit(post,o.it)==='naver'?' (추천)':''} · ${estWon('series')}</button><button class="btn sm${ideaFit(post,o.it)==='google'?' pri':''}" data-act="serG" data-i="${o.i}">구글 블로그${ideaFit(post,o.it)==='google'?' (추천)':''} · ${estWon(gEst(p,post))}</button></div></div>`).join('')}</div>
       <div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="serAll"${busy?' disabled':''}>추천 ${left.length}편 모두 차례로 쓰기</button></div>`
       :`<div class="row"><button class="btn sm" data-act="serIdeas">시리즈 편 추천받기 (검색 없음)</button></div>`}
     <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input type="text" data-act="serText" placeholder="직접 추가: 예) ${esc(post.kw)} 자주 하는 실수"><button class="btn sm" data-act="serAdd" style="flex:none"${busy?' disabled':''}>추가해서 쓰기</button></div>
     ${busy?'<div class="hint">지금 쓰는 글이 끝나면 누를 수 있습니다.</div>':''}</div>`;
 }
+function renderSeries(){
+  const el=$('#seriesArea');if(!el)return;
+  const groups=[];S.projects.forEach(p=>(p.posts||[]).forEach(post=>{if(post.kw&&!post.researchFrom&&post.spec&&post.spec.platform!=='wordpress')groups.push({p,post})}));
+  if(!groups.length){el.innerHTML='<div class="card"><div class="hint">아직 시리즈 글감이 없어요. ① 키워드 찾기에서 네이버 글을 쓰면 글마다 시리즈 글감이 생겨요.</div></div>';return}
+  const accN=accts().filter(b=>b.enabled!==false).length;
+  el.innerHTML=(accN?'':'<div class="notice">구글 블로그로 쓰려면 ④ 탭에서 블로그스팟·워드프레스 계정을 먼저 추가하세요.</div>')+groups.map(({p,post})=>{
+    const ideas=seriesIdeasOf(post),busy=p.running||(p.remote&&LIVE.includes(p.status));
+    const rows=ideas.map((it,i)=>{const sub=seriesSub(post,it),w=seriesWhere(p,post,it);
+      return `<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:10px 0;align-items:flex-start"><div style="min-width:0;flex:1 1 220px"><div>${esc(sub)}${w?'':ideaFit(post,it)==='google'?' <span class="pill pri">구글 추천</span>':' <span class="pill ok">네이버 추천</span>'}</div><div class="hint">${esc(it.angle||'')}</div></div>
+        ${w?`<span class="pill ${w.where==='naver'?'ok':'pri'}" style="flex:none">→ ${esc(w.label)}</span>`:`<div class="row" style="flex:none;gap:6px"><button class="btn sm${ideaFit(post,it)==='naver'?' pri':''}" data-sn="${p.id}|${post.id}|${i}"${busy?' disabled':''}>네이버 · ${estWon('series')}</button><button class="btn sm${ideaFit(post,it)==='google'?' pri':''}" data-sg="${p.id}|${post.id}|${i}"${accN?'':' disabled'}>구글 블로그 · ${estWon(gEst(p,post))}</button></div>`}</div>`}).join('');
+    const done=ideas.filter(it=>seriesWhere(p,post,it)).length;
+    return `<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(post.kw)}</h3><span class="pill">${done}/${ideas.length}편 씀</span></div>
+      <div class="hint" style="margin:4px 0 6px">1편: <a href="#" data-open="${p.id}|${post.id}">${esc(post.title||post.spec.sub_keyword||post.kw)}</a> (네이버)${busy?' · 지금 이 키워드 글을 쓰는 중이라 네이버 편은 끝난 뒤 쓸 수 있어요':''}</div>
+      ${rows||`<div class="hint">글감이 아직 없어요. <a href="#" data-open="${p.id}|${post.id}">글을 열어</a> "시리즈 편 추천받기"를 누르세요 (검색 없음).</div>`}</div>`}).join('')
+    +'<div class="hint">구글 블로그 편은 네이버 글에서 확인한 공식 자료를 다시 쓰고, 구글 상위 글만 가볍게 확인해요(검색 1회). 그래서 새 키워드로 쓰는 것보다 싸요. "추천" 표시는 글감을 만들 때 AI가 정한 어울리는 곳이에요.</div>';
+}
+document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-sn],[data-sg]');if(!b)return;
+  const [pid,xid,i]=(b.dataset.sn||b.dataset.sg).split('|');const p=S.projects.find(q=>q.id===pid);const post=p&&p.posts.find(x=>x.id===xid);const it=post&&seriesIdeasOf(post)[+i];if(!it)return;
+  if(seriesWhere(p,post,it)){toast('이미 다른 곳에 쓴 편이에요');renderSeries();return}
+  if(b.dataset.sg){b.disabled=true;await gWrite(seriesSub(post,it),null,post.kw,reuseOf(p,post));b.disabled=false;return}
+  if(!canSpend(BH.estimate('series',MODELS())))return;
+  b.disabled=true;await addSeries(p,post,[it]);S.currentId=p.id;const sub=nsp(seriesSub(post,it));p.posts.forEach(q=>q.open=nsp((q.spec||{}).sub_keyword||'')===sub);save();go('write')});
 async function addSeries(p,src,items){
   items=items.filter(it=>it&&String(it.sub_keyword||'').trim());
   if(!items.length)return;
@@ -1597,7 +1655,7 @@ $('#writeArea').addEventListener('click',async e=>{
   const post=p.posts.find(x=>'post-'+x.id===det.id); if(!post)return;
   const sec=parseSec(post.raw), act=b.dataset.act;
   if(/^cp/.test(act)&&post.published&&!confirm('이미 사용 완료한 글입니다. 같은 글을 또 올리면 중복 문서가 됩니다. 그래도 복사할까요?'))return;
-  if(act==='ser'||act==='serAll'||act==='serAdd'||act==='serIdeas'){
+  if(act==='ser'||act==='serG'||act==='serAll'||act==='serAdd'||act==='serIdeas'){
     const r=post.research||{};const ideas=(r.series&&r.series.length?r.series:post.seriesIdeas)||[];
     if(act==='serIdeas'){
       if(!lsGet(LS_KEY)){toast('설정에서 Claude API 키를 넣어주세요');return}
@@ -1607,8 +1665,8 @@ $('#writeArea').addEventListener('click',async e=>{
       catch(er){alert(er.message);b.disabled=false;b.textContent='시리즈 편 추천받기 (검색 없음)'}
       return;
     }
-    const have=p.posts.filter(x=>x.researchFrom===post.id).map(x=>nsp(x.spec.sub_keyword));
-    const fresh=ideas.filter(it=>!have.includes(nsp(String(it.sub_keyword||'').includes(post.kw)?it.sub_keyword:post.kw+' '+(it.sub_keyword||''))));
+    const fresh=ideas.filter(it=>!seriesWhere(p,post,it));
+    if(act==='serG'){const it=ideas[+b.dataset.i];if(it)await gWrite(seriesSub(post,it),null,post.kw,reuseOf(p,post));return}
     if(act==='ser'){if(canSpend(BH.estimate('series',MODELS())))await addSeries(p,post,[ideas[+b.dataset.i]])}
     if(act==='serAll'){const est=BH.estimate('series',MODELS())*fresh.length;if(canSpend(est)&&confirm(`시리즈 ${fresh.length}편을 차례로 씁니다. 웹 검색 없이 글쓰기 비용만 듭니다 (약 ${won(est)}). 진행할까요?`))await addSeries(p,post,fresh)}
     if(act==='serAdd'&&!canSpend(BH.estimate('series',MODELS())))return;
@@ -1736,9 +1794,13 @@ function crossCandidates(kw){
   return [...pub.filter(e=>/[가-힣]/.test(e.title)),...nav].sort((a,b)=>(inbound[a.url]||0)-(inbound[b.url]||0)||(b.t||0)-(a.t||0)).slice(0,15).map(e=>({title:e.title,url:e.url}));
 }
 // 키워드 중복 검사: 네이버 글 + 자동 발행 기록 + 대기열 전체
-function kwOwner(kw,exceptQid){
-  if(usedKeywordsNaver().some(u=>BH.kwDup(u,kw)))return '네이버 글';
-  const e=autoLog().find(x=>x.kw&&x.type!=='keywords'&&!['failed','skipped'].includes(x.status)&&BH.kwDup(x.kw,kw));if(e)return blogName(e.blog)+' 글';
+function kwOwner(kw,exceptQid,family){
+  // 시리즈 편(family = 시리즈의 메인 키워드)은 메인 키워드와 겹치는 건 허용하고, 같은 편이 이미 쓰였는지만 본다
+  const fam=u=>family&&nsp(u)===nsp(family);
+  if(usedKeywordsNaver().some(u=>!fam(u)&&BH.kwDup(u,kw)))return '네이버 글';
+  if(family&&S.projects.some(p=>(p.posts||[]).some(x=>x.series&&BH.kwDup(x.spec.sub_keyword,kw))))return '네이버 시리즈 글';
+  const e=autoLog().find(x=>x.kw&&!fam(x.kw)&&x.type!=='keywords'&&!['failed','skipped'].includes(x.status)&&BH.kwDup(x.kw,kw));if(e)return blogName(e.blog)+' 글';
+  if(family&&(S.auto.pending||[]).some(x=>x.type==='write'&&x.kw&&nsp(x.kw)===nsp(kw)))return '방금 요청한 글';
   const q=autoQueue().find(x=>x.id!==exceptQid&&BH.kwDup(x.kw,kw));if(q)return blogName(q.blog)+' 대기열';
   return '';
 }
@@ -1804,13 +1866,17 @@ function acctAddr(b){
 function secretNames(b){const s=b.secretSuffix||'';return b.type==='wordpress'?`WP_USER${s} · WP_APP_PASSWORD${s}`:`BLOGGER_REFRESH_TOKEN${s}${s?' (클라이언트 ID·비밀번호는 1번 것을 같이 써요)':''}`}
 const acctLine=b=>`${TYPE_NAME[b.type]||b.type} · ${b.name||b.id} · ${acctAddr(b)}`;
 /* 계정 고르는 창 */
+// 키워드와 블로그 주제가 얼마나 맞는지 (글자 2개 묶음이 겹치는 정도)
+function topicScore(kw,topic){const g=t=>{t=nsp(t);const s=new Set();for(let i=0;i<t.length-1;i++)s.add(t.slice(i,i+2));return s};const A=g(kw),B=g(topic||'');if(!A.size||!B.size)return 0;let n=0;A.forEach(x=>{if(B.has(x))n++});return n/A.size}
+function bestAcct(kw){const list=accts().filter(b=>b.enabled!==false);if(list.length<2)return null;const sc=list.map(b=>({b,s:topicScore(kw,b.topic||S.settings.topic)})).sort((a,b)=>b.s-a.s);return sc[0].s>0&&sc[0].s>sc[1].s?sc[0].b:null}
 function pickAccount(o={}){
   return new Promise(res=>{
     const list=accts().filter(b=>b.enabled!==false&&(!o.type||b.type===o.type));
+    const best=o.kw?bestAcct(o.kw):null;if(best&&!o.pre)o.pre=best.id;
     if(!list.length){toast('먼저 블로그스팟·워드프레스 계정을 추가하세요');autoEdit='new';go('auto');res(null);return}
     const wrap=document.createElement('div');wrap.className='modal';
     wrap.innerHTML=`<div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mTitle"><h3 id="mTitle">${esc(o.title||'어느 계정 글로 쓸까요?')}</h3>${o.sub?`<div class="hint" style="margin-bottom:10px">${esc(o.sub)}</div>`:''}
-      ${list.map((b,i)=>`<label class="acct"><input type="radio" name="mAcct" value="${esc(b.id)}"${(o.pre?b.id===o.pre:i===0)?' checked':''}><span><b>${esc(b.name||b.id)}</b> <span class="pill">${TYPE_NAME[b.type]}</span><br><span class="hint">${esc(acctAddr(b))} · ${ACCT_NO[b.secretSuffix||'']||b.secretSuffix}</span></span></label>`).join('')}
+      ${list.map((b,i)=>`<label class="acct"><input type="radio" name="mAcct" value="${esc(b.id)}"${(o.pre?b.id===o.pre:i===0)?' checked':''}><span><b>${esc(b.name||b.id)}</b> <span class="pill">${TYPE_NAME[b.type]}</span><br><span class="hint">${esc(acctAddr(b))} · ${ACCT_NO[b.secretSuffix||'']||b.secretSuffix}${b.topic?' · 주제: '+esc(b.topic):''}</span>${best&&best.id===b.id?' <span class="pill ok">주제 일치</span>':''}</span></label>`).join('')}
       <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn" data-m="x">취소</button><button class="btn pri" data-m="ok">${esc(o.ok||'이 계정으로')}</button></div></div>`;
     const done=v=>{wrap.remove();res(v)};
     wrap.addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(e.target===wrap)done(null);if(!b)return;if(b.dataset.m==='x')done(null);else{const id=(wrap.querySelector('input[name=mAcct]:checked')||{}).value;done(list.find(x=>x.id===id)||null)}});
@@ -1825,14 +1891,15 @@ async function pubRequest(d,msg){
   (S.auto.pending=S.auto.pending||[]).push({id,type:d.type,kw:d.kw,blog:d.blog,contentId:d.contentId,want:d.want,at:Date.now()});save();
   autoUntil=Date.now()+20*60000;autoPoll();return id;
 }
-async function gWrite(kw,blog){
+async function gWrite(kw,blog,family,reuse){
   if(!ghReady()){toast('설정에서 GitHub를 먼저 연결하세요');go('set');return false}
   kw=String(kw||'').trim();if(!kw)return false;
-  const own=kwOwner(kw);if(own){alert(`"${kw}"는 이미 ${own}에서 쓴(쓸) 키워드와 겹쳐요.\n블로그끼리 같은 키워드로는 쓰지 않아요 (중복 문서 방지).`);return false}
-  if(!blog)blog=await pickAccount({title:`"${kw}" 글을 어느 계정용으로 쓸까요?`,sub:`글이 완성되면 "전송 대기"에 들어가요. 보낼 계정은 전송할 때 다시 고를 수 있어요. 예상 비용 ${won(BH.estimate('auto',MODELS()))}`,ok:'글 쓰기'});
+  const own=kwOwner(kw,null,family);if(own){alert(`"${kw}"는 이미 ${own}에서 쓴(쓸) 키워드와 겹쳐요.\n블로그끼리 같은 키워드로는 쓰지 않아요 (중복 문서 방지).`);return false}
+  const kind=reuse?'autoLite':'auto';
+  if(!blog)blog=await pickAccount({kw,title:`"${kw}" 글을 어느 계정용으로 쓸까요?`,sub:`글이 완성되면 "전송 대기"에 들어가요. 보낼 계정은 전송할 때 다시 고를 수 있어요. 예상 비용 ${won(BH.estimate(kind,MODELS()))}${reuse?' (네이버 글 리서치 재사용)':''}`,ok:'글 쓰기'});
   if(!blog)return false;
-  if(!canSpend(BH.estimate('auto',MODELS())))return false;
-  try{await pubRequest({type:'write',blog:blog.id,kw},'글쓰기 요청: '+kw);toast('서버가 쓰기 시작했어요. 5~10분 뒤 여기 "전송 대기"에 글이 나타나요');showReady();return true}
+  if(!canSpend(BH.estimate(kind,MODELS())))return false;
+  try{await pubRequest(Object.assign({type:'write',blog:blog.id,kw},family?{family}:{},reuse?{reuse}:{}),'글쓰기 요청: '+kw);toast('서버가 쓰기 시작했어요. 5~10분 뒤 여기 "전송 대기"에 글이 나타나요');showReady();return true}
   catch(e){alert('요청하지 못했어요.\n'+e.message);return false}
 }
 // ④ 탭의 "전송 대기" 칸으로 이동
