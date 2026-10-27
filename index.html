@@ -194,6 +194,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 </style>
 </head>
 <body>
+<div id="gate" class="modal" style="display:none;z-index:60"></div>
 <header>
   <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span></div><div style="text-align:right"><div id="hcost"></div><div class="hstat" id="hstat"></div></div></div>
   <nav id="nav">
@@ -2302,21 +2303,47 @@ const CLOUD_ON=/^https:\/\/[\w-]+\.supabase\.co$/.test(CLOUD.url)&&CLOUD.key.len
 const SECRET_KEYS=[LS_KEY,LS_GH,LS_WP,LS_G];
 const SKIP_SETTINGS=['hideUsed','serHideDone']; // 기기마다 다르게 둬도 되는 화면 설정
 let sb=null,cloudUser=null,cloudBusy=false,cloudT=null,cloudLast='',cloudPulledAt='',cloudErr='';
+// 승인 목록: 관리자가 허락한 구글 이메일만 쓸 수 있다 (allowed_users 표 · 만료일 지나면 막힘)
+let cloudAccess='none',cloudMe=null; // none(로그인 전) · checking · ok · pending(승인 대기) · expired · offline
+async function cloudCheck(){
+  if(!cloudUser){cloudAccess='none';cloudMe=null;renderGate();return false}
+  cloudAccess='checking';renderGate();
+  try{
+    const {data,error}=await sb.from('allowed_users').select('email,role,plan,expires_at').eq('email',String(cloudUser.email||'').toLowerCase()).maybeSingle();
+    if(error)throw error;
+    cloudMe=data||null;
+    if(!data)cloudAccess='pending';
+    else if(data.role!=='admin'&&data.expires_at&&Date.parse(data.expires_at)<Date.now())cloudAccess='expired';
+    else cloudAccess='ok';
+  }catch(e){cloudAccess=/fetch|network|Failed/i.test(String(e.message||e))?'offline':'pending';if(cloudAccess==='pending')cloudErr='승인 확인 실패: '+(e.message||e)}
+  renderGate();renderCloud();return cloudAccess==='ok';
+}
+const isAdmin=()=>cloudAccess==='ok'&&cloudMe&&cloudMe.role==='admin';
+function renderGate(){
+  const g=$('#gate');if(!g)return;
+  if(!CLOUD_ON||cloudAccess==='ok'||cloudAccess==='offline'){g.style.display='none';return}
+  const em=cloudUser&&cloudUser.email||'';
+  const body=cloudAccess==='none'?`<h3>블로그 도우미</h3><div class="hint" style="margin:8px 0 14px">승인된 구글 계정으로 로그인해야 쓸 수 있어요. 로그인하면 어느 기기에서든 내 설정이 그대로 열려요.</div><button class="btn pri" data-cloud="in" style="width:100%">구글로 로그인</button>`
+    :cloudAccess==='checking'?`<h3>확인 중…</h3><div class="hint">승인된 계정인지 확인하고 있어요.</div>`
+    :cloudAccess==='expired'?`<h3>이용 기간이 끝났어요</h3><div class="hint" style="margin:8px 0 14px"><b>${esc(em)}</b> 계정의 이용 기간이 ${cloudMe&&cloudMe.expires_at?new Date(cloudMe.expires_at).toLocaleDateString('ko-KR')+'에 ':''}끝났어요. 연장하려면 판매자에게 문의해 주세요.</div><button class="btn" data-cloud="out" style="width:100%">로그아웃</button>`
+    :`<h3>승인 대기 중</h3><div class="hint" style="margin:8px 0 14px">이 구글 계정은 아직 사용 승인이 안 됐어요.<br>판매자(관리자)에게 아래 이메일을 알려주세요.</div><div class="row" style="flex-wrap:nowrap"><input type="text" readonly value="${esc(em)}"><button class="btn" data-cloud="copyme" style="flex:none">복사</button></div>${cloudErr?`<div class="err" style="margin-top:6px">${esc(cloudErr)}</div>`:''}<div class="row" style="margin-top:12px"><button class="btn" data-cloud="recheck">다시 확인</button><button class="btn" data-cloud="out">다른 계정으로 로그인</button></div>`;
+  g.innerHTML=`<div class="mbox" role="dialog" aria-modal="true">${body}</div>`;g.style.display='flex';
+}
 function cloudPayload(){
   const settings=Object.assign({},S.settings);SKIP_SETTINGS.forEach(k=>delete settings[k]);
   const secrets={};SECRET_KEYS.forEach(k=>{const v=lsGet(k);if(v)secrets[k]=v});
   return {settings,secrets,spend:(S.extraSpend||[]).slice(-300)};
 }
-function cloudPushSoon(){if(!cloudUser||cloudBusy)return;clearTimeout(cloudT);cloudT=setTimeout(cloudPush,2000)}
+function cloudPushSoon(){if(!cloudUser||cloudBusy||cloudAccess!=='ok')return;clearTimeout(cloudT);cloudT=setTimeout(cloudPush,2000)}
 async function cloudPush(){
-  if(!cloudUser)return;const pl=cloudPayload(),sig=JSON.stringify(pl);if(sig===cloudLast)return;
+  if(!cloudUser||cloudAccess!=='ok')return;const pl=cloudPayload(),sig=JSON.stringify(pl);if(sig===cloudLast)return;
   const {error,data}=await sb.from('user_settings').upsert({user_id:cloudUser.id,settings:pl.settings,secrets:pl.secrets,spend:pl.spend,updated_at:new Date().toISOString()}).select('updated_at').single();
   if(error){cloudErr='클라우드에 저장하지 못했어요: '+error.message;renderCloud();return}
   cloudLast=sig;cloudPulledAt=data&&data.updated_at||cloudPulledAt;cloudErr='';renderCloud();
 }
 // 클라우드 → 이 기기 (클라우드 값이 우선, 클라우드에 없는 값은 이 기기 값을 지킨다)
 async function cloudPull(first){
-  if(!cloudUser)return;cloudBusy=true;
+  if(!cloudUser||cloudAccess!=='ok')return;cloudBusy=true;
   try{
     const {data,error}=await sb.from('user_settings').select('settings,secrets,spend,updated_at').eq('user_id',cloudUser.id).maybeSingle();
     if(error)throw error;
@@ -2338,35 +2365,64 @@ function renderCloud(){
   if(!CLOUD_ON){if(a)a.innerHTML='';if(c)c.style.display='none';return}
   if(a)a.innerHTML=cloudUser?`<span class="pill ok" title="${esc(cloudUser.email||'')}">☁ 로그인됨</span>`:`<button class="btn sm" data-cloud="in" style="margin-left:6px">구글로 로그인</button>`;
   if(!c)return;c.style.display='';
-  c.innerHTML=`<h3>계정 · 클라우드 저장</h3>${cloudUser?`<div>로그인: <b>${esc(cloudUser.email||'')}</b></div>
+  c.innerHTML=`<h3>계정 · 클라우드 저장</h3>${cloudUser?`<div>로그인: <b>${esc(cloudUser.email||'')}</b>${isAdmin()?' <span class="pill pri">관리자</span>':cloudMe&&cloudMe.expires_at?` <span class="pill">이용 기간 ~${new Date(cloudMe.expires_at).toLocaleDateString('ko-KR')}</span>`:''}</div>
     <div class="hint" style="margin:6px 0 10px">설정과 키(Claude API·GitHub·워드프레스·구글)를 내 계정에 저장하고 있어요. 다른 컴퓨터나 폰에서도 <b>구글로 로그인만 하면</b> 그대로 써요.${cloudPulledAt?' · 마지막 저장 '+new Date(cloudPulledAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
     <div class="row"><button class="btn" data-cloud="sync">지금 불러오기</button><button class="btn" data-cloud="out">로그아웃</button><button class="btn" data-cloud="outwipe">로그아웃 + 이 기기에서 키 지우기</button></div>
     <div class="hint" style="margin-top:6px">남의 컴퓨터·공용 PC에서는 "이 기기에서 키 지우기"로 로그아웃하세요.</div>`
     :`<div class="hint" style="margin-bottom:10px">구글로 로그인하면 지금 이 기기의 설정과 키를 내 계정에 저장해요. 그다음부터는 <b>어느 기기에서든 로그인만 하면</b> API 키·GitHub 연결을 다시 넣을 필요가 없어요.</div>
     <button class="btn pri" data-cloud="in">구글로 로그인</button>`}${cloudErr?`<div class="err" style="margin-top:8px">${esc(cloudErr)}</div>`:''}`;
+  renderAdmin();
 }
+/* ---------- 관리자: 사용 승인 목록 ---------- */
+let adminList=null,adminErr='';
+async function adminLoad(){if(!isAdmin())return;const {data,error}=await sb.from('allowed_users').select('*').order('created_at',{ascending:false});adminErr=error?error.message:'';adminList=data||[];renderAdmin()}
+function renderAdmin(){
+  let el=$('#adminCard');const c=$('#cloudCard');
+  if(!isAdmin()){if(el)el.remove();return}
+  if(!el&&c){el=document.createElement('div');el.className='card';el.id='adminCard';c.after(el)}
+  if(!el)return;if(adminList===null){el.innerHTML='<h3>사용 승인 관리</h3><div class="hint">불러오는 중…</div>';adminLoad();return}
+  const left=u=>{if(u.role==='admin')return '<span class="pill pri">관리자</span>';if(!u.expires_at)return '<span class="pill ok">기간 없음</span>';const d=Math.ceil((Date.parse(u.expires_at)-Date.now())/864e5);return d<0?'<span class="pill bad">만료</span>':`<span class="pill ${d<=7?'warn':'ok'}">${d}일 남음 · ~${new Date(u.expires_at).toLocaleDateString('ko-KR')}</span>`};
+  el.innerHTML=`<h3>사용 승인 관리 <span class="pill">관리자만 보여요</span></h3>
+    <div class="hint" style="margin-bottom:8px">여기 넣은 구글 이메일만 로그인해서 쓸 수 있어요. 크몽에서 결제를 확인하면 고객 이메일을 넣고 기간을 고르세요. 기간이 지나면 자동으로 막혀요.</div>
+    <div class="row" style="flex-wrap:wrap"><input type="email" id="adEmail" placeholder="고객 구글 이메일" style="flex:2 1 200px"><select id="adDays" style="flex:1 1 110px;width:auto"><option value="30">30일</option><option value="90">90일</option><option value="180">180일</option><option value="365">1년</option><option value="0">기간 없음</option></select><input type="text" id="adMemo" placeholder="메모 (크몽 주문번호 등)" style="flex:2 1 160px"><button class="btn pri" data-adm="add" style="flex:none">추가</button></div>
+    <div class="err" id="adErr">${esc(adminErr)}</div>
+    <div style="margin-top:8px">${adminList.map(u=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;gap:6px"><div style="min-width:0"><b>${esc(u.email)}</b> ${left(u)}${u.memo?`<div class="hint">${esc(u.memo)}</div>`:''}</div>${u.role==='admin'?'':`<div class="row" style="flex:none;gap:6px"><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="30">+30일</button><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="90">+90일</button><button class="btn sm" data-adm="del" data-em="${esc(u.email)}">빼기</button></div>`}</div>`).join('')||'<div class="hint">아직 승인한 계정이 없어요.</div>'}</div>`;
+}
+document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-adm]');if(!b||!isAdmin())return;const err=$('#adErr');if(err)err.textContent='';
+  const act=b.dataset.adm;const addDays=(base,d)=>new Date(Math.max(Date.now(),Date.parse(base||0)||0)+d*864e5).toISOString();
+  try{
+    if(act==='add'){const em=$('#adEmail').value.trim().toLowerCase(),d=+$('#adDays').value,memo=$('#adMemo').value.trim();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){err.textContent='이메일을 확인해 주세요.';return}
+      const old=(adminList||[]).find(u=>u.email.toLowerCase()===em);if(old&&old.role==='admin'){err.textContent='관리자 계정이에요.';return}
+      const {error}=await sb.from('allowed_users').upsert({email:em,role:'customer',expires_at:d?addDays(old&&old.expires_at,d):null,memo:memo||(old&&old.memo)||''});if(error)throw error;toast(`${em} 승인했어요`)}
+    if(act==='ext'){const u=(adminList||[]).find(x=>x.email===b.dataset.em);const {error}=await sb.from('allowed_users').update({expires_at:addDays(u&&u.expires_at,+b.dataset.d)}).eq('email',b.dataset.em);if(error)throw error;toast('기간을 늘렸어요')}
+    if(act==='del'){if(!confirm(`${b.dataset.em} 계정의 사용 승인을 뺄까요? 다음 접속부터 쓸 수 없어요.`))return;const {error}=await sb.from('allowed_users').delete().eq('email',b.dataset.em);if(error)throw error;toast('승인을 뺐어요')}
+    await adminLoad();
+  }catch(er){if(err)err.textContent='저장하지 못했어요: '+(er.message||er)}});
 async function cloudInit(){
   if(!CLOUD_ON){renderCloud();return}
   sb=window.supabase.createClient(CLOUD.url,CLOUD.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
   window.__cloudTouch=k=>{if(SECRET_KEYS.includes(k)||k===LS_STATE)cloudPushSoon()};
   sb.auth.onAuthStateChange((ev,session)=>{
     const u=session&&session.user||null,was=cloudUser&&cloudUser.id;cloudUser=u;
-    if(u&&u.id!==was)setTimeout(()=>cloudPull(true),0);
-    if(!u)renderCloud();
+    if(u&&u.id!==was)setTimeout(async()=>{if(await cloudCheck())cloudPull(true)},0);
+    if(!u){cloudAccess='none';cloudMe=null;renderGate();renderCloud()}
   });
   const {data}=await sb.auth.getSession();cloudUser=data&&data.session&&data.session.user||null;renderCloud();
-  if(cloudUser)cloudPull(true);
+  if(cloudUser){if(await cloudCheck())cloudPull(true)}else renderGate();
   // 다른 기기에서 바꾼 설정을 이 창으로 돌아올 때 가져온다
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudUser)cloudPull(false)});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudUser&&cloudAccess==='ok')cloudPull(false)});
 }
 document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-cloud]');if(!b||!sb)return;const act=b.dataset.cloud;
   if(act==='in'){await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});return}
   if(act==='sync'){b.disabled=true;await cloudPull(true);b.disabled=false;return}
+  if(act==='copyme'){copy(cloudUser&&cloudUser.email||'');return}
+  if(act==='recheck'){cloudErr='';if(await cloudCheck())cloudPull(true);return}
   if(act==='out'||act==='outwipe'){
     if(act==='outwipe'&&!confirm('로그아웃하고 이 기기에 저장된 키(Claude·GitHub·워드프레스·구글)를 지울까요? 내 계정에는 그대로 남아 있어요.'))return;
     clearTimeout(cloudT);await cloudPush();await sb.auth.signOut();cloudUser=null;cloudLast='';
     if(act==='outwipe'){SECRET_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});toast('로그아웃하고 이 기기의 키를 지웠어요')}else toast('로그아웃했어요');
-    renderCloud();rerender();}
+    cloudAccess='none';cloudMe=null;renderGate();renderCloud();rerender();}
 });
 boot();bootServer();cloudInit();
 </script>
