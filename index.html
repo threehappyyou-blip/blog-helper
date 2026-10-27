@@ -198,7 +198,7 @@ body.role-customer .admin-only{display:none!important}
 <body>
 <div id="gate" class="modal" style="display:none;z-index:60"></div>
 <header>
-  <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span></div><div style="text-align:right"><div id="hcost" class="admin-only"></div><div class="hstat" id="hstat"></div></div></div>
+  <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span></div><div style="text-align:right"><div id="hplan"></div><div id="hcost" class="admin-only"></div><div class="hstat" id="hstat"></div></div></div>
   <nav id="nav">
     <button data-tab="home" class="on">홈</button>
     <button data-tab="kw">① 키워드 찾기</button>
@@ -421,7 +421,7 @@ body.role-customer .admin-only{display:none!important}
   <div class="card">
     <h3>④ 블로그스팟 · 워드프레스</h3>
     <ul class="list">
-      <li>처음 한 번: 설정 가이드대로 GitHub Secrets에 구글(블로그스팟)·워드프레스 로그인 정보를 넣고, ④ 탭에서 <b>+ 계정 추가</b> → <b>연결 확인</b>.</li>
+      <li>처음 한 번: ④ 탭에서 <b>+ 계정 추가</b>로 블로그를 연결하고 <b>연결 확인</b>을 눌러요.</li>
       <li>① 키워드 찾기에서 <b>블로그스팟·워드프레스 글 쓰기</b>를 누르면 어느 계정용인지 고르는 창이 떠요. 서버가 상위 글 1~3개를 비교해 구글용 글을 써요(5~10분).</li>
       <li>다 쓴 글은 ④ 탭 <b>전송 대기</b>에 나와요. 보낼 계정 이름을 확인하고 <b>블로그스팟 전송</b> / <b>워드프레스 전송</b>을 누르면 돼요. 공개 발행 또는 임시저장을 고를 수 있어요.</li>
       <li>품질 검사(분량·키워드·구성·과장 표현·지어낸 경험·예전 글과 겹침·깨진 링크)에 떨어진 글은 공개 발행이 막히고 임시저장으로만 보내요. 블로그마다 하루 공개 2개까지예요.</li>
@@ -556,7 +556,7 @@ async function oneClick(){
   const fresh=S.keywordsAt&&Date.now()-new Date(S.keywordsAt)<12*3600e3&&pickBest(pf);
   const est=(fresh?0:BH.estimate('keywords',MODELS()))+BH.estimate(pf==='google'?'auto':'post',MODELS());
   if(!canSpend(est))return;
-  if(!confirm(`${fresh?`추천 키워드 "${fresh.keyword}"`:'오늘의 키워드를 찾아 가장 좋은 키워드'}로 ${pf==='google'?`${TYPE_NAME[gBlog.type]}(${gBlog.name})용`:'네이버'} 글 1개를 씁니다.\n예상 비용: 약 ${won(est)}\n\n진행할까요?`))return;
+  if(!confirm(`${fresh?`추천 키워드 "${fresh.keyword}"`:'오늘의 키워드를 찾아 가장 좋은 키워드'}로 ${pf==='google'?`${TYPE_NAME[gBlog.type]}(${gBlog.name})용`:'네이버'} 글 1개를 씁니다.\n예상 비용: ${wonA(est)}\n\n진행할까요?`))return;
   oneRunning=true;const b=$('#oneBtn');b.disabled=true;
   try{
     if(!fresh){b.textContent='① 키워드 찾는 중… (1분 안팎)';const ok=await findKeywords({noConfirm:true,errEl:err,statusEl:{set textContent(v){b.textContent='② '+v}}});if(!ok)return}
@@ -666,8 +666,12 @@ function addUsage(acc,u,model){
   acc.cost=(acc.cost||0)+c;(acc.log=acc.log||[]).push({t:Date.now(),c:+c.toFixed(6)});
 }
 const rate=()=>+S.settings.rate||1400;
-const won=usd=>Math.round((usd||0)*rate()).toLocaleString('ko-KR')+'원';
-const estWon=k=>'약 '+won(BH.estimate(k,MODELS()));
+// 고객 화면에는 비용(원)을 보여 주지 않는다 (요금제에 포함 · 한도는 글 수로 센다)
+const custView=()=>!!(document.body&&document.body.classList.contains('role-customer'));
+const canPat=()=>{if(!custView())return true;try{return !!(myPlan&&myPlan.own_patterns)}catch(_){return false}}; // 상위 글 패턴: 프리미엄
+const won=usd=>custView()?'요금제 포함':Math.round((usd||0)*rate()).toLocaleString('ko-KR')+'원';
+const wonA=usd=>custView()?'요금제 포함':'약 '+won(usd);
+const estWon=k=>wonA(BH.estimate(k,MODELS()));
 function monthKey(t){return new Date(+new Date(t)+9*3600e3).toISOString().slice(0,7)}
 function monthSpend(){
   const m=monthKey(Date.now());let sum=0;
@@ -678,6 +682,7 @@ function monthSpend(){
 }
 const budget=()=>Math.max(0,+S.settings.budgetUSD||0);
 function canSpend(est){
+  if(custView()&&useDB())return true; // 고객: 요금제 한도는 작업 서버가 확인
   const sp=monthSpend(),b=budget();
   if(sp+est>b){alert(`이번 달 예산을 넘게 됩니다.\n\n사용: ${won(sp)} / 예산: ${won(b)}\n이번 작업 예상: ${won(est)}\n\n설정 → 비용·모델에서 예산을 올리거나 다음 달에 진행하세요.`);return false}
   return true;
@@ -750,11 +755,11 @@ async function aiRequest(type,payload,onTick){
   const t0=Date.now();
   while(Date.now()-t0<12*60000){
     await sleepMs(6000);onTick&&onTick(Math.round((Date.now()-t0)/1000));
-    let d=null;try{const r=await ghGet(file);d=r&&r.data}catch(e){if(!/GitHub에 연결/.test(e.message))throw e}
+    let d=null;try{const r=await ghGet(file);d=r&&r.data}catch(e){if(!/GitHub에 연결|서버에 연결/.test(e.message))throw e}
     if(d&&d.status==='done'){syncAuto();return d.result||{}}
     if(d&&d.status==='error')throw new Error(d.error||'서버 작업 실패');
   }
-  throw new Error('서버 작업이 12분 안에 끝나지 않았어요. 다른 글을 쓰는 중이면 그 뒤에 처리돼요. GitHub Actions 탭을 확인하세요.');
+  throw new Error('서버 작업이 12분 안에 끝나지 않았어요. 다른 글을 쓰는 중이면 그 뒤에 처리돼요. '+(useDB()?'잠시 뒤 다시 확인해 주세요.':'GitHub Actions 탭을 확인하세요.'));
 }
 const aiSettings=()=>{const o=Object.assign({},S.settings);['hideUsed','serHideDone','repo','mode'].forEach(k=>delete o[k]);return o};
 let finding=false;
@@ -789,9 +794,9 @@ async function volLookup(keywords,onTick){
   while(Date.now()-t0<180000){
     await sleepMs(6000);onTick&&onTick(Math.round((Date.now()-t0)/1000));
     try{const r=await ghGet(file);if(r&&r.data&&r.data.status==='done')return r.data;if(r&&r.data&&r.data.status==='error')throw new Error(r.data.error)}
-    catch(e){if(!/GitHub에 연결/.test(e.message))throw e}
+    catch(e){if(!/GitHub에 연결|서버에 연결/.test(e.message))throw e}
   }
-  throw new Error('검색량 조회가 3분 안에 끝나지 않았어요. GitHub Actions 탭에서 "키워드 검색량 조회"가 실행됐는지 확인하세요.');
+  throw new Error(useDB()?'검색량 조회가 3분 안에 끝나지 않았어요. 잠시 뒤 다시 해 주세요.':'검색량 조회가 3분 안에 끝나지 않았어요. GitHub Actions 탭에서 "키워드 검색량 조회"가 실행됐는지 확인하세요.');
 }
 function volScore(k){
   if(!k.vol)return (k.opportunity||3)*10;
@@ -890,7 +895,7 @@ function renderPat(){
   const list=(t,g)=>g&&g.rules&&g.rules.length?`<h4 style="margin:12px 0 4px">${t}</h4><ul class="ck">${g.rules.map(r=>`<li>✅ ${esc(r)}</li>`).join('')}</ul>${st(g.stats)}`:'';
   el.innerHTML=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">상위 글 공통 패턴</h3>${d?`<span class="pill ${days>30?'warn':'ok'}">${days===0?'오늘':days+'일 전'} 분석${days>30?' · 다시 할 때예요':''}</span>`:''}</div>
     <div class="hint" style="margin:6px 0 8px">상위에 뜨는 글들의 공통점(구성·길이·표·첫 문단 등)을 찾아 <b>모든 글쓰기에 자동으로 반영</b>해요. 한 달에 한 번이면 충분하고, 글 1개당 추가 비용은 거의 없어요. 블로그 운영 기간·링크처럼 글 밖 요소는 알 수 없어서 넣지 않아요.</div>
-    <button class="btn pri admin-only" id="patBtn"${patRunning?' disabled':''}>${patRunning?'분석 중…':(d?'다시 분석하기':'상위 글 분석하기')} · ${estWon('patterns')}</button>${d&&!patRunning?' <button class="btn sm admin-only" id="patOff">패턴 끄기</button>':''}<div class="err" id="patErr"></div>
+    <button class="btn pri${canPat()?'':' admin-only'}" id="patBtn"${patRunning?' disabled':''}>${patRunning?'분석 중…':(d?'다시 분석하기':'상위 글 분석하기')} · ${estWon('patterns')}</button>${d&&!patRunning?` <button class="btn sm${canPat()?'':' admin-only'}" id="patOff">패턴 끄기</button>`:''}<div class="err" id="patErr"></div>
     ${d?`${d.keywords&&d.keywords.length?`<div class="hint" style="margin-top:8px">분석한 키워드: ${esc(d.keywords.join(', '))}</div>`:''}${list('구글 (블로그스팟·워드프레스)',d.google)}${list('네이버',d.naver)}${d.naver&&!(d.naver.rules||[]).length?'<div class="hint">네이버 상위 글은 이번에 찾지 못해서 네이버 글에는 적용하지 않아요.</div>':''}
     ${(d.examples||[]).length?`<details style="margin-top:8px"><summary style="cursor:pointer">분석한 상위 글 ${d.examples.length}개</summary>${d.examples.map(e=>`<div class="why" style="margin-top:6px"><span class="pill">${esc(e.where||'')}</span> <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title||e.url)}</a><br>${esc(e.why)}</div>`).join('')}</details>`:''}${d.limits?`<div class="hint" style="margin-top:6px">한계: ${esc(d.limits)}</div>`:''}`:''}`;
 }
@@ -926,7 +931,7 @@ $('#kwList').addEventListener('click',async e=>{const g=e.target.closest('[data-
 /* ---------- GitHub 서버 연결 ---------- */
 const LS_GH='bh_gh_token';
 const isServer=()=>S.settings.mode==='server';
-const ghReady=()=>!!lsGet(LS_GH)&&/^[\w.-]+\/[\w.-]+$/.test(S.settings.repo||'');
+const ghReady=()=>useDB()||(!!lsGet(LS_GH)&&/^[\w.-]+\/[\w.-]+$/.test(S.settings.repo||''));
 const serverReady=()=>isServer()&&ghReady();
 function ghErr(status,m){
   if(status===401)return 'GitHub 토큰이 올바르지 않거나 만료됐습니다. 설정에서 다시 넣어주세요.';
@@ -937,6 +942,7 @@ function ghErr(status,m){
   return `GitHub 오류 (${status}): ${m}`;
 }
 async function gh(path,opt={}){
+  if(useDB())return dbGh(path,opt);
   const tok=lsGet(LS_GH),repo=S.settings.repo;
   if(!tok||!repo)throw new Error('설정 탭에서 GitHub 저장소와 토큰을 넣어주세요.');
   let res;
@@ -950,17 +956,64 @@ async function gh(path,opt={}){
 function b64enc(str){const b=new TextEncoder().encode(str);let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s)}
 function b64dec(b64){const s=atob(String(b64).replace(/\s/g,''));const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return new TextDecoder().decode(u)}
 async function ghGet(file){
+  if(useDB()){const r=await dbRpc('bh_doc_get',{p_path:file});return r?{sha:String(r.version),data:r.data}:null}
   const j=await gh('/contents/'+file,{allow404:true}); if(!j)return null;
   let text=j.content?b64dec(j.content):'';
   if(!text&&j.sha){const bl=await gh('/git/blobs/'+j.sha);text=b64dec(bl.content)}
   return {sha:j.sha,data:JSON.parse(text||'null')};
 }
 async function ghPut(file,data,sha,msg){
+  if(useDB())return String(await dbRpc('bh_doc_put',{p_path:file,p_data:data,p_version:sha?+sha:null}));
   const r=await gh('/contents/'+file,{method:'PUT',body:Object.assign({message:msg,content:b64enc(JSON.stringify(data,null,1))},sha?{sha}:{})});
   return r.content&&r.content.sha;
 }
 async function ghDispatch(){await gh('/actions/workflows/write.yml/dispatches',{method:'POST',body:{ref:'main'}})}
 function promptsUrl(){return /^https?:/.test(location.href)?new URL('prompts.js',location.href).href:''}
+/* ---------- 판매용 저장소: Supabase DB + 작업 서버 (고객은 GitHub 없이 로그인만) ----------
+   예전 GitHub 파일과 같은 경로 이름으로 DB에 저장한다. 작업 서버가 DB를 보고 글을 쓴다. */
+const useDB=()=>{try{return CLOUD_ON&&!!sb&&cloudAccess==='ok'&&(!isAdmin()||S.settings.store==='db')}catch(_){return false}};
+function dbMsg(m){m=String(m||'');
+  if(/conflict/.test(m))return '다른 곳에서 동시에 바뀌었습니다. 잠시 뒤 다시 시도하세요.';
+  if(/not allowed/.test(m))return '사용 승인이 필요해요. 판매자에게 문의해 주세요.';
+  if(/rate limit/.test(m))return '요청이 너무 많아요. 잠시 뒤 다시 해 주세요.';
+  if(/too big/.test(m))return '저장할 내용이 너무 커요. 오래된 글을 정리해 주세요.';
+  if(/bad path/.test(m))return '저장 경로 오류예요.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m))return '서버에 연결하지 못했습니다. 인터넷을 확인하세요.';
+  return '서버 오류: '+m}
+async function dbRpc(fn,args){
+  let r;try{r=await sb.rpc(fn,args||{})}catch(e){throw new Error(dbMsg(e.message||e))}
+  if(r.error){const er=new Error(dbMsg(r.error.message));if(/conflict/.test(r.error.message))er.status=409;throw er}
+  return r.data}
+// 예전 GitHub 호출을 DB로 바꿔 준다 (목록 · 삭제 · 실행 요청)
+async function dbGh(path,opt){
+  const m=(opt.method||'GET').toUpperCase(),c=path.match(/^\/contents\/(.+)$/);
+  if(c&&m==='GET'&&!/\.json$/.test(c[1])){const pre=c[1].replace(/\/?$/,'/');const rows=await dbRpc('bh_doc_list',{p_prefix:pre});
+    const list=(rows||[]).filter(x=>x.path.slice(pre.length).indexOf('/')<0).map(x=>({name:x.path.slice(pre.length),path:x.path,sha:String(x.version)}));return list.length||!opt.allow404?list:null}
+  if(c&&m==='GET'){const r=await ghGet(c[1]);if(!r&&opt.allow404)return null;return r?{sha:r.sha}:null}
+  if(c&&m==='DELETE'){await dbRpc('bh_doc_delete',{p_path:c[1]});return {}}
+  const wf=path.match(/^\/actions\/workflows\/([\w.-]+)\/dispatches$/);
+  if(wf){const inp=(opt.body&&opt.body.inputs)||{};
+    // 글쓰기(write.yml)는 작업 서버가 DB를 계속 보고 있어 따로 부를 필요가 없다
+    if(wf[1]==='publish.yml'&&inp.mode){const id=uid();await dbRpc('bh_doc_put',{p_path:'requests/pub-'+id+'.json',p_data:{id,type:'dispatch',mode:inp.mode,blog:inp.blog||'',status:'queued',createdAt:new Date().toISOString()},p_version:null})}
+    return {}}
+  if(/^\/actions\/workflows\//.test(path))return {};
+  if(path==='')return {private:true,permissions:{push:true},db:true};
+  throw new Error('이 기능은 판매용 저장소에서 아직 지원하지 않아요.')}
+// 내 요금제 · 이번 달 사용량 · 작업 서버 상태
+let myPlan=null,myPlanAt=0;
+async function loadMyPlan(force){
+  try{if(!(CLOUD_ON&&sb&&cloudAccess==='ok'))return null}catch(_){return null}
+  if(!force&&myPlan&&Date.now()-myPlanAt<60000)return myPlan;
+  try{myPlan=await dbRpc('bh_my_plan');myPlanAt=Date.now()}catch(_){}
+  renderPlan();return myPlan}
+const workerOK=()=>!!(myPlan&&myPlan.worker&&Date.now()-Date.parse(myPlan.worker)<20*60000);
+function renderPlan(){
+  if($('#cloudCard')&&!isAdmin())renderCloud();
+  const h=$('#hplan');if(!h)return;
+  if(!myPlan||!useDB()){h.innerHTML='';return}
+  const lim=myPlan.monthly_posts,used=myPlan.used_posts||0,left=lim?Math.max(0,lim-used):null;
+  h.innerHTML=myPlan.role==='admin'?`<span class="pill ${workerOK()?'ok':'bad'}" title="작업 서버">${workerOK()?'작업 서버 정상':'작업 서버 꺼짐'}</span>`
+    :`<span class="pill ${left===0?'bad':left!==null&&left<=5?'warn':'ok'}" title="이번 달 쓴 글 / 요금제 한도">${esc(myPlan.plan_name||'')} · 이번 달 ${used}/${lim}편</span>`}
 
 const LIVE=['queued','research','writing'];
 function mergeRemote(lp,rd){
@@ -1000,7 +1053,7 @@ async function sync(){
     syncErr='';lastSync=Date.now();
     if(changed.size){save();refreshAfterSync(changed)}else renderSide();
   }catch(e){syncErr=e.message;renderSide()}
-  finally{syncing=false}
+  finally{syncing=false;loadMyPlan()}
 }
 function refreshAfterSync(changed){
   renderHeader();
@@ -1662,7 +1715,7 @@ function updateCard(p,post){
     <div class="sec"><h4>사진 가이드 — 이 화면을 캡처하세요</h4>${photos.length?`<table class="mdt"><thead><tr><th>캡처할 화면</th><th>여는 곳</th><th>가릴 정보</th></tr></thead><tbody>${photos.map(l=>{const c=l.split('|').map(x=>x.trim());return `<tr><td>${esc(c[0]||'')}</td><td>${esc(c[1]||'')}</td><td>${esc(c[2]||'')}</td></tr>`}).join('')}</tbody></table>`:'<div class="hint">없음</div>'}
       <div class="hint">다른 블로그·뉴스 사진은 쓰지 마세요. 실제 신청을 안 해도 공고문·조회 화면 캡처면 충분합니다.</div></div>
     ${sec.CARDS?`<div class="sec"><h4>카드 이미지 <span class="pill ok">0원</span></h4><div class="cards" data-cards="${post.id}"><div class="hint">이미지 만드는 중…</div></div><div class="hint">사이트가 직접 그린 정리 이미지예요. 대표 썸네일은 글 맨 위에 넣으세요. 폰은 길게 눌러 저장, PC는 저장 버튼.</div>
-      ${sec.IMAGE?`<div class="row" style="margin-top:8px"><button class="btn sm" data-act="aiImg">${aiImgCache.get(post.id)?'AI 그림 다시 만들기':'AI 그림 만들기'} · 약 ${won(+S.settings.imgUSD||0.02)}</button>${lsGet(LS_G)?'':'<span class="hint">설정에 구글 API 키를 넣으면 쓸 수 있어요</span>'}</div><div class="hint">AI 그림은 직접 찍은 사진을 대신하지 못해요. 올릴 때 "AI로 만든 이미지" 문구를 함께 적어주세요.</div>`:''}</div>`:sec.TABLEIMG?`<div class="sec"><h4>표 이미지 1장 (미리캔버스·캔바용)</h4>${md(sec.TABLEIMG)}</div>`:''}
+      ${sec.IMAGE?`<div class="row" style="margin-top:8px"><button class="btn sm" data-act="aiImg">${aiImgCache.get(post.id)?'AI 그림 다시 만들기':'AI 그림 만들기'} · ${wonA(+S.settings.imgUSD||0.02)}</button>${lsGet(LS_G)?'':'<span class="hint">설정에 구글 API 키를 넣으면 쓸 수 있어요</span>'}</div><div class="hint">AI 그림은 직접 찍은 사진을 대신하지 못해요. 올릴 때 "AI로 만든 이미지" 문구를 함께 적어주세요.</div>`:''}</div>`:sec.TABLEIMG?`<div class="sec"><h4>표 이미지 1장 (미리캔버스·캔바용)</h4>${md(sec.TABLEIMG)}</div>`:''}
     <div class="sec"><h4>확인 경험 문장 예시</h4><div class="preview" style="max-height:none">${md(sec.EXPERIENCE||'')}</div>
       <div class="hint" style="color:var(--warn)">직접 확인한 내용으로 고쳐 쓰세요. 확인하지 않은 내용을 그대로 쓰면 거짓 경험이 됩니다.</div></div>
     <div class="sec"><h4>검증 체크리스트 — ⚠️는 원문과 꼭 대조</h4>${md((sec.CHECK||'').split('\n').map(l=>l.replace(/^\s*[-*]\s*/,'')).filter(Boolean).map(l=>'| '+l+' |').join('\n').replace(/^/,'| 항목 | 값 | 확인 |\n|---|---|---|\n'))}</div>
@@ -1716,7 +1769,7 @@ $('#writeArea').addEventListener('click',async e=>{
     const fresh=ideas.filter(it=>!seriesWhere(p,post,it));
     if(act==='serG'){const it=ideas[+b.dataset.i];if(it)await gWrite(seriesSub(post,it),null,post.kw,reuseOf(p,post));return}
     if(act==='ser'){if(canSpend(BH.estimate('series',MODELS())))await addSeries(p,post,[ideas[+b.dataset.i]])}
-    if(act==='serAll'){const est=BH.estimate('series',MODELS())*fresh.length;if(canSpend(est)&&confirm(`시리즈 ${fresh.length}편을 차례로 씁니다. 웹 검색 없이 글쓰기 비용만 듭니다 (약 ${won(est)}). 진행할까요?`))await addSeries(p,post,fresh)}
+    if(act==='serAll'){const est=BH.estimate('series',MODELS())*fresh.length;if(canSpend(est)&&confirm(`시리즈 ${fresh.length}편을 차례로 씁니다. 웹 검색 없이 글쓰기 비용만 듭니다 (${wonA(est)}). 진행할까요?`))await addSeries(p,post,fresh)}
     if(act==='serAdd'&&!canSpend(BH.estimate('series',MODELS())))return;
     if(act==='serAdd'){const inp=det.querySelector('[data-act="serText"]');const v=(inp.value||'').trim();if(!v){toast('추가할 편의 주제를 적어주세요');return}await addSeries(p,post,[{sub_keyword:v.includes(post.kw)?v:post.kw+' '+v,angle:v}])}
     return;
@@ -1924,7 +1977,7 @@ function autoMonthly(){
 }
 function autoMonthSpend(){const m=monthKey(Date.now());let s=0;autoLog().forEach(e=>((e.usage&&e.usage.log)||[]).forEach(x=>{if(monthKey(x.t)===m)s+=x.c||0}));return s}
 const ST_PILL={published:['ok','발행됨'],draft:['warn','임시저장'],scheduled:['pri','예약 발행'],deleted:['','블로그에서 삭제됨'],failed:['bad','실패'],skipped:['','쉼'],writing:['pri','쓰는 중'],ready:['pri','전송 대기']};
-const ACCT_NO={'':'1번 계정','_2':'2번 계정','_3':'3번 계정','_4':'4번 계정'};
+const ACCT_NO={'':'1번 계정','_2':'2번 계정','_3':'3번 계정','_4':'4번 계정','_5':'5번 계정'};
 const accts=()=>autoCfg().blogs||[];
 function acctAddr(b){
   if(b.type==='wordpress')return String(b.url||'').replace(/^https?:\/\//,'');
@@ -1997,6 +2050,16 @@ async function checkPending(){
 }
 let autoEdit=null; // 수정 중인 계정 id 또는 'new'
 let remoteBusy=false; // 블로그 실제 상태 확인 중
+// 판매용: 블로그 로그인 정보는 고객 계정의 암호화 보관함(Vault)에 넣는다 (작업 서버만 꺼내 씀)
+let secHints=null;
+async function loadSecHints(){try{const {data}=await sb.from('user_secrets').select('name,hint');secHints={};(data||[]).forEach(r=>{if(r.hint)secHints[r.name]=r.hint})}catch(_){secHints={}}}
+function dbCredBox(b){
+  const s=(b.secretSuffix||'').toLowerCase(),h=secHints||{},has=n=>h[n]?`저장됨 (…${esc(h[n])}) · 바꿀 때만 입력`:'';
+  if(secHints===null)loadSecHints().then(()=>{if(autoEdit)renderAuto()});
+  return `<div id="bfCredWp" class="${b.type==='wordpress'?'':'hide'}"><label class="f" for="bfWpUser">워드프레스 사용자 이름</label><input type="text" id="bfWpUser" autocomplete="off" placeholder="${has('wp_user'+s)||'로그인할 때 쓰는 사용자 이름'}">
+    <label class="f" for="bfWpPass">응용 프로그램 비밀번호 (로그인 비밀번호 아님)</label><input type="password" id="bfWpPass" autocomplete="new-password" placeholder="${has('wp_app_password'+s)||'xxxx xxxx xxxx xxxx xxxx xxxx'}">
+    <div class="hint">워드프레스 관리자 → 사용자 → 프로필 맨 아래 "응용 프로그램 비밀번호"에서 만들어요. 암호화해서 보관하고 작업 서버만 꺼내 써요. 언제든 워드프레스에서 지우면 바로 끊겨요.</div></div>
+    <div id="bfCredBs" class="${b.type==='wordpress'?'hide':''}"><div class="notice" style="margin-top:10px">${h['blogger_refresh_token'+s]?'구글 블로그가 연결돼 있어요.':'구글(블로그스팟) 자동 연결 버튼은 곧 추가돼요. 그 전까지는 판매자에게 연결을 요청해 주세요.'}</div></div>`}
 function blogForm(b){
   b=b||{type:'blogger',lang:'ko',slots:{am:true,pm:true},mode:'draft',topic:S.settings.topic,secretSuffix:''};
   const wp=b.type==='wordpress',sfxSel=s=>`<select id="bfSfx">${Object.entries(ACCT_NO).map(([v,t])=>`<option value="${v}"${(b.secretSuffix||'')===v?' selected':''}>${t}${v?' (비밀값 끝 '+v+')':' (기본)'}</option>`).join('')}</select>`;
@@ -2007,8 +2070,8 @@ function blogForm(b){
     <label class="f" for="bfCat">글을 넣을 카테고리 이름 (선택)</label><input type="text" id="bfCat" value="${esc(b.wpCategory||'')}" placeholder="예: 생활비 절약"></div>
   <div id="bfBs" class="${wp?'hide':''}"><label class="f" for="bfBid">Blog ID (숫자)</label><input type="text" id="bfBid" value="${esc(b.blogId||'')}" inputmode="numeric" placeholder="예: 1234567890123456789">
     <div class="hint">블로거 관리 화면 주소 blogger.com/blog/posts/<b>숫자</b> 부분이에요.</div></div>
-  <label class="f" for="bfSfx">어느 로그인 정보를 쓸까요?</label>${sfxSel()}
-  <div class="hint" id="bfSecHint">GitHub Secrets 이름: <b>${esc(secretNames(b))}</b> · 같은 구글 계정 안의 블로그 여러 개는 모두 1번이에요. 다른 구글 계정이면 2번·3번을 고르고 그 이름으로 비밀값을 넣어요.</div>
+  ${useDB()?`<div class="hide">${sfxSel()}</div>${dbCredBox(b)}`:`<label class="f" for="bfSfx">어느 로그인 정보를 쓸까요?</label>${sfxSel()}
+  <div class="hint" id="bfSecHint">GitHub Secrets 이름: <b>${esc(secretNames(b))}</b> · 같은 구글 계정 안의 블로그 여러 개는 모두 1번이에요. 다른 구글 계정이면 2번·3번을 고르고 그 이름으로 비밀값을 넣어요.</div>`}
   <label class="f" for="bfTopic">이 블로그 주제</label><input type="text" id="bfTopic" value="${esc(b.topic||S.settings.topic||'')}">
   <div class="hint">블로그마다 주제를 좁게 잡을수록 구글이 전문 블로그로 봐요. 네이버와 같은 주제여도 키워드는 절대 겹치지 않게 골라요.</div>
   <div class="split2"><div><label class="f">글 언어</label><div class="seg"><label><input type="radio" name="bfLang" value="ko"${b.lang!=='en'?' checked':''}>한국어</label><label><input type="radio" name="bfLang" value="en"${b.lang==='en'?' checked':''}>영어</label></div></div>
@@ -2064,7 +2127,7 @@ function renderAuto(){
     const autoOn=list.filter(b=>b.auto===true&&b.enabled!==false);
     h+=`<details class="card" ${autoOn.length?'open':''}><summary style="cursor:pointer;font-weight:700">자동 발행 (계정별) ${autoOn.length?`<span class="pill ok">${autoOn.length}개 계정 켜짐</span>`:'<span class="pill">모두 꺼짐</span>'}</summary>
       <div class="hint" style="margin-top:8px">위 "내 계정"에서 계정마다 스위치로 켜요. 켜진 계정은 매일 오전 9시 20분쯤 · 오후 4시 20분쯤 1개씩(하루 최대 2개) 키워드를 골라 쓰고 보내요. 품질 미달 글은 절대 공개하지 않아요.</div>
-      ${autoOn.length?`<div class="hint">한 달 약 <b>${mo.n}개 · ${won(mo.usd)}</b> (글 1개 약 ${won(each)})${mo.usd>b$?` · <span style="color:var(--bad)">월 예산(${won(b$)})보다 커요 → 예산에 닿으면 쉬어요</span>`:''}</div>`:''}
+      ${autoOn.length?`<div class="hint">한 달 약 <b>${mo.n}개 · ${won(mo.usd)}</b> (글 1개 ${wonA(each)})${mo.usd>b$?` · <span style="color:var(--bad)">월 예산(${won(b$)})보다 커요 → 예산에 닿으면 쉬어요</span>`:''}</div>`:''}
       <h4 style="margin:14px 0 6px">자동 발행용 키워드 대기열</h4>
       <div class="row" style="flex-wrap:nowrap"><select id="qBlog" style="width:auto;flex:none">${list.map(b=>`<option value="${esc(b.id)}">${esc(b.name||b.id)}</option>`).join('')}</select><input type="text" id="qKw" placeholder="예: 통신비 할인 받는 법"><button class="btn" id="qAdd" style="flex:none">넣기</button></div>
       <div class="err" id="qErr"></div><div class="row" style="margin-top:8px"><button class="btn sm" id="qRefill">키워드 후보 미리 채우기 · ${estWon('keywords')}</button></div>
@@ -2108,6 +2171,17 @@ document.addEventListener('click',async e=>{
     if(!o.slots.am&&!o.slots.pm){err.textContent='자동 발행 시간을 하나 이상 고르세요 (자동 발행을 켜지 않으면 쓰이지 않아요).';return}
     if(accts().some(x=>x.id!==b.dataset.id&&x.type===type&&(type==='wordpress'?x.url===o.url:x.blogId===o.blogId))){err.textContent='이미 추가한 블로그예요.';return}
     const id=b.dataset.id||((type==='wordpress'?'wp':'bs')+Math.random().toString(36).slice(2,6));
+    if(useDB()){
+      const pl=await loadMyPlan();if(!b.dataset.id&&pl&&pl.role!=='admin'&&pl.max_blogs&&accts().length>=pl.max_blogs){err.textContent=`${pl.plan_name} 요금제는 블로그 ${pl.max_blogs}개까지 연결할 수 있어요. 더 쓰려면 요금제를 올려 주세요.`;return}
+      // 워드프레스는 사이트마다 로그인 정보가 따로라 번호를 자동으로 나눈다
+      const mine=accts().find(x=>x.id===b.dataset.id);
+      if(type==='wordpress'){const usedS=new Set(accts().filter(x=>x.type==='wordpress'&&x.id!==b.dataset.id).map(x=>x.secretSuffix||''));o.secretSuffix=mine&&mine.type==='wordpress'&&!usedS.has(mine.secretSuffix||'')?(mine.secretSuffix||''):Object.keys(ACCT_NO).find(k=>!usedS.has(k));if(o.secretSuffix===undefined){err.textContent='워드프레스는 5개까지 연결할 수 있어요.';return}}
+      else o.secretSuffix=mine&&mine.type==='blogger'?(mine.secretSuffix||''):'';
+      const u=($('#bfWpUser')||{}).value,pw=($('#bfWpPass')||{}).value,sf=o.secretSuffix.toLowerCase();
+      if(type==='wordpress'&&!(secHints||{})['wp_app_password'+sf]&&(!u||!pw)){err.textContent='워드프레스 사용자 이름과 응용 프로그램 비밀번호를 넣어주세요.';return}
+      try{if(type==='wordpress'&&u)await dbRpc('bh_set_secret',{p_name:'wp_user'+sf,p_value:u.trim()});if(type==='wordpress'&&pw)await dbRpc('bh_set_secret',{p_name:'wp_app_password'+sf,p_value:pw.trim()});if(u||pw)await loadSecHints()}
+      catch(er){err.textContent='로그인 정보를 저장하지 못했어요: '+er.message;return}
+    }
     b.disabled=true;
     if(await saveAutoCfg(d=>{const i=d.blogs.findIndex(x=>x.id===id);const keep=i>=0?d.blogs[i]:{auto:false};const nb=Object.assign({},keep,o,{id,enabled:keep.enabled!==false,auto:keep.auto===true});if(i>=0)d.blogs[i]=nb;else d.blogs.push(nb)},'계정 저장: '+o.name)){autoEdit=null;toast('저장했어요. "연결 확인"을 눌러보세요');renderAuto()}
     else b.disabled=false;return;
@@ -2120,7 +2194,7 @@ document.addEventListener('click',async e=>{
     b.disabled=true;try{await autoDispatch('now',id);toast('서버에 요청했어요. 몇 분 뒤 기록에 나타나요')}catch(er){alert('요청하지 못했어요.\n'+er.message)}b.disabled=false;return}
   if(b.id==='autoTest'){b.disabled=true;b.textContent='확인 중… (1~2분)';const before=S.auto.test&&S.auto.test.at;
     try{await autoDispatch('test','');const t0=Date.now();while(Date.now()-t0<240000){await sleepMs(8000);const r=await ghGet(AF.test);if(r&&r.data&&r.data.at!==before){S.auto.test=r.data;break}}
-      if(!S.auto.test||S.auto.test.at===before)toast('아직 결과가 없어요. GitHub Actions 탭을 확인하세요')}
+      if(!S.auto.test||S.auto.test.at===before)toast(useDB()?'아직 결과가 없어요. 1~2분 뒤 다시 눌러 주세요':'아직 결과가 없어요. GitHub Actions 탭을 확인하세요')}
     catch(er){alert(er.message+'\n\nblog-helper-data에 .github/workflows/publish.yml이 있는지 확인하세요.')}save();renderAuto();return}
   if(b.id==='gWriteBtn'){const kw=$('#gKw').value.trim();$('#gErr').textContent='';if(!kw){$('#gErr').textContent='키워드를 입력하세요.';return}
     b.disabled=true;if(await gWrite(kw))$('#gKw').value='';b.disabled=false;renderAuto();return}
@@ -2161,10 +2235,14 @@ document.addEventListener('click',async e=>{
 document.addEventListener('change',async e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.aauto){const id=t.dataset.aauto,on=t.checked;const b=accts().find(x=>x.id===id);if(!b)return;
+    if(on&&useDB()){const pl=await loadMyPlan(true);if(pl&&pl.role!=='admin'){
+      if(!pl.auto_publish){t.checked=false;alert(`${pl.plan_name} 요금제는 자동 발행이 없어요. 글은 직접 전송으로 보낼 수 있어요.\n자동 발행은 프로 요금제부터 쓸 수 있어요.`);return}
+      const n=slotsOf(b).length*30;if(!confirm(`"${b.name}" 자동 발행을 켤까요?\n\n매일 ${slotsOf(b).map(s=>s==='am'?'오전 9시쯤':'오후 4시쯤').join('·')} 1개씩 키워드를 골라 쓰고 ${b.mode==='publish'?'통과하면 공개 발행':'임시저장으로 보내'}해요.\n한 달 최대 약 ${n}편 · 요금제 한도(이번 달 ${pl.used_posts||0}/${pl.monthly_posts}편)에 닿으면 쉬어요.\n품질 미달 글은 공개하지 않아요.`)){t.checked=false;return}
+      t.disabled=true;await saveAutoCfg(d=>{const x=d.blogs.find(y=>y.id===id);if(x)x.auto=on},'자동 발행 켜기: '+b.name);renderAuto();return}}
     if(on){const n=slotsOf(b).length*30,usd=n*BH.estimate('auto',MODELS());
       if(!confirm(`"${b.name}" 자동 발행을 켤까요?\n\n매일 ${slotsOf(b).map(s=>s==='am'?'오전 9시쯤':'오후 4시쯤').join('·')} 1개씩 키워드를 골라 쓰고 ${b.mode==='publish'?'통과하면 공개 발행':'임시저장으로 보내'}해요.\n한 달 약 ${n}개 · ${won(usd)} (월 예산 ${won(budget())}에 닿으면 쉬어요)\n품질 미달 글은 공개하지 않아요.`)){t.checked=false;return}}
     t.disabled=true;await saveAutoCfg(d=>{const x=d.blogs.find(y=>y.id===id);if(x)x.auto=on},(on?'자동 발행 켜기: ':'자동 발행 끄기: ')+b.name);renderAuto();return}
-  if(t.name==='bfType'){const wp=t.value==='wordpress';$('#bfWp').classList.toggle('hide',!wp);$('#bfBs').classList.toggle('hide',wp)}
+  if(t.name==='bfType'){const wp=t.value==='wordpress';$('#bfWp').classList.toggle('hide',!wp);$('#bfBs').classList.toggle('hide',wp);const cw=$('#bfCredWp'),cb=$('#bfCredBs');if(cw)cw.classList.toggle('hide',!wp);if(cb)cb.classList.toggle('hide',wp)}
   if(t.id==='bfSfx'||t.name==='bfType'){const h=$('#bfSecHint');if(h){const ty=(document.querySelector('input[name=bfType]:checked')||{}).value;h.innerHTML='GitHub Secrets 이름: <b>'+esc(secretNames({type:ty,secretSuffix:$('#bfSfx').value}))+'</b> · 같은 구글 계정 안의 블로그 여러 개는 모두 1번이에요. 다른 구글 계정이면 2번·3번을 고르고 그 이름으로 비밀값을 넣어요.'}}
 });
 
@@ -2255,6 +2333,7 @@ $('#repo').addEventListener('input',()=>{$('#srvMsg').textContent=''});
 $('#ghTok').addEventListener('input',()=>{$('#srvMsg').textContent=''});
 $('#srvTest').addEventListener('click',async()=>{
   const m=$('#srvMsg');m.style.color='';m.textContent='확인 중…';
+  if(useDB()){await loadMyPlan(true);m.style.color=workerOK()?'var(--ok)':'';m.textContent=workerOK()?'판매용 DB 사용 중 · 작업 서버 정상':'판매용 DB 사용 중 · 작업 서버가 아직 응답하지 않아요 (관리자 카드의 작업 서버 상태 확인)';return}
   try{
     const r=await gh('');
     const bad=[];
@@ -2391,7 +2470,7 @@ async function cloudPull(first){
     saveNow();cloudPulledAt=data.updated_at;cloudErr='';
     cloudBusy=false;cloudLast='';await cloudPush(); // 이 기기에만 있던 값·예전 평문 키를 암호화 보관함으로 올린다
     if(first)toast('내 계정의 설정을 불러왔어요');
-    rerender();bootServer();
+    rerender();bootServer();loadMyPlan(true);
   }catch(e){cloudErr='클라우드에서 불러오지 못했어요: '+(e.message||e);cloudBusy=false}
   renderCloud();
 }
@@ -2401,6 +2480,7 @@ function renderCloud(){
   if(a)a.innerHTML=cloudUser?`<span class="pill ok" title="${esc(cloudUser.email||'')}">☁ 로그인됨</span>`:`<button class="btn sm" data-cloud="in" style="margin-left:6px">구글로 로그인</button>`;
   if(!c)return;c.style.display='';
   c.innerHTML=`<h3>계정 · 클라우드 저장</h3>${cloudUser?`<div>로그인: <b>${esc(cloudUser.email||'')}</b>${isAdmin()?' <span class="pill pri">관리자</span>':cloudMe&&cloudMe.expires_at?` <span class="pill">이용 기간 ~${new Date(cloudMe.expires_at).toLocaleDateString('ko-KR')}</span>`:''}</div>
+    ${!isAdmin()&&myPlan&&myPlan.monthly_posts?`<div style="margin-top:6px">요금제: <b>${esc(myPlan.plan_name||'')}</b> · 이번 달 <b>${myPlan.used_posts||0}</b>/${myPlan.monthly_posts}편 · 블로그 ${myPlan.max_blogs}개까지${myPlan.auto_publish?' · 자동 발행':''}<div class="hint">매달 1일에 글 수가 새로 시작돼요. 글을 지워도 쓴 편수는 줄지 않아요.</div></div>`:''}
     <div class="hint" style="margin:6px 0 10px">설정은 내 계정에, 키는 <b>암호화 보관함</b>에 저장하고 있어요${vaultOK?'':' (⚠️ 암호화 보관함 준비 전 — 관리자에게 문의)'}. 다른 컴퓨터나 폰에서도 <b>구글로 로그인만 하면</b> 그대로 써요.${cloudPulledAt?' · 마지막 저장 '+new Date(cloudPulledAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
     <div class="row"><button class="btn" data-cloud="sync">지금 불러오기</button><button class="btn" data-cloud="out">로그아웃</button><button class="btn" data-cloud="outwipe">로그아웃 + 이 기기에서 키 지우기</button></div>
     <div class="hint" style="margin-top:6px">남의 컴퓨터·공용 PC에서는 "이 기기에서 키 지우기"로 로그아웃하세요.</div>`
@@ -2410,6 +2490,8 @@ function renderCloud(){
 }
 /* ---------- 관리자: 사용 승인 목록 ---------- */
 let adminList=null,adminErr='';
+const PLAN_NAME={basic:'베이직',pro:'프로',premium:'프리미엄'};
+const planSel=(id,v)=>`<select ${id} style="width:auto;flex:none">${Object.entries(PLAN_NAME).map(([k,n])=>`<option value="${k}"${(v||'basic')===k?' selected':''}>${n}</option>`).join('')}</select>`;
 async function adminLoad(){if(!isAdmin())return;const {data,error}=await sb.from('allowed_users').select('*').order('created_at',{ascending:false});adminErr=error?error.message:'';adminList=data||[];renderAdmin()}
 function renderAdmin(){
   let el=$('#adminCard');const c=$('#cloudCard');
@@ -2418,22 +2500,73 @@ function renderAdmin(){
   if(!el)return;if(adminList===null){el.innerHTML='<h3>사용 승인 관리</h3><div class="hint">불러오는 중…</div>';adminLoad();return}
   const left=u=>{if(u.role==='admin')return '<span class="pill pri">관리자</span>';if(!u.expires_at)return '<span class="pill ok">기간 없음</span>';const d=Math.ceil((Date.parse(u.expires_at)-Date.now())/864e5);return d<0?'<span class="pill bad">만료</span>':`<span class="pill ${d<=7?'warn':'ok'}">${d}일 남음 · ~${new Date(u.expires_at).toLocaleDateString('ko-KR')}</span>`};
   el.innerHTML=`<h3>사용 승인 관리 <span class="pill">관리자만 보여요</span></h3>
-    <div class="hint" style="margin-bottom:8px">여기 넣은 구글 이메일만 로그인해서 쓸 수 있어요. 크몽에서 결제를 확인하면 고객 이메일을 넣고 기간을 고르세요. 기간이 지나면 자동으로 막혀요.</div>
-    <div class="row" style="flex-wrap:wrap"><input type="text" inputmode="email" autocomplete="off" id="adEmail" placeholder="고객 구글 이메일" style="flex:2 1 200px"><select id="adDays" style="flex:1 1 110px;width:auto"><option value="30">30일</option><option value="90">90일</option><option value="180">180일</option><option value="365">1년</option><option value="0">기간 없음</option></select><input type="text" id="adMemo" placeholder="메모 (크몽 주문번호 등)" style="flex:2 1 160px"><button class="btn pri" data-adm="add" style="flex:none">추가</button></div>
+    <div class="hint" style="margin-bottom:8px">여기 넣은 구글 이메일만 로그인해서 쓸 수 있어요. 크몽에서 결제를 확인하면 고객 이메일 · <b>요금제</b> · 기간을 고르고 추가하세요. 기간이 지나면 자동으로 막혀요.<br>베이직 월 30편·블로그 1개 / 프로 월 70편·블로그 3개·자동 발행 / 프리미엄 월 150편·블로그 5개·자동 발행·상위 글 패턴</div>
+    <div class="row" style="flex-wrap:wrap"><input type="text" inputmode="email" autocomplete="off" id="adEmail" placeholder="고객 구글 이메일" style="flex:2 1 200px">${planSel('id="adPlan"','basic')}<select id="adDays" style="flex:1 1 110px;width:auto"><option value="30">30일</option><option value="90">90일</option><option value="180">180일</option><option value="365">1년</option><option value="0">기간 없음</option></select><input type="text" id="adMemo" placeholder="메모 (크몽 주문번호 등)" style="flex:2 1 160px"><button class="btn pri" data-adm="add" style="flex:none">추가</button></div>
     <div class="err" id="adErr">${esc(adminErr)}</div>
-    <div style="margin-top:8px">${adminList.map(u=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;gap:6px"><div style="min-width:0"><b>${esc(u.email)}</b> ${left(u)}${u.memo?`<div class="hint">${esc(u.memo)}</div>`:''}</div>${u.role==='admin'?'':`<div class="row" style="flex:none;gap:6px"><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="30">+30일</button><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="90">+90일</button><button class="btn sm" data-adm="del" data-em="${esc(u.email)}">빼기</button></div>`}</div>`).join('')||'<div class="hint">아직 승인한 계정이 없어요.</div>'}</div>`;
+    <div style="margin-top:8px">${adminList.map(u=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;gap:6px"><div style="min-width:0"><b>${esc(u.email)}</b> ${left(u)}${u.role==='admin'?'':` <span class="pill pri">${esc(PLAN_NAME[u.plan]||u.plan||'베이직')}</span>`}${u.memo?`<div class="hint">${esc(u.memo)}</div>`:''}</div>${u.role==='admin'?'':`<div class="row" style="flex:none;gap:6px">${planSel(`data-admplan="${esc(u.email)}" aria-label="요금제"`,u.plan)}<button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="30">+30일</button><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="90">+90일</button><button class="btn sm" data-adm="del" data-em="${esc(u.email)}">빼기</button></div>`}</div>`).join('')||'<div class="hint">아직 승인한 계정이 없어요.</div>'}</div>`;
+  renderOps();
 }
+/* ---------- 관리자: 작업 서버 · 운영 키 · 저장 방식 ---------- */
+const OP_KEYS=[['op_anthropic_api_key','Claude API 키','sk-ant-…','글쓰기·키워드 찾기 (모든 고객 공용 · 비용은 판매자 부담)'],
+  ['op_searchad_customer_id','네이버 검색광고 CUSTOMER_ID','숫자','실제 검색량 조회'],['op_searchad_api_key','네이버 검색광고 액세스 라이선스','',''],['op_searchad_secret','네이버 검색광고 비밀키','',''],
+  ['op_pexels_api_key','Pexels API 키 (선택)','','블로그스팟·워드프레스 대표 사진'],
+  ['op_blogger_client_id','구글 OAuth 클라이언트 ID','….apps.googleusercontent.com','고객 블로그스팟 연결용'],['op_blogger_client_secret','구글 OAuth 클라이언트 보안 비밀번호','GOCSPX-…','']];
+let migBusy=false;
+function renderOps(){
+  let el=$('#opsCard');const a=$('#adminCard');
+  if(!isAdmin()){if(el)el.remove();return}
+  if(!el&&a){el=document.createElement('div');el.className='card';el.id='opsCard';a.after(el)}
+  if(!el)return;
+  if(secHints===null){el.innerHTML='<h3>작업 서버 · 운영 키</h3><div class="hint">불러오는 중…</div>';loadSecHints().then(renderOps);loadMyPlan(true);return}
+  const w=myPlan&&myPlan.worker,ago=w?Math.round((Date.now()-Date.parse(w))/60000):null;
+  el.innerHTML=`<h3>작업 서버 · 운영 키 <span class="pill">관리자만 보여요</span></h3>
+    <div>작업 서버: ${w?(ago<20?`<span class="pill ok">정상</span> <span class="hint">${ago}분 전 확인</span>`:`<span class="pill bad">멈춤</span> <span class="hint">마지막 확인 ${new Date(w).toLocaleString('ko-KR')}</span>`):'<span class="pill warn">아직 연결 전</span> <span class="hint">가이드대로 작업 서버를 켜면 몇 분 안에 "정상"으로 바뀌어요.</span>'}</div>
+    <div class="hint" style="margin:8px 0">고객 글쓰기에 쓰는 키예요. 암호화 보관함에 저장되고 작업 서버만 꺼내 써요. 값은 다시 보여 주지 않아요(끝 4자리만). 바꿀 때만 새로 넣으세요.</div>
+    ${OP_KEYS.map(([n,l,ph,h])=>`<label class="f" for="op-${n}">${esc(l)} ${secHints[n]?`<span class="pill ok">저장됨 …${esc(secHints[n])}</span>`:n==='op_anthropic_api_key'&&secHints[LS_KEY]?'<span class="pill">사이트 키 사용 중</span>':'<span class="pill warn">비어 있음</span>'}</label><input type="password" id="op-${n}" autocomplete="new-password" placeholder="${esc(ph)}">${h?`<div class="hint">${esc(h)}</div>`:''}`).join('')}
+    <div class="row" style="margin-top:10px"><button class="btn pri" data-ops="save">운영 키 저장</button></div><div class="err" id="opsErr"></div>
+    <h3 style="margin-top:18px">내 데이터 저장 방식</h3>
+    <div class="seg" role="radiogroup" aria-label="저장 방식"><label><input type="radio" name="storeMode" value="github"${S.settings.store==='db'?'':' checked'}>GitHub (지금 방식)</label><label><input type="radio" name="storeMode" value="db"${S.settings.store==='db'?' checked':''}>판매용 DB (작업 서버)</label></div>
+    <div class="hint">고객은 항상 판매용 DB를 써요. 관리자는 블로그스팟 연결을 옮기기 전까지 GitHub를 유지하는 걸 추천해요. 바꾸기 전에 아래 버튼으로 GitHub 데이터를 DB로 복사해 두세요(GitHub 쪽은 그대로 남아요).</div>
+    <div class="row" style="margin-top:8px"><button class="btn" data-ops="mig"${migBusy?' disabled':''}>${migBusy?'복사 중…':'GitHub → DB로 복사'}</button></div><div class="hint" id="migMsg"></div>`;
+}
+document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-ops]');if(!b||!isAdmin())return;const act=b.dataset.ops;
+  if(act==='save'){const er=$('#opsErr');er.textContent='';b.disabled=true;let n=0;
+    try{for(const [k] of OP_KEYS){const i=$('#op-'+k),v=i&&i.value.trim();if(!v)continue;await dbRpc('bh_set_secret',{p_name:k,p_value:v});i.value='';n++}
+      await loadSecHints();toast(n?`운영 키 ${n}개를 저장했어요. 작업 서버는 5분 안에 새 키를 써요`:'바뀐 값이 없어요');renderOps()}
+    catch(x){er.textContent='저장하지 못했어요: '+x.message}b.disabled=false;return}
+  if(act==='mig'){if(!ghReady()||S.settings.store==='db'){alert('GitHub 연결(저장 방식: GitHub)에서 눌러 주세요.');return}
+    if(!confirm('GitHub 저장소의 글·설정·기록을 판매용 DB로 복사할까요?\nDB에 같은 파일이 있으면 GitHub 내용으로 덮어써요. GitHub 쪽은 그대로 남아요.'))return;
+    migBusy=true;renderOps();const msg=()=>$('#migMsg');let ok=0,skip=0,fail=0;
+    try{const tr=await gh('/git/trees/HEAD?recursive=1');
+      const files=(tr.tree||[]).filter(f=>f.type==='blob'&&/^(projects|state|autopub)\/[A-Za-z0-9_][A-Za-z0-9_.\/-]*\.json$/.test(f.path)&&!/\.\./.test(f.path));
+      for(const f of files){
+        if(f.size>2800000){skip++;continue}
+        try{const r=await ghGet(f.path);if(!r||r.data==null){skip++;continue}
+          const cur=await dbRpc('bh_doc_get',{p_path:f.path});await dbRpc('bh_doc_put',{p_path:f.path,p_data:r.data,p_version:cur?cur.version:null});ok++}
+        catch(x){fail++}
+        if(msg())msg().textContent=`복사 중… ${ok+skip+fail}/${files.length}`}
+      if(msg())msg().textContent=`끝: ${ok}개 복사${skip?` · ${skip}개 건너뜀`:''}${fail?` · ${fail}개 실패(다시 누르면 다시 시도)`:''}. 이제 저장 방식을 "판매용 DB"로 바꿔도 돼요.`}
+    catch(x){if(msg())msg().textContent='복사하지 못했어요: '+x.message}
+    migBusy=false;const m0=msg()&&msg().textContent;renderOps();if(msg())msg().textContent=m0;return}
+});
+document.addEventListener('change',e=>{const t=e.target;if(t.name!=='storeMode'||!isAdmin())return;
+  const v=t.value;if(v==='db'&&!confirm('판매용 DB로 바꿀까요?\n이제부터 이 계정의 글·설정은 DB에 저장되고 작업 서버가 써요. (GitHub로 언제든 되돌릴 수 있어요)')){renderOps();return}
+  S.settings.store=v==='db'?'db':'';S.projects=S.projects.filter(p=>!p.remote);S.auto={};save();toast(v==='db'?'판매용 DB로 바꿨어요':'GitHub로 바꿨어요');rerender();bootServer();loadMyPlan(true)});
 document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-adm]');if(!b||!isAdmin())return;const err=$('#adErr');if(err)err.textContent='';
   const act=b.dataset.adm;const addDays=(base,d)=>new Date(Math.max(Date.now(),Date.parse(base||0)||0)+d*864e5).toISOString();
   try{
     if(act==='add'){const em=$('#adEmail').value.trim().toLowerCase(),d=+$('#adDays').value,memo=$('#adMemo').value.trim();
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){err.textContent='이메일을 확인해 주세요.';return}
       const old=(adminList||[]).find(u=>u.email.toLowerCase()===em);if(old&&old.role==='admin'){err.textContent='관리자 계정이에요.';return}
-      const {error}=await sb.from('allowed_users').upsert({email:em,role:'customer',expires_at:d?addDays(old&&old.expires_at,d):null,memo:memo||(old&&old.memo)||''});if(error)throw error;toast(`${em} 승인했어요`)}
+      const plan=$('#adPlan').value||'basic';
+      const {error}=await sb.from('allowed_users').upsert({email:em,role:'customer',plan,expires_at:d?addDays(old&&old.expires_at,d):null,memo:memo||(old&&old.memo)||''});if(error)throw error;toast(`${em} 승인했어요 (${PLAN_NAME[plan]})`)}
     if(act==='ext'){const u=(adminList||[]).find(x=>x.email===b.dataset.em);const {error}=await sb.from('allowed_users').update({expires_at:addDays(u&&u.expires_at,+b.dataset.d)}).eq('email',b.dataset.em);if(error)throw error;toast('기간을 늘렸어요')}
     if(act==='del'){if(!confirm(`${b.dataset.em} 계정의 사용 승인을 뺄까요? 다음 접속부터 쓸 수 없어요.`))return;const {error}=await sb.from('allowed_users').delete().eq('email',b.dataset.em);if(error)throw error;toast('승인을 뺐어요')}
     await adminLoad();
   }catch(er){if(err)err.textContent='저장하지 못했어요: '+(er.message||er)}});
+document.addEventListener('change',async e=>{const t=e.target;if(!t.dataset||!t.dataset.admplan||!isAdmin())return;const em=t.dataset.admplan,plan=t.value;
+  if(!confirm(`${em} 요금제를 ${PLAN_NAME[plan]}(으)로 바꿀까요? 이번 달 쓴 글 수는 그대로 이어져요.`)){adminLoad();return}
+  const {error}=await sb.from('allowed_users').update({plan}).eq('email',em);if(error){alert('바꾸지 못했어요: '+error.message);adminLoad();return}toast('요금제를 바꿨어요');adminLoad()});
 async function cloudInit(){
   if(!CLOUD_ON){renderCloud();return}
   sb=window.supabase.createClient(CLOUD.url,CLOUD.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
