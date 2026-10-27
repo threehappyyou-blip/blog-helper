@@ -183,6 +183,8 @@ body.role-customer .admin-only{display:none!important}
 @media (min-width:640px){.split2{grid-template-columns:1fr 1fr}}
 @media (max-width:640px){.ab{flex-direction:column}.ab .acts{max-width:none;justify-content:flex-start}.kpi div{padding:8px;font-size:11px}.kpi b{font-size:15px}}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:30}
+.sitefoot{max-width:1210px;margin:0 auto;padding:8px 16px 90px;color:var(--muted);font-size:13px;text-align:center;line-height:1.8}
+.sitefoot a{color:var(--sub)}
 .mbox{background:var(--card);border-radius:16px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 .acct{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px;cursor:pointer}
 .acct:has(input:checked){border-color:var(--pri);background:var(--pri-soft)}
@@ -380,6 +382,7 @@ body.role-customer .admin-only{display:none!important}
 <!-- 도움말 -->
 <section id="tab-help" class="hide">
   <h2>도움말</h2>
+  <div class="card" style="border-color:var(--pri-line)"><h3 style="margin-top:0">📘 사용 설명서 전체 보기</h3><div class="hint" style="margin-bottom:8px">처음 시작하기부터 요금제·자주 묻는 질문까지 한 페이지에 정리했어요. 인쇄도 돼요.</div><div class="row"><a class="btn pri" href="manual.html" target="_blank" rel="noopener">사용 설명서 열기</a><a class="btn" href="terms.html" target="_blank" rel="noopener">이용약관</a><a class="btn" href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a><a class="btn" href="refund.html" target="_blank" rel="noopener">환불정책</a></div></div>
   <div class="card admin-only">
     <h3>1. 준비 (처음 한 번)</h3>
     <ol class="list">
@@ -440,6 +443,7 @@ body.role-customer .admin-only{display:none!important}
 </section>
 </main>
 </div>
+<footer class="sitefoot"><a href="manual.html" target="_blank" rel="noopener">사용 설명서</a> · <a href="terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="privacy.html" target="_blank" rel="noopener"><b>개인정보처리방침</b></a> · <a href="refund.html" target="_blank" rel="noopener">환불정책</a><div>이 서비스는 생성형 AI(Anthropic Claude)로 블로그 글 초안을 만들어요. 올리기 전에 내용을 꼭 확인해 주세요.</div></footer>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.0/dist/umd/supabase.js"></script>
@@ -2456,7 +2460,7 @@ async function cloudPull(first){
   try{
     const {data,error}=await sb.from('user_settings').select('settings,secrets,spend,updated_at').eq('user_id',cloudUser.id).maybeSingle();
     if(error)throw error;
-    if(!data){cloudBusy=false;if(first)toast('이 기기 설정을 내 계정에 저장했어요. 다른 기기에서도 로그인만 하면 돼요');await cloudPush();return}
+    if(!data){cloudBusy=false;if(first)toast('이 기기 설정을 내 계정에 저장했어요. 다른 기기에서도 로그인만 하면 돼요');await cloudPush();renderTerms();return}
     if(!first&&data.updated_at===cloudPulledAt){cloudBusy=false;return}
     const keep={};SKIP_SETTINGS.forEach(k=>{if(k in S.settings)keep[k]=S.settings[k]});
     S.settings=Object.assign({},DEF,S.settings,data.settings||{},keep);S.settings.mode='server';
@@ -2470,7 +2474,7 @@ async function cloudPull(first){
     saveNow();cloudPulledAt=data.updated_at;cloudErr='';
     cloudBusy=false;cloudLast='';await cloudPush(); // 이 기기에만 있던 값·예전 평문 키를 암호화 보관함으로 올린다
     if(first)toast('내 계정의 설정을 불러왔어요');
-    rerender();bootServer();loadMyPlan(true);
+    rerender();bootServer();loadMyPlan(true);renderTerms();
   }catch(e){cloudErr='클라우드에서 불러오지 못했어요: '+(e.message||e);cloudBusy=false}
   renderCloud();
 }
@@ -2488,6 +2492,32 @@ function renderCloud(){
     <button class="btn pri" data-cloud="in">구글로 로그인</button>`}${cloudErr?`<div class="err" style="margin-top:8px">${esc(cloudErr)}</div>`:''}`;
   renderAdmin();
 }
+/* ---------- 이용 동의 (고객 · 처음 로그인 때 한 번 · 약관이 바뀌면 다시) ---------- */
+const TERMS_V='2026-10-27';
+function needTerms(){return CLOUD_ON&&cloudAccess==='ok'&&!isAdmin()&&S.settings.termsOk!==TERMS_V}
+function renderTerms(){
+  let m=$('#termsBox');
+  if(!needTerms()){if(m)m.remove();return}
+  if(m)return;
+  m=document.createElement('div');m.id='termsBox';m.className='modal';m.style.cssText='display:flex;z-index:61';
+  const L=(h,t)=>`<a href="${h}" target="_blank" rel="noopener">${t}</a>`;
+  m.innerHTML=`<div class="mbox" role="dialog" aria-modal="true" aria-labelledby="termsH"><h3 id="termsH" style="margin-top:0">서비스 이용 동의</h3>
+    <div class="notice" style="margin:8px 0 12px"><b>AI 이용 안내</b> — 블로그 도우미는 생성형 AI(Anthropic Claude)로 키워드를 찾고 블로그 글 <b>초안</b>을 만들어요. AI가 쓴 글은 사실과 다를 수 있으니 <b>올리기 전에 꼭 확인</b>해 주세요. 네이버에는 자동으로 올리지 않아요(복사·붙여넣기).</div>
+    <label class="chk"><input type="checkbox" data-tm><span>[필수] ${L('terms.html','이용약관')}에 동의해요</span></label>
+    <label class="chk"><input type="checkbox" data-tm><span>[필수] ${L('privacy.html','개인정보 수집·이용 및 처리 위탁·국외 이전')}에 동의해요</span></label>
+    <label class="chk"><input type="checkbox" data-tm><span>[필수] ${L('refund.html','환불정책')}을 확인했어요</span></label>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="tmAll"><span><b>모두 동의</b></span></label>
+    <div class="row" style="margin-top:14px"><button class="btn pri" id="tmOk" disabled>동의하고 시작하기</button><button class="btn" data-cloud="out">로그아웃</button></div>
+    <div class="hint" style="margin-top:8px">각 문서는 화면 맨 아래와 도움말 탭에서 언제든 다시 볼 수 있어요.</div></div>`;
+  document.body.appendChild(m);
+}
+document.addEventListener('change',e=>{const t=e.target;if(!t.closest||!t.closest('#termsBox'))return;
+  const bs=[...document.querySelectorAll('#termsBox [data-tm]')];
+  if(t.id==='tmAll')bs.forEach(b=>{b.checked=t.checked});else $('#tmAll').checked=bs.every(b=>b.checked);
+  $('#tmOk').disabled=!bs.every(b=>b.checked)});
+document.addEventListener('click',e=>{if(!e.target||e.target.id!=='tmOk')return;
+  S.settings.termsOk=TERMS_V;S.settings.termsAt=new Date().toISOString();saveNow();cloudLast='';cloudPush();renderTerms();toast('동의했어요. 이제 시작해 볼까요?')});
+
 /* ---------- 관리자: 사용 승인 목록 ---------- */
 let adminList=null,adminErr='';
 const PLAN_NAME={basic:'베이직',pro:'프로',premium:'프리미엄'};
@@ -2590,7 +2620,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.c
     if(act==='outwipe'&&!confirm('로그아웃하고 이 기기에 저장된 키(Claude·GitHub·워드프레스·구글)를 지울까요? 내 계정에는 그대로 남아 있어요.'))return;
     clearTimeout(cloudT);await cloudPush();await sb.auth.signOut();cloudUser=null;cloudLast='';
     if(act==='outwipe'){SECRET_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});toast('로그아웃하고 이 기기의 키를 지웠어요')}else toast('로그아웃했어요');
-    cloudAccess='none';cloudMe=null;renderGate();renderCloud();rerender();}
+    cloudAccess='none';cloudMe=null;renderGate();renderCloud();renderTerms();rerender();}
 });
 boot();bootServer();cloudInit();
 </script>

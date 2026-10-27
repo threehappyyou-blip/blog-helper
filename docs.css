@@ -1,0 +1,39 @@
+/* 블로그 도우미 안내 문서 공통 스타일 (이용약관 · 개인정보처리방침 · 환불정책 · 사용 설명서) */
+:root{
+  --bg:#f4f5f7; --card:#fff; --text:#1d1f23; --sub:#5d636c; --muted:#8a9099; --line:#e3e6ea;
+  --pri:#2453d6; --pri-soft:#eaf0fd; --warn-soft:#fff3db; --warn:#a86500; --ok-soft:#e5f5ec;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#15171a; --card:#1e2125; --text:#e9ebee; --sub:#aab0b8; --muted:#7f868f; --line:#30353b;
+    --pri:#7ea0f5; --pri-soft:#1c2740; --warn-soft:#33281a; --warn:#f0b54d; --ok-soft:#173023;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.75;-webkit-text-size-adjust:100%}
+a{color:var(--pri)}
+.top{background:var(--card);border-bottom:1px solid var(--line)}
+.top .in{max-width:860px;margin:0 auto;padding:14px 16px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.top b{font-size:17px;margin-right:auto}
+.top a{font-size:14px;text-decoration:none;color:var(--sub)}
+.top a.on{color:var(--text);font-weight:700}
+main{max-width:860px;margin:0 auto;padding:24px 16px 80px}
+h1{font-size:26px;line-height:1.35;margin:0 0 6px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:22px}
+h2{font-size:19px;margin:34px 0 8px;padding-top:4px}
+h3{font-size:16px;margin:20px 0 6px}
+p,li{color:var(--text)}
+ol,ul{padding-left:22px}
+li{margin:4px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:14px 0}
+.note{background:var(--pri-soft);border-radius:12px;padding:12px 16px;margin:14px 0}
+.warn{background:var(--warn-soft);border-radius:12px;padding:12px 16px;margin:14px 0}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:15px;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--pri-soft);font-weight:600}
+.wrapt{overflow-x:auto}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:0 6px;font-size:14px;background:var(--card)}
+.toc{columns:2;column-gap:24px}
+@media (max-width:600px){.toc{columns:1}h1{font-size:22px}}
+footer{max-width:860px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
+@media print{.top,footer{display:none}body{background:#fff;color:#000}.card,.note,.warn{border:1px solid #ccc}}
