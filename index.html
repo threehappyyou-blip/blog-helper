@@ -289,7 +289,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <section id="tab-set" class="hide">
   <h2>설정</h2>
   <div class="card" id="cloudCard"></div>
-  <div class="card">
+  <div class="card hide" id="keyCard">
     <h3>Claude API 키</h3>
     <label class="f" for="apiKey">API 키 (sk-ant-로 시작)</label>
     <input type="password" id="apiKey" autocomplete="off" placeholder="sk-ant-...">
@@ -301,7 +301,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <h3>GitHub 연결 · 글쓰는 곳</h3>
     <div class="hint">GitHub를 연결하면 실제 검색량 조회와 서버 글쓰기를 쓸 수 있어요.</div>
     <label class="chk" style="margin-top:6px"><input type="radio" name="mode" value="server"> GitHub 서버에서 쓰기 (추천 · 창을 닫아도 멈추지 않음)</label>
-    <label class="chk" style="margin-top:6px"><input type="radio" name="mode" value="browser"> 이 브라우저에서 쓰기 (탭을 닫으면 멈춤)</label>
+    <label class="chk hide" style="margin-top:6px"><input type="radio" name="mode" value="browser" disabled> 이 브라우저에서 쓰기</label>
     <div id="srvBox">
       <label class="f" for="repo">글 저장용 비공개 저장소 (아이디/저장소)</label>
       <input type="text" id="repo" placeholder="threehappyyou-blip/blog-helper-data" autocomplete="off">
@@ -469,7 +469,7 @@ let S=load();
 function load(){
   let s=null; try{s=JSON.parse(lsGet(LS_STATE)||'null')}catch(e){}
   s=s||{};
-  s.settings=Object.assign({},DEF,s.settings||{});
+  s.settings=Object.assign({},DEF,s.settings||{});s.settings.mode='server'; // 글쓰기는 항상 서버에서 (프롬프트가 서버에만 있다)
   s.keywords=s.keywords||[]; s.projects=s.projects||[]; s.auto=s.auto||{};
   return s;
 }
@@ -545,8 +545,7 @@ let oneRunning=false;
 async function oneClick(){
   if($('#oneBtn').dataset.goSet){go('set');return}
   if(oneRunning)return;const err=$('#oneErr');err.textContent='';
-  if(!lsGet(LS_KEY)){toast('먼저 Claude API 키를 넣어주세요');go('set');return}
-  if(isServer()&&!serverReady()){toast('서버 연결을 먼저 해주세요');go('set');return}
+  if(!serverReady()){toast('서버 연결을 먼저 해주세요');go('set');return}
   if(!isServer()&&S.projects.some(p=>p.running)){toast('지금 쓰는 글이 끝난 뒤 눌러주세요');go('write');return}
   const pf=(document.querySelector('input[name=onePf]:checked')||{}).value||'naver';
   let gBlog=null;
@@ -579,9 +578,9 @@ function renderTodo(){
   const st1=$('#st1');
   // 1단계
   let s1='on';
-  if(!key||(isServer()&&!serverReady())){
-    $('#st1h').innerHTML=!key?'처음 한 번만: 설정에서 Claude API 키를 넣어주세요.':'서버 글쓰기를 쓰려면 설정에서 저장소와 토큰을 넣어주세요.';
-    $('#oneBtn').dataset.goSet='1';$('#oneBtn').textContent=!key?'API 키 넣으러 가기':'서버 연결하러 가기';
+  if(!serverReady()){
+    $('#st1h').innerHTML='처음 한 번만: 설정에서 GitHub(서버) 저장소와 토큰을 넣어주세요.';
+    $('#oneBtn').dataset.goSet='1';$('#oneBtn').textContent='서버 연결하러 가기';
   }else{
     delete $('#oneBtn').dataset.goSet;$('#st1h').textContent='실제로 검색되는 키워드를 골라 리서치부터 글 완성까지 한 번에 진행해요. 이미 쓴 키워드는 빠져요.';
     if(busy){s1='done';$('#st1s').textContent=`"${busy.keyword}" 쓰는 중`}
@@ -741,23 +740,36 @@ async function streamRun(system,user,maxTokens,onText,usage){
 
 /* ---------- 프롬프트 ---------- */
 /* ---------- 키워드 찾기 ---------- */
+/* ---------- 서버 AI 작업 요청 (프롬프트·Claude 키는 비공개 서버에만 있다) ---------- */
+async function aiRequest(type,payload,onTick){
+  if(!ghReady())throw new Error('설정에서 GitHub(서버) 연결을 먼저 해주세요.');
+  const id=uid(),file='requests/pub-'+id+'.json';
+  await ghPut(file,Object.assign({id,type,status:'queued',createdAt:new Date().toISOString()},payload),null,'AI 작업 요청: '+type);
+  const t0=Date.now();
+  while(Date.now()-t0<12*60000){
+    await sleepMs(6000);onTick&&onTick(Math.round((Date.now()-t0)/1000));
+    let d=null;try{const r=await ghGet(file);d=r&&r.data}catch(e){if(!/GitHub에 연결/.test(e.message))throw e}
+    if(d&&d.status==='done'){syncAuto();return d.result||{}}
+    if(d&&d.status==='error')throw new Error(d.error||'서버 작업 실패');
+  }
+  throw new Error('서버 작업이 12분 안에 끝나지 않았어요. 다른 글을 쓰는 중이면 그 뒤에 처리돼요. GitHub Actions 탭을 확인하세요.');
+}
+const aiSettings=()=>{const o=Object.assign({},S.settings);['hideUsed','serHideDone','repo','mode'].forEach(k=>delete o[k]);return o};
 let finding=false;
 async function findKeywords(opt={}){
   if(finding)return false;
   if(!opt.noConfirm&&!canSpend(BH.estimate('keywords',MODELS())))return false;
   finding=true; $('#findErr').textContent='';const usage={};let ok=false;
   const btn=$('#findBtn'); btn.disabled=true; const t0=Date.now(); let searches=0;
-  const tick=setInterval(()=>{btn.textContent=`찾는 중… ${Math.round((Date.now()-t0)/1000)}초${searches?` · 검색 ${searches}회`:''}`},500);
+  const tick=setInterval(()=>{btn.textContent=`서버가 찾는 중… ${Math.round((Date.now()-t0)/1000)}초`},500);
   try{
-    const {sys,user}=P().pKeywords(usedKeywords());
-    const text=await searchRun(sys,user,16000,4,{model:MODELS().kw,usage,onTick:n=>{searches+=n}});
-    const j=extractJSON(text);
+    const j=await aiRequest('ai-keywords',{settings:aiSettings(),exclude:usedKeywords()});
     if(!Array.isArray(j.keywords)||!j.keywords.length)throw new Error('키워드를 찾지 못했습니다. 다시 시도해 주세요.');
     const all=j.keywords.filter(k=>k&&k.keyword);S.kwLow=[];S.keywords=all.filter(k=>!isUsedKw(k.keyword)).sort((a,b)=>(b.opportunity||0)-(a.opportunity||0));S.kwDropped=all.length-S.keywords.length; S.keywordsAt=new Date().toISOString(); S.relatedKw=[]; ok=true;
     saveNow();renderKw();
     if(ghReady()){clearInterval(tick);btn.textContent='실제 검색량 확인 중…';await attachVolumes(opt.statusEl||$('#findHint'));$('#findHint').textContent=`블로그 주제 안에서 후보 ${S.keywords.length}개를 찾고, 장기형·검색량 많은 순으로 정렬했어요.${S.kwDropped?` 이미 쓴 키워드 ${S.kwDropped}개`:''}${(S.kwLow||[]).length?`${S.kwDropped?',':''} 월 검색량 100회 미만 ${S.kwLow.length}개`:''}${S.kwDropped||(S.kwLow||[]).length?'는 뺐어요.':''}`}
   }catch(e){$('#findErr').textContent=e.message;if(opt.errEl)opt.errEl.textContent=e.message}
-  finally{(usage.log||[]).forEach(x=>(S.extraSpend=S.extraSpend||[]).push(Object.assign({a:'키워드 찾기'},x)));saveNow();clearInterval(tick);btn.disabled=false;btn.textContent='키워드 자동찾기 · '+estWon('keywords');finding=false;renderKw();renderHeader()}
+  finally{saveNow();clearInterval(tick);btn.disabled=false;btn.textContent='키워드 자동찾기 · '+estWon('keywords');finding=false;renderKw();renderHeader()}
   return ok;
 }
 $('#findBtn').addEventListener('click',()=>findKeywords());
@@ -849,14 +861,14 @@ const cleanRules=a=>(Array.isArray(a)?a:[]).map(x=>String(x||'').replace(/\s+/g,
 const cleanStats=o=>{o=o||{};const n=v=>Math.max(0,Math.min(30000,Math.round(+v||0)));return {len:n(o.len),h2:n(o.h2),tables:n(o.tables),images:n(o.images)}};
 async function runPatterns(){
   if(patRunning)return;const err=$('#patErr');if(err)err.textContent='';
-  if(!lsGet(LS_KEY)){toast('먼저 설정에서 Claude API 키를 넣어주세요');go('set');return}
+  if(!ghReady()){toast('먼저 설정에서 GitHub(서버) 연결을 해주세요');go('set');return}
   const est=BH.estimate('patterns',MODELS());if(!canSpend(est))return;
   if(!confirm(`상위 글을 분석해서 공통 패턴을 만들까요?\n2~4분 걸리고 예상 ${won(est)}예요. 한 달에 한 번이면 충분해요.`))return;
   patRunning=true;renderPat();const usage={};const t0=Date.now();
   const tick=setInterval(()=>{const b=$('#patBtn');if(b)b.textContent=`분석 중… ${Math.round((Date.now()-t0)/1000)}초`},1000);
   try{
-    const kws=patKeywords();const {sys,user}=P().pPatterns(kws);
-    const j=extractJSON(await searchRun(sys,user,12000,6,{model:MODELS().research,usage}));
+    const kws=patKeywords();
+    const j=await aiRequest('ai-patterns',{settings:aiSettings(),kws});
     const d={at:new Date().toISOString(),keywords:(j.keywords||kws||[]).slice(0,8).map(String),
       google:{rules:cleanRules(j.google&&j.google.rules),stats:cleanStats(j.google&&j.google.stats)},
       naver:{rules:cleanRules(j.naver&&j.naver.rules),stats:cleanStats(j.naver&&j.naver.stats)},
@@ -867,7 +879,7 @@ async function runPatterns(){
     if(ghReady()){for(let a=1;a<=3;a++){try{const r=await ghGet(PAT_FILE);await ghPut(PAT_FILE,d,r&&r.sha,'상위 글 패턴 분석');break}catch(e){if(a===3)toast('서버에 저장하지 못했어요(이 기기에서만 적용): '+e.message);await sleepMs(700*a)}}}
     toast('분석 끝! 다음 글부터 이 패턴이 반영돼요');
   }catch(e){const er=$('#patErr');if(er)er.textContent=e.message}
-  finally{clearInterval(tick);(usage.log||[]).forEach(x=>(S.extraSpend=S.extraSpend||[]).push(Object.assign({a:'상위 글 패턴'},x)));patRunning=false;saveNow();renderPat();renderHeader()}
+  finally{clearInterval(tick);patRunning=false;saveNow();renderPat();renderHeader()}
 }
 function renderPat(){
   const el=$('#patCard');if(!el)return;const d=S.settings.patterns;
@@ -954,7 +966,7 @@ function mergeRemote(lp,rd){
   lp.keyword=rd.keyword;lp.crossLinks=rd.crossLinks||lp.crossLinks;lp.createdAt=rd.createdAt||lp.createdAt;lp.status=rd.status;lp.error=rd.error||'';lp.research=rd.research||null;lp.updatedAt=rd.updatedAt||rd.createdAt;
   lp.posts=(rd.posts||[]).map(rp=>{const old=(lp.posts||[]).find(x=>x.id===rp.id)||{};// 서버에서 방금 작성이 끝난 글은 자동으로 펼친다 (다른 글이 펼쳐져 있지 않을 때)
     const justDone=!anyOpen&&!old.published&&(old.status?old.status!=='done':wasLive)&&rp.status==='done';if(justDone)anyOpen=true;
-    const m=Object.assign({},rp,{open:old.open||justDone,published:!!old.published,publishedAt:old.publishedAt||null});if(old.titleEdited&&rp.status==='done'&&old.raw===rp.raw){m.title=old.title;m.titleEdited=true}return m});
+    const m=Object.assign({},rp,{seriesIdeas:rp.seriesIdeas||old.seriesIdeas,open:old.open||justDone,published:!!old.published,publishedAt:old.publishedAt||null});if(old.titleEdited&&rp.status==='done'&&old.raw===rp.raw){m.title=old.title;m.titleEdited=true}return m});
   lp.stage=rd.status==='done'||rd.status==='partial'?'done':rd.research?'write':'research';
   lp.remote=true;lp.running=false;
 }
@@ -1030,7 +1042,7 @@ function startProject(keyword,platform,meta,opt={}){
   platform=platform==='wordpress'?'wordpress':'naver';
   if(lastStart.k===keyword&&Date.now()-lastStart.t<5000)return; // 두 번 눌림 방지
   if(!opt.noConfirm&&!isServer()&&lsGet(LS_KEY)&&!canSpend(BH.estimate('post',MODELS())))return;
-  if(!isServer()&&!lsGet(LS_KEY)){toast('먼저 API 키를 넣어주세요');go('set');return}
+  if(!serverReady()){toast('설정에서 GitHub(서버) 연결을 먼저 해주세요');go('set');return}
   if(!isServer()&&S.projects.some(p=>p.running)){toast('이미 만드는 중인 글이 있습니다');go('write');return}
   if(isServer()&&S.projects.some(p=>p.remote&&p.pendingAt&&Date.now()-p.pendingAt<120000&&nsp(p.keyword)===nsp(keyword))){toast('방금 등록한 키워드입니다');return}
   if(isServer()&&!opt.noConfirm&&!canSpend(BH.estimate('post',MODELS())))return;
@@ -1693,10 +1705,9 @@ $('#writeArea').addEventListener('click',async e=>{
   if(act==='ser'||act==='serG'||act==='serAll'||act==='serAdd'||act==='serIdeas'){
     const r=post.research||{};const ideas=(r.series&&r.series.length?r.series:post.seriesIdeas)||[];
     if(act==='serIdeas'){
-      if(!lsGet(LS_KEY)){toast('설정에서 Claude API 키를 넣어주세요');return}
-      b.disabled=true;b.textContent='추천 받는 중…';
-      try{const {sys,user}=P().pSeries(p,post);const res=await claudeFetch({model:MODELS().kw,system:sys,messages:[{role:'user',content:user}],max_tokens:1500},false);const d=await res.json();
-        addUsage(post.usage=post.usage||{},d.usage,MODELS().kw);post.seriesIdeas=(extractJSON(d.content.filter(c=>c.type==='text').map(c=>c.text).join('')).series||[]).slice(0,6);save();updateCard(p,post)}
+      if(!p.remote){toast('서버에서 쓴 글만 시리즈 글감을 받을 수 있어요');return}
+      b.disabled=true;b.textContent='서버가 추천하는 중… (1~2분)';
+      try{const r=await aiRequest('ai-series',{projectId:p.id,postId:post.id,settings:aiSettings()});post.seriesIdeas=(r.series||[]).slice(0,6);save();updateCard(p,post)}
       catch(er){alert(er.message);b.disabled=false;b.textContent='시리즈 편 추천받기 (검색 없음)'}
       return;
     }
@@ -2290,8 +2301,7 @@ async function boot(){
   }
   stale.forEach(p=>{p.running=false;p.posts.forEach(x=>{if(x.status==='writing'){x.status='wait';x.raw=''}})});
   const resume=stale[0];
-  if(resume&&lsGet(LS_KEY)){S.currentId=resume.id;go('write');toast('멈췄던 글쓰기를 이어서 합니다');runProject(resume)}
-  else{if(stale.length)saveNow();go('home')}
+  if(stale.length)saveNow();go('home');
 }
 function bootServer(){if(serverReady()){sync().then(schedulePoll)}if(ghReady())syncAuto().then(autoPoll)}
 
@@ -2384,7 +2394,7 @@ function renderAdmin(){
   const left=u=>{if(u.role==='admin')return '<span class="pill pri">관리자</span>';if(!u.expires_at)return '<span class="pill ok">기간 없음</span>';const d=Math.ceil((Date.parse(u.expires_at)-Date.now())/864e5);return d<0?'<span class="pill bad">만료</span>':`<span class="pill ${d<=7?'warn':'ok'}">${d}일 남음 · ~${new Date(u.expires_at).toLocaleDateString('ko-KR')}</span>`};
   el.innerHTML=`<h3>사용 승인 관리 <span class="pill">관리자만 보여요</span></h3>
     <div class="hint" style="margin-bottom:8px">여기 넣은 구글 이메일만 로그인해서 쓸 수 있어요. 크몽에서 결제를 확인하면 고객 이메일을 넣고 기간을 고르세요. 기간이 지나면 자동으로 막혀요.</div>
-    <div class="row" style="flex-wrap:wrap"><input type="email" id="adEmail" placeholder="고객 구글 이메일" style="flex:2 1 200px"><select id="adDays" style="flex:1 1 110px;width:auto"><option value="30">30일</option><option value="90">90일</option><option value="180">180일</option><option value="365">1년</option><option value="0">기간 없음</option></select><input type="text" id="adMemo" placeholder="메모 (크몽 주문번호 등)" style="flex:2 1 160px"><button class="btn pri" data-adm="add" style="flex:none">추가</button></div>
+    <div class="row" style="flex-wrap:wrap"><input type="text" inputmode="email" autocomplete="off" id="adEmail" placeholder="고객 구글 이메일" style="flex:2 1 200px"><select id="adDays" style="flex:1 1 110px;width:auto"><option value="30">30일</option><option value="90">90일</option><option value="180">180일</option><option value="365">1년</option><option value="0">기간 없음</option></select><input type="text" id="adMemo" placeholder="메모 (크몽 주문번호 등)" style="flex:2 1 160px"><button class="btn pri" data-adm="add" style="flex:none">추가</button></div>
     <div class="err" id="adErr">${esc(adminErr)}</div>
     <div style="margin-top:8px">${adminList.map(u=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;gap:6px"><div style="min-width:0"><b>${esc(u.email)}</b> ${left(u)}${u.memo?`<div class="hint">${esc(u.memo)}</div>`:''}</div>${u.role==='admin'?'':`<div class="row" style="flex:none;gap:6px"><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="30">+30일</button><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="90">+90일</button><button class="btn sm" data-adm="del" data-em="${esc(u.email)}">빼기</button></div>`}</div>`).join('')||'<div class="hint">아직 승인한 계정이 없어요.</div>'}</div>`;
 }
