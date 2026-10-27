@@ -155,6 +155,8 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 .toast.show{opacity:1}
 .hide{display:none!important}
+/* 고객 화면: 운영자(관리자)만 쓰는 칸은 숨긴다 */
+body.role-customer .admin-only{display:none!important}
 .ab{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;border-top:1px solid var(--line);padding:12px 0}
 .ab:first-of-type{border-top:0}
 .ab .nm{font-weight:700}
@@ -196,7 +198,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <body>
 <div id="gate" class="modal" style="display:none;z-index:60"></div>
 <header>
-  <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span></div><div style="text-align:right"><div id="hcost"></div><div class="hstat" id="hstat"></div></div></div>
+  <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span></div><div style="text-align:right"><div id="hcost" class="admin-only"></div><div class="hstat" id="hstat"></div></div></div>
   <nav id="nav">
     <button data-tab="home" class="on">홈</button>
     <button data-tab="kw">① 키워드 찾기</button>
@@ -297,7 +299,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <div class="row" style="margin-top:10px"><button class="btn pri" id="keySave">저장</button><button class="btn" id="keyTest">연결 확인</button><button class="btn" id="keyDel">키 지우기</button></div>
     <div class="err" id="keyMsg"></div>
   </div>
-  <div class="card">
+  <div class="card admin-only">
     <h3>GitHub 연결 · 글쓰는 곳</h3>
     <div class="hint">GitHub를 연결하면 실제 검색량 조회와 서버 글쓰기를 쓸 수 있어요.</div>
     <label class="chk" style="margin-top:6px"><input type="radio" name="mode" value="server"> GitHub 서버에서 쓰기 (추천 · 창을 닫아도 멈추지 않음)</label>
@@ -327,7 +329,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <div class="hint">"어디 접속 → 무엇 클릭 → 무엇 입력 → 아래로 내려 → 무엇 클릭"을 단계별 사진 자리와 함께 씁니다. 글이 길어지고 비용이 조금 늘어납니다.</div>
     <div class="row" style="margin-top:12px"><button class="btn pri" id="setSave">저장</button></div>
   </div>
-  <div class="card">
+  <div class="card admin-only">
     <h3>비용 · 모델</h3>
     <label class="f" for="budgetWon">월 예산 (원)</label>
     <input type="text" id="budgetWon" inputmode="numeric">
@@ -344,7 +346,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <div class="row" style="margin-top:12px"><button class="btn pri" id="costSave">저장</button></div>
     <div class="err" id="costMsg"></div>
   </div>
-  <div class="card">
+  <div class="card admin-only">
     <h3>AI 그림 (선택)</h3>
     <label class="f" for="gKey">구글 API 키 (Gemini/Imagen)</label>
     <input type="password" id="gKey" autocomplete="off" placeholder="AIza...">
@@ -368,7 +370,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
     <div class="row" style="margin-top:10px"><button class="btn pri" id="wpSave">저장</button><button class="btn" id="wpTest">연결 확인</button></div>
     <div class="err" id="wpMsg"></div>
   </div>
-  <div class="card">
+  <div class="card admin-only">
     <h3>데이터 지우기</h3>
     <div class="hint" style="margin-bottom:8px">키워드·글·발행 기록을 모두 지웁니다. 먼저 홈에서 백업을 받아두세요.</div>
     <button class="btn" id="wipe">모두 지우기</button>
@@ -378,7 +380,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <!-- 도움말 -->
 <section id="tab-help" class="hide">
   <h2>도움말</h2>
-  <div class="card">
+  <div class="card admin-only">
     <h3>1. 준비 (처음 한 번)</h3>
     <ol class="list">
       <li>Claude Console(platform.claude.com)에서 API 키를 만들고 크레딧을 충전합니다. 월 사용 한도도 꼭 걸어두세요.</li>
@@ -505,7 +507,7 @@ function renderHeader(){
   const done=all.filter(x=>x.published).length;
   $('#hstat').textContent=all.length?`사용 완료 ${done}/${all.length}`:'';
   const sp=monthSpend(),b=budget(),hc=$('#hcost');
-  hc.textContent=`이번 달 ${won(sp)} / 예산 ${won(b)}`;hc.className=sp>=b?'over':sp>=b*0.8?'warn':'';
+  hc.textContent=`이번 달 ${won(sp)} / 예산 ${won(b)}`;hc.classList.toggle('over',sp>=b);hc.classList.toggle('warn',sp<b&&sp>=b*0.8);
   const ob=$('#oneBtn');if(ob&&!ob.disabled&&!ob.dataset.goSet)ob.textContent='추천 키워드로 글 쓰기 · '+estWon('post');
   const fb=$('#findBtn');if(fb&&!fb.disabled)fb.textContent='키워드 자동찾기 · '+estWon('keywords');
   renderSide();
@@ -888,7 +890,7 @@ function renderPat(){
   const list=(t,g)=>g&&g.rules&&g.rules.length?`<h4 style="margin:12px 0 4px">${t}</h4><ul class="ck">${g.rules.map(r=>`<li>✅ ${esc(r)}</li>`).join('')}</ul>${st(g.stats)}`:'';
   el.innerHTML=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">상위 글 공통 패턴</h3>${d?`<span class="pill ${days>30?'warn':'ok'}">${days===0?'오늘':days+'일 전'} 분석${days>30?' · 다시 할 때예요':''}</span>`:''}</div>
     <div class="hint" style="margin:6px 0 8px">상위에 뜨는 글들의 공통점(구성·길이·표·첫 문단 등)을 찾아 <b>모든 글쓰기에 자동으로 반영</b>해요. 한 달에 한 번이면 충분하고, 글 1개당 추가 비용은 거의 없어요. 블로그 운영 기간·링크처럼 글 밖 요소는 알 수 없어서 넣지 않아요.</div>
-    <button class="btn pri" id="patBtn"${patRunning?' disabled':''}>${patRunning?'분석 중…':(d?'다시 분석하기':'상위 글 분석하기')} · ${estWon('patterns')}</button>${d&&!patRunning?' <button class="btn sm" id="patOff">패턴 끄기</button>':''}<div class="err" id="patErr"></div>
+    <button class="btn pri admin-only" id="patBtn"${patRunning?' disabled':''}>${patRunning?'분석 중…':(d?'다시 분석하기':'상위 글 분석하기')} · ${estWon('patterns')}</button>${d&&!patRunning?' <button class="btn sm admin-only" id="patOff">패턴 끄기</button>':''}<div class="err" id="patErr"></div>
     ${d?`${d.keywords&&d.keywords.length?`<div class="hint" style="margin-top:8px">분석한 키워드: ${esc(d.keywords.join(', '))}</div>`:''}${list('구글 (블로그스팟·워드프레스)',d.google)}${list('네이버',d.naver)}${d.naver&&!(d.naver.rules||[]).length?'<div class="hint">네이버 상위 글은 이번에 찾지 못해서 네이버 글에는 적용하지 않아요.</div>':''}
     ${(d.examples||[]).length?`<details style="margin-top:8px"><summary style="cursor:pointer">분석한 상위 글 ${d.examples.length}개</summary>${d.examples.map(e=>`<div class="why" style="margin-top:6px"><span class="pill">${esc(e.where||'')}</span> <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title||e.url)}</a><br>${esc(e.why)}</div>`).join('')}</details>`:''}${d.limits?`<div class="hint" style="margin-top:6px">한계: ${esc(d.limits)}</div>`:''}`:''}`;
 }
@@ -2330,6 +2332,7 @@ async function cloudCheck(){
 }
 const isAdmin=()=>cloudAccess==='ok'&&cloudMe&&cloudMe.role==='admin';
 function renderGate(){
+  document.body.classList.toggle('role-customer',CLOUD_ON&&cloudAccess==='ok'&&!(cloudMe&&cloudMe.role==='admin'));
   const g=$('#gate');if(!g)return;
   if(!CLOUD_ON||cloudAccess==='ok'||cloudAccess==='offline'){g.style.display='none';return}
   const em=cloudUser&&cloudUser.email||'';
@@ -2341,13 +2344,30 @@ function renderGate(){
 }
 function cloudPayload(){
   const settings=Object.assign({},S.settings);SKIP_SETTINGS.forEach(k=>delete settings[k]);
-  const secrets={};SECRET_KEYS.forEach(k=>{const v=lsGet(k);if(v)secrets[k]=v});
-  return {settings,secrets,spend:(S.extraSpend||[]).slice(-300)};
+  return {settings,spend:(S.extraSpend||[]).slice(-300)};
+}
+// 키(비밀값)는 Supabase Vault에 암호화해서 보관한다 — 설정 표에는 평문으로 남기지 않는다
+let vaultOK=true,secLast={};
+const secNow=()=>{const o={};SECRET_KEYS.forEach(k=>{o[k]=lsGet(k)||''});return o};
+const noVaultFn=e=>/Could not find the function|PGRST202|function .*does not exist|bh_(set|get)_secret/i.test(String(e&&e.message||e));
+async function pushSecrets(){
+  const now=secNow();
+  for(const k of SECRET_KEYS){
+    if((secLast[k]||'')===now[k])continue;
+    const {error}=await sb.rpc('bh_set_secret',{p_name:k,p_value:now[k]});
+    if(error){if(noVaultFn(error)){vaultOK=false;return}throw error}
+    secLast[k]=now[k];
+  }
 }
 function cloudPushSoon(){if(!cloudUser||cloudBusy||cloudAccess!=='ok')return;clearTimeout(cloudT);cloudT=setTimeout(cloudPush,2000)}
 async function cloudPush(){
-  if(!cloudUser||cloudAccess!=='ok')return;const pl=cloudPayload(),sig=JSON.stringify(pl);if(sig===cloudLast)return;
-  const {error,data}=await sb.from('user_settings').upsert({user_id:cloudUser.id,settings:pl.settings,secrets:pl.secrets,spend:pl.spend,updated_at:new Date().toISOString()}).select('updated_at').single();
+  if(!cloudUser||cloudAccess!=='ok')return;
+  try{await pushSecrets()}catch(e){cloudErr='키를 저장하지 못했어요: '+(e.message||e);renderCloud();return}
+  const pl=cloudPayload(),sig=JSON.stringify([pl,vaultOK]);if(sig===cloudLast)return;
+  const row={user_id:cloudUser.id,settings:pl.settings,spend:pl.spend,updated_at:new Date().toISOString()};
+  // 암호화 보관(Vault)이 되면 예전 평문 칸은 비운다. 안 되면(SQL 미실행) 예전 방식을 유지
+  row.secrets=vaultOK?{}:Object.fromEntries(Object.entries(secNow()).filter(([,v])=>v));
+  const {error,data}=await sb.from('user_settings').upsert(row).select('updated_at').single();
   if(error){cloudErr='클라우드에 저장하지 못했어요: '+error.message;renderCloud();return}
   cloudLast=sig;cloudPulledAt=data&&data.updated_at||cloudPulledAt;cloudErr='';renderCloud();
 }
@@ -2360,11 +2380,16 @@ async function cloudPull(first){
     if(!data){cloudBusy=false;if(first)toast('이 기기 설정을 내 계정에 저장했어요. 다른 기기에서도 로그인만 하면 돼요');await cloudPush();return}
     if(!first&&data.updated_at===cloudPulledAt){cloudBusy=false;return}
     const keep={};SKIP_SETTINGS.forEach(k=>{if(k in S.settings)keep[k]=S.settings[k]});
-    S.settings=Object.assign({},DEF,S.settings,data.settings||{},keep);
-    const sec=data.secrets||{};SECRET_KEYS.forEach(k=>{if(sec[k])try{localStorage.setItem(k,sec[k])}catch(_){}});
+    S.settings=Object.assign({},DEF,S.settings,data.settings||{},keep);S.settings.mode='server';
+    // 키: 암호화 보관함(Vault) 값이 우선, 예전 평문 칸에 남은 값은 옮긴 뒤 지운다
+    let vs={};const r=await sb.rpc('bh_get_secrets');
+    if(r.error){if(noVaultFn(r.error))vaultOK=false;else throw r.error}else{vaultOK=true;vs=r.data||{}}
+    const legacy=data.secrets||{};
+    SECRET_KEYS.forEach(k=>{const v=vs[k]||legacy[k];if(v)try{localStorage.setItem(k,v)}catch(_){}});
+    secLast=Object.assign({},vs);
     const seen=new Set((S.extraSpend||[]).map(e=>e.t+'|'+e.c));(data.spend||[]).forEach(e=>{if(e&&!seen.has(e.t+'|'+e.c)){(S.extraSpend=S.extraSpend||[]).push(e);seen.add(e.t+'|'+e.c)}});
     saveNow();cloudPulledAt=data.updated_at;cloudErr='';
-    cloudBusy=false;await cloudPush(); // 이 기기에만 있던 값이 있으면 올린다
+    cloudBusy=false;cloudLast='';await cloudPush(); // 이 기기에만 있던 값·예전 평문 키를 암호화 보관함으로 올린다
     if(first)toast('내 계정의 설정을 불러왔어요');
     rerender();bootServer();
   }catch(e){cloudErr='클라우드에서 불러오지 못했어요: '+(e.message||e);cloudBusy=false}
@@ -2376,7 +2401,7 @@ function renderCloud(){
   if(a)a.innerHTML=cloudUser?`<span class="pill ok" title="${esc(cloudUser.email||'')}">☁ 로그인됨</span>`:`<button class="btn sm" data-cloud="in" style="margin-left:6px">구글로 로그인</button>`;
   if(!c)return;c.style.display='';
   c.innerHTML=`<h3>계정 · 클라우드 저장</h3>${cloudUser?`<div>로그인: <b>${esc(cloudUser.email||'')}</b>${isAdmin()?' <span class="pill pri">관리자</span>':cloudMe&&cloudMe.expires_at?` <span class="pill">이용 기간 ~${new Date(cloudMe.expires_at).toLocaleDateString('ko-KR')}</span>`:''}</div>
-    <div class="hint" style="margin:6px 0 10px">설정과 키(Claude API·GitHub·워드프레스·구글)를 내 계정에 저장하고 있어요. 다른 컴퓨터나 폰에서도 <b>구글로 로그인만 하면</b> 그대로 써요.${cloudPulledAt?' · 마지막 저장 '+new Date(cloudPulledAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
+    <div class="hint" style="margin:6px 0 10px">설정은 내 계정에, 키는 <b>암호화 보관함</b>에 저장하고 있어요${vaultOK?'':' (⚠️ 암호화 보관함 준비 전 — 관리자에게 문의)'}. 다른 컴퓨터나 폰에서도 <b>구글로 로그인만 하면</b> 그대로 써요.${cloudPulledAt?' · 마지막 저장 '+new Date(cloudPulledAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
     <div class="row"><button class="btn" data-cloud="sync">지금 불러오기</button><button class="btn" data-cloud="out">로그아웃</button><button class="btn" data-cloud="outwipe">로그아웃 + 이 기기에서 키 지우기</button></div>
     <div class="hint" style="margin-top:6px">남의 컴퓨터·공용 PC에서는 "이 기기에서 키 지우기"로 로그아웃하세요.</div>`
     :`<div class="hint" style="margin-bottom:10px">구글로 로그인하면 지금 이 기기의 설정과 키를 내 계정에 저장해요. 그다음부터는 <b>어느 기기에서든 로그인만 하면</b> API 키·GitHub 연결을 다시 넣을 필요가 없어요.</div>
