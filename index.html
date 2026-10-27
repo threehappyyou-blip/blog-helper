@@ -195,7 +195,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 </head>
 <body>
 <header>
-  <div class="hrow"><div class="brand">블로그 도우미</div><div style="text-align:right"><div id="hcost"></div><div class="hstat" id="hstat"></div></div></div>
+  <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span></div><div style="text-align:right"><div id="hcost"></div><div class="hstat" id="hstat"></div></div></div>
   <nav id="nav">
     <button data-tab="home" class="on">홈</button>
     <button data-tab="kw">① 키워드 찾기</button>
@@ -287,6 +287,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 <!-- 설정 -->
 <section id="tab-set" class="hide">
   <h2>설정</h2>
+  <div class="card" id="cloudCard"></div>
   <div class="card">
     <h3>Claude API 키</h3>
     <label class="f" for="apiKey">API 키 (sk-ant-로 시작)</label>
@@ -438,6 +439,7 @@ table.pub td,table.pub th{border-bottom:1px solid var(--line);padding:8px 6px;te
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.0/dist/umd/supabase.js"></script>
 <script src="prompts.js"></script>
 <script>
 'use strict';
@@ -459,8 +461,8 @@ const DEF={model:'claude-sonnet-5-5',topic:'부업, 돈 아끼는 방법',catego
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
-function lsSet(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}}
-function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+function lsSet(k,v){try{localStorage.setItem(k,v);if(window.__cloudTouch)window.__cloudTouch(k);return true}catch(e){return false}}
+function lsDel(k){try{localStorage.removeItem(k);if(window.__cloudTouch)window.__cloudTouch(k)}catch(e){}}
 
 let S=load();
 function load(){
@@ -2291,7 +2293,82 @@ async function boot(){
   else{if(stale.length)saveNow();go('home')}
 }
 function bootServer(){if(serverReady()){sync().then(schedulePoll)}if(ghReady())syncAuto().then(autoPoll)}
-boot();bootServer();
+
+/* ---------- 계정 · 클라우드 저장 (구글 로그인) ----------
+   설정과 키(Claude·GitHub·워드프레스·구글)를 내 계정에 저장해서, 다른 기기에서도 로그인만 하면 그대로 쓴다.
+   Supabase 표 user_settings — 행 보안(RLS)으로 본인 행만 읽고 쓸 수 있다. */
+const CLOUD={url:'https://uovqtxukdkgtjkikjfhe.supabase.co',key:'sb_publishable_lVJCJCLdaAoCfuTRKxjZMA_MO51t19G'};
+const CLOUD_ON=/^https:\/\/[\w-]+\.supabase\.co$/.test(CLOUD.url)&&CLOUD.key.length>20&&!!(window.supabase&&window.supabase.createClient);
+const SECRET_KEYS=[LS_KEY,LS_GH,LS_WP,LS_G];
+const SKIP_SETTINGS=['hideUsed','serHideDone']; // 기기마다 다르게 둬도 되는 화면 설정
+let sb=null,cloudUser=null,cloudBusy=false,cloudT=null,cloudLast='',cloudPulledAt='',cloudErr='';
+function cloudPayload(){
+  const settings=Object.assign({},S.settings);SKIP_SETTINGS.forEach(k=>delete settings[k]);
+  const secrets={};SECRET_KEYS.forEach(k=>{const v=lsGet(k);if(v)secrets[k]=v});
+  return {settings,secrets,spend:(S.extraSpend||[]).slice(-300)};
+}
+function cloudPushSoon(){if(!cloudUser||cloudBusy)return;clearTimeout(cloudT);cloudT=setTimeout(cloudPush,2000)}
+async function cloudPush(){
+  if(!cloudUser)return;const pl=cloudPayload(),sig=JSON.stringify(pl);if(sig===cloudLast)return;
+  const {error,data}=await sb.from('user_settings').upsert({user_id:cloudUser.id,settings:pl.settings,secrets:pl.secrets,spend:pl.spend,updated_at:new Date().toISOString()}).select('updated_at').single();
+  if(error){cloudErr='클라우드에 저장하지 못했어요: '+error.message;renderCloud();return}
+  cloudLast=sig;cloudPulledAt=data&&data.updated_at||cloudPulledAt;cloudErr='';renderCloud();
+}
+// 클라우드 → 이 기기 (클라우드 값이 우선, 클라우드에 없는 값은 이 기기 값을 지킨다)
+async function cloudPull(first){
+  if(!cloudUser)return;cloudBusy=true;
+  try{
+    const {data,error}=await sb.from('user_settings').select('settings,secrets,spend,updated_at').eq('user_id',cloudUser.id).maybeSingle();
+    if(error)throw error;
+    if(!data){cloudBusy=false;if(first)toast('이 기기 설정을 내 계정에 저장했어요. 다른 기기에서도 로그인만 하면 돼요');await cloudPush();return}
+    if(!first&&data.updated_at===cloudPulledAt){cloudBusy=false;return}
+    const keep={};SKIP_SETTINGS.forEach(k=>{if(k in S.settings)keep[k]=S.settings[k]});
+    S.settings=Object.assign({},DEF,S.settings,data.settings||{},keep);
+    const sec=data.secrets||{};SECRET_KEYS.forEach(k=>{if(sec[k])try{localStorage.setItem(k,sec[k])}catch(_){}});
+    const seen=new Set((S.extraSpend||[]).map(e=>e.t+'|'+e.c));(data.spend||[]).forEach(e=>{if(e&&!seen.has(e.t+'|'+e.c)){(S.extraSpend=S.extraSpend||[]).push(e);seen.add(e.t+'|'+e.c)}});
+    saveNow();cloudPulledAt=data.updated_at;cloudErr='';
+    cloudBusy=false;await cloudPush(); // 이 기기에만 있던 값이 있으면 올린다
+    if(first)toast('내 계정의 설정을 불러왔어요');
+    rerender();bootServer();
+  }catch(e){cloudErr='클라우드에서 불러오지 못했어요: '+(e.message||e);cloudBusy=false}
+  renderCloud();
+}
+function renderCloud(){
+  const a=$('#acct'),c=$('#cloudCard');
+  if(!CLOUD_ON){if(a)a.innerHTML='';if(c)c.style.display='none';return}
+  if(a)a.innerHTML=cloudUser?`<span class="pill ok" title="${esc(cloudUser.email||'')}">☁ 로그인됨</span>`:`<button class="btn sm" data-cloud="in" style="margin-left:6px">구글로 로그인</button>`;
+  if(!c)return;c.style.display='';
+  c.innerHTML=`<h3>계정 · 클라우드 저장</h3>${cloudUser?`<div>로그인: <b>${esc(cloudUser.email||'')}</b></div>
+    <div class="hint" style="margin:6px 0 10px">설정과 키(Claude API·GitHub·워드프레스·구글)를 내 계정에 저장하고 있어요. 다른 컴퓨터나 폰에서도 <b>구글로 로그인만 하면</b> 그대로 써요.${cloudPulledAt?' · 마지막 저장 '+new Date(cloudPulledAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
+    <div class="row"><button class="btn" data-cloud="sync">지금 불러오기</button><button class="btn" data-cloud="out">로그아웃</button><button class="btn" data-cloud="outwipe">로그아웃 + 이 기기에서 키 지우기</button></div>
+    <div class="hint" style="margin-top:6px">남의 컴퓨터·공용 PC에서는 "이 기기에서 키 지우기"로 로그아웃하세요.</div>`
+    :`<div class="hint" style="margin-bottom:10px">구글로 로그인하면 지금 이 기기의 설정과 키를 내 계정에 저장해요. 그다음부터는 <b>어느 기기에서든 로그인만 하면</b> API 키·GitHub 연결을 다시 넣을 필요가 없어요.</div>
+    <button class="btn pri" data-cloud="in">구글로 로그인</button>`}${cloudErr?`<div class="err" style="margin-top:8px">${esc(cloudErr)}</div>`:''}`;
+}
+async function cloudInit(){
+  if(!CLOUD_ON){renderCloud();return}
+  sb=window.supabase.createClient(CLOUD.url,CLOUD.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
+  window.__cloudTouch=k=>{if(SECRET_KEYS.includes(k)||k===LS_STATE)cloudPushSoon()};
+  sb.auth.onAuthStateChange((ev,session)=>{
+    const u=session&&session.user||null,was=cloudUser&&cloudUser.id;cloudUser=u;
+    if(u&&u.id!==was)setTimeout(()=>cloudPull(true),0);
+    if(!u)renderCloud();
+  });
+  const {data}=await sb.auth.getSession();cloudUser=data&&data.session&&data.session.user||null;renderCloud();
+  if(cloudUser)cloudPull(true);
+  // 다른 기기에서 바꾼 설정을 이 창으로 돌아올 때 가져온다
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudUser)cloudPull(false)});
+}
+document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-cloud]');if(!b||!sb)return;const act=b.dataset.cloud;
+  if(act==='in'){await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});return}
+  if(act==='sync'){b.disabled=true;await cloudPull(true);b.disabled=false;return}
+  if(act==='out'||act==='outwipe'){
+    if(act==='outwipe'&&!confirm('로그아웃하고 이 기기에 저장된 키(Claude·GitHub·워드프레스·구글)를 지울까요? 내 계정에는 그대로 남아 있어요.'))return;
+    clearTimeout(cloudT);await cloudPush();await sb.auth.signOut();cloudUser=null;cloudLast='';
+    if(act==='outwipe'){SECRET_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});toast('로그아웃하고 이 기기의 키를 지웠어요')}else toast('로그아웃했어요');
+    renderCloud();rerender();}
+});
+boot();bootServer();cloudInit();
 </script>
 </body>
 </html>
