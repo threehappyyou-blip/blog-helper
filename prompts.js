@@ -153,5 +153,5 @@ function autoGate(sec,kw,lang,past,pat){
   const score=Math.max(0,100-fails.length*20-warns.length*5);
   return {ok:!fails.length,score,fails,warns,fixable,len,sim:+maxSim.toFixed(2)};
 }
-root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:22};
+root.BH={create,extractJSON,parseSec,todayKST,uid,ANGLES,PRICES,SEARCH_USD,costOf,estimate,htmlText,kwDup,textSim,autoGate,BOX_STYLE,version:23};
 })(typeof globalThis!=='undefined'?globalThis:this);
