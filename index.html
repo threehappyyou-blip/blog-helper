@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<script>try{var _t=localStorage.getItem('bh_theme');if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;var _b=+localStorage.getItem('bh_bright');if(_b&&_b!==100)document.documentElement.style.filter='brightness('+_b/100+')'}catch(e){}</script>
 <title>블로그 도우미</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMyNDUzZDYiLz48cGF0aCBkPSJNMTcgMTJoMjBsMTAgMTB2MzBhMiAyIDAgMCAxLTIgMkgxN2EyIDIgMCAwIDEtMi0yVjE0YTIgMiAwIDAgMSAyLTJ6IiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTM3IDEydjhhMiAyIDAgMCAwIDIgMmg4eiIgZmlsbD0iI2E5YmZmMiIvPjxyZWN0IHg9IjIxIiB5PSIyOSIgd2lkdGg9IjIwIiBoZWlnaHQ9IjQiIHJ4PSIyIiBmaWxsPSIjMjQ1M2Q2Ii8+PHJlY3QgeD0iMjEiIHk9IjM4IiB3aWR0aD0iMTQiIGhlaWdodD0iNCIgcng9IjIiIGZpbGw9IiMyNDUzZDYiLz48Y2lyY2xlIGN4PSI0NiIgY3k9IjQ3IiByPSIxMSIgZmlsbD0iI2ZmYzUzMSIgc3Ryb2tlPSIjMjQ1M2Q2IiBzdHJva2Utd2lkdGg9IjMiLz48cGF0aCBkPSJNNDEgNDNsMi41IDkgMi41LTcgMi41IDcgMi41LTlNNDAgNDcuNWgxMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjQ1M2Q2IiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
@@ -16,7 +17,7 @@
   --mark-photo:#fff1a8; --mark-exp:#d9ecff; --mark-chk:#ffd9d6;
 }
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-theme="light"]){
     --bg:#15171a; --card:#1e2125; --text:#e9ebee; --sub:#aab0b8; --muted:#7f868f; --line:#30353b;
     --pri:#5b86f0; --pri-ink:#0d1220; --pri-soft:#1c2740; --pri-line:#35508f;
     --amb-soft:#2b2216; --amb-line:#b77632; --amb-ink:#f0c995;
@@ -24,6 +25,15 @@
     --mark-photo:#5a4f12; --mark-exp:#1d3a5a; --mark-chk:#5a2420;
   }
 }
+:root[data-theme="dark"]{
+    --bg:#15171a; --card:#1e2125; --text:#e9ebee; --sub:#aab0b8; --muted:#7f868f; --line:#30353b;
+    --pri:#5b86f0; --pri-ink:#0d1220; --pri-soft:#1c2740; --pri-line:#35508f;
+    --amb-soft:#2b2216; --amb-line:#b77632; --amb-ink:#f0c995;
+    --ok:#4cc483; --ok-soft:#173023; --bad:#f07a71; --bad-soft:#36201e; --warn:#f0b54d; --warn-soft:#33281a;
+    --mark-photo:#5a4f12; --mark-exp:#1d3a5a; --mark-chk:#5a2420;
+  }
+:root{color-scheme:light dark}:root[data-theme="light"]{color-scheme:light}:root[data-theme="dark"]{color-scheme:dark}
+
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.6;-webkit-text-size-adjust:100%}
 a{color:var(--pri)}
@@ -191,6 +201,9 @@ body.role-customer .admin-only{display:none!important}
 .kw.tipc>.t{padding-right:26px}
 #tipPop{position:absolute;z-index:80;max-width:320px;background:var(--card);color:var(--text);border:1px solid var(--pri-line);border-radius:12px;padding:10px 13px;font-size:13.5px;line-height:1.6;box-shadow:0 8px 28px rgba(0,0,0,.25);white-space:pre-line;font-weight:400;pointer-events:none;display:none}
 #tipPop b{color:var(--pri)}
+.thq{margin-left:8px;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px;cursor:pointer;vertical-align:middle;line-height:1}
+.thq:hover{border-color:var(--pri-line)}
+#hplan .pill{margin-left:4px}
 .sitefoot{max-width:1210px;margin:0 auto;padding:8px 16px 90px;color:var(--muted);font-size:13px;text-align:center;line-height:1.8}
 .sitefoot a{color:var(--sub)}
 .mbox{background:var(--card);border-radius:16px;padding:20px;width:100%;max-width:460px;max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)}
@@ -208,7 +221,7 @@ body.role-customer .admin-only{display:none!important}
 <body>
 <div id="gate" class="modal" style="display:none;z-index:60"></div>
 <header>
-  <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span></div><div style="text-align:right"><div id="hplan"></div><div id="hcost" class="admin-only"></div><div class="hstat" id="hstat"></div></div></div>
+  <div class="hrow"><div class="brand">블로그 도우미 <span id="acct"></span><button class="thq" id="thQuick" type="button" title="화이트 / 블랙 화면 바꾸기" aria-label="화이트 / 블랙 화면 바꾸기">◐</button></div><div style="text-align:right"><div id="hplan"></div><div id="hcost" class="admin-only"></div><div class="hstat" id="hstat"></div></div></div>
   <nav id="nav">
     <button data-tab="home" class="on">홈</button>
     <button data-tab="kw">① 키워드 찾기</button>
@@ -301,6 +314,15 @@ body.role-customer .admin-only{display:none!important}
 <section id="tab-set" class="hide">
   <h2>설정</h2>
   <div class="card" id="cloudCard"></div>
+  <div class="card" id="viewCard">
+    <h3>화면 설정</h3>
+    <label class="f">화면 색</label>
+    <div class="seg" role="radiogroup" aria-label="화면 색"><label><input type="radio" name="thMode" value="auto">자동 (기기 설정)</label><label><input type="radio" name="thMode" value="light">화이트</label><label><input type="radio" name="thMode" value="dark">블랙</label></div>
+    <label class="f" for="brRange">화면 밝기 <b id="brVal">100%</b></label>
+    <input type="range" id="brRange" min="60" max="120" step="5" value="100" style="width:100%">
+    <div class="row" style="justify-content:space-between"><span class="hint">어둡게</span><button class="btn sm" id="brReset" type="button">기본 밝기로</button><span class="hint">밝게</span></div>
+    <div class="hint">이 기기에만 적용돼요(폰·PC 따로). 맨 위 로고 옆 ☀/☾ 버튼으로도 화이트·블랙을 바로 바꿀 수 있어요.</div>
+  </div>
   <div class="card hide" id="keyCard">
     <h3>Claude API 키</h3>
     <label class="f" for="apiKey">API 키 (sk-ant-로 시작)</label>
@@ -1025,7 +1047,11 @@ function renderPlan(){
   if(!myPlan||!useDB()){h.innerHTML='';return}
   const lim=myPlan.monthly_posts,used=myPlan.used_posts||0,left=lim?Math.max(0,lim-used):null;
   h.innerHTML=myPlan.role==='admin'?`<span class="pill ${workerOK()?'ok':'bad'}" title="작업 서버">${workerOK()?'작업 서버 정상':'작업 서버 꺼짐'}</span>`
-    :`<span class="pill ${left===0?'bad':left!==null&&left<=5?'warn':'ok'}" title="이번 달 쓴 글 / 요금제 한도">${esc(myPlan.plan_name||'')} · 이번 달 ${used}/${lim}편</span>`}
+    :`<span class="pill ${left===0?'bad':left!==null&&left<=5?'warn':'ok'}" title="이번 달 쓴 글 / 요금제 한도">${esc(myPlan.plan_name||'')} · 이번 달 ${used}/${lim}편</span>${periodPill(myPlan.expires_at)}`}
+function periodPill(exp){
+  if(!exp)return ' <span class="pill" title="이용 기간">기간 제한 없음</span>';
+  const d=Math.ceil((Date.parse(exp)-Date.now())/864e5),day=new Date(exp).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});
+  return ` <span class="pill ${d<=3?'bad':d<=7?'warn':''}" title="이용 기간 · 연장은 판매자에게 문의">남은 기간 ${Math.max(0,d)}일 (~${day})</span>`}
 
 const LIVE=['queued','research','writing'];
 function mergeRemote(lp,rd){
@@ -2468,7 +2494,7 @@ async function cloudPull(first){
   try{
     const {data,error}=await sb.from('user_settings').select('settings,secrets,spend,updated_at').eq('user_id',cloudUser.id).maybeSingle();
     if(error)throw error;
-    if(!data){cloudBusy=false;if(first)toast('이 기기 설정을 내 계정에 저장했어요. 다른 기기에서도 로그인만 하면 돼요');await cloudPush();renderTerms();return}
+    if(!data){cloudBusy=false;if(first)toast('이 기기 설정을 내 계정에 저장했어요. 다른 기기에서도 로그인만 하면 돼요');await cloudPush();renderTerms();rerender();bootServer();loadMyPlan(true);return} // 처음 로그인한 고객도 바로 서버 연결·요금제 표시
     if(!first&&data.updated_at===cloudPulledAt){cloudBusy=false;return}
     const keep={};SKIP_SETTINGS.forEach(k=>{if(k in S.settings)keep[k]=S.settings[k]});
     S.settings=Object.assign({},DEF,S.settings,data.settings||{},keep);S.settings.mode='server';
@@ -2500,6 +2526,25 @@ function renderCloud(){
     <button class="btn pri" data-cloud="in">구글로 로그인</button>`}${cloudErr?`<div class="err" style="margin-top:8px">${esc(cloudErr)}</div>`:''}`;
   renderAdmin();
 }
+/* ---------- 화면 색(자동·화이트·블랙) · 밝기 — 이 기기에만 저장 ---------- */
+const VIEW={get t(){try{return localStorage.getItem('bh_theme')||'auto'}catch(_){return 'auto'}},get b(){try{return +localStorage.getItem('bh_bright')||100}catch(_){return 100}}};
+function applyView(t,b){
+  const r=document.documentElement;
+  if(t==='light'||t==='dark')r.dataset.theme=t;else delete r.dataset.theme;
+  r.style.filter=b&&b!==100?`brightness(${b/100})`:'';
+  try{localStorage.setItem('bh_theme',t);localStorage.setItem('bh_bright',String(b))}catch(_){}
+  document.querySelectorAll('input[name=thMode]').forEach(i=>{i.checked=i.value===t});
+  const rg=$('#brRange'),bv=$('#brVal');if(rg)rg.value=b;if(bv)bv.textContent=b+'%';
+  const q=$('#thQuick');if(q)q.textContent=isDarkNow()?'☀':'☾';
+}
+const isDarkNow=()=>{const t=VIEW.t;return t==='dark'||(t==='auto'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)};
+document.addEventListener('change',e=>{const t=e.target;if(t.name==='thMode')applyView(t.value,VIEW.b)});
+document.addEventListener('input',e=>{if(e.target.id==='brRange')applyView(VIEW.t,+e.target.value)});
+document.addEventListener('click',e=>{const t=e.target;if(!t||!t.id)return;
+  if(t.id==='brReset')applyView(VIEW.t,100);
+  if(t.id==='thQuick'){applyView(isDarkNow()?'light':'dark',VIEW.b);toast(isDarkNow()?'블랙 화면으로 바꿨어요':'화이트 화면으로 바꿨어요')}});
+applyView(VIEW.t,VIEW.b);
+
 /* ---------- 이용 동의 (고객 · 처음 로그인 때 한 번 · 약관이 바뀌면 다시) ---------- */
 const TERMS_V='2026-10-27';
 function needTerms(){return CLOUD_ON&&cloudAccess==='ok'&&!isAdmin()&&S.settings.termsOk!==TERMS_V}
@@ -2528,7 +2573,7 @@ document.addEventListener('click',e=>{if(!e.target||e.target.id!=='tmOk')return;
 
 /* ---------- 관리자: 사용 승인 목록 ---------- */
 let adminList=null,adminErr='';
-const PLAN_NAME={basic:'베이직',pro:'프로',premium:'프리미엄'};
+const PLAN_NAME={trial:'무료 체험',basic:'베이직',pro:'프로',premium:'프리미엄'};
 const planSel=(id,v)=>`<select ${id} style="width:auto;flex:none">${Object.entries(PLAN_NAME).map(([k,n])=>`<option value="${k}"${(v||'basic')===k?' selected':''}>${n}</option>`).join('')}</select>`;
 async function adminLoad(){if(!isAdmin())return;const {data,error}=await sb.from('allowed_users').select('*').order('created_at',{ascending:false});adminErr=error?error.message:'';adminList=data||[];renderAdmin()}
 function renderAdmin(){
@@ -2538,10 +2583,10 @@ function renderAdmin(){
   if(!el)return;if(adminList===null){el.innerHTML='<h3>사용 승인 관리</h3><div class="hint">불러오는 중…</div>';adminLoad();return}
   const left=u=>{if(u.role==='admin')return '<span class="pill pri">관리자</span>';if(!u.expires_at)return '<span class="pill ok">기간 없음</span>';const d=Math.ceil((Date.parse(u.expires_at)-Date.now())/864e5);return d<0?'<span class="pill bad">만료</span>':`<span class="pill ${d<=7?'warn':'ok'}">${d}일 남음 · ~${new Date(u.expires_at).toLocaleDateString('ko-KR')}</span>`};
   el.innerHTML=`<h3>사용 승인 관리 <span class="pill">관리자만 보여요</span></h3>
-    <div class="hint" style="margin-bottom:8px">여기 넣은 구글 이메일만 로그인해서 쓸 수 있어요. 크몽에서 결제를 확인하면 고객 이메일 · <b>요금제</b> · 기간을 고르고 추가하세요. 기간이 지나면 자동으로 막혀요.<br>베이직 월 30편·블로그 1개 / 프로 월 70편·블로그 3개·자동 발행 / 프리미엄 월 150편·블로그 5개·자동 발행·상위 글 패턴</div>
-    <div class="row" style="flex-wrap:wrap"><input type="text" inputmode="email" autocomplete="off" id="adEmail" placeholder="고객 구글 이메일" style="flex:2 1 200px">${planSel('id="adPlan"','basic')}<select id="adDays" style="flex:1 1 110px;width:auto"><option value="30">30일</option><option value="90">90일</option><option value="180">180일</option><option value="365">1년</option><option value="0">기간 없음</option></select><input type="text" id="adMemo" placeholder="메모 (크몽 주문번호 등)" style="flex:2 1 160px"><button class="btn pri" data-adm="add" style="flex:none">추가</button></div>
+    <div class="hint" style="margin-bottom:8px">여기 넣은 구글 이메일만 로그인해서 쓸 수 있어요. 크몽에서 결제를 확인하면 고객 이메일 · <b>요금제</b> · 기간을 고르고 추가하세요. 기간이 지나면 자동으로 막혀요.<br>베이직 월 30편·블로그 1개 / 프로 월 70편·블로그 3개·자동 발행 / 프리미엄 월 150편·블로그 5개·자동 발행·상위 글 패턴<br><b>무료 체험</b>: "7일 무료 체험 주기" → 7일 · 5편 · 블로그 1개. 체험 중 결제하면 요금제를 바꾸고 +30일을 누르세요 → 체험 남은 날 + 30일(최대 37일)이 되고, 체험 때 쓴 글 수는 0으로 돌아가요. 결제 고객에게 덤으로 주려면 +7일을 누르면 돼요(30일 → 37일).</div>
+    <div class="row" style="flex-wrap:wrap"><input type="text" inputmode="email" autocomplete="off" id="adEmail" placeholder="고객 구글 이메일" style="flex:2 1 200px">${planSel('id="adPlan"','basic')}<select id="adDays" style="flex:1 1 110px;width:auto"><option value="30">30일</option><option value="90">90일</option><option value="180">180일</option><option value="365">1년</option><option value="0">기간 없음</option></select><input type="text" id="adMemo" placeholder="메모 (크몽 주문번호 등)" style="flex:2 1 160px"><button class="btn pri" data-adm="add" style="flex:none">추가</button><button class="btn" data-adm="trial" style="flex:none" title="입력한 이메일에 7일 무료 체험(월 5편·블로그 1개)을 줘요">7일 무료 체험 주기</button></div>
     <div class="err" id="adErr">${esc(adminErr)}</div>
-    <div style="margin-top:8px">${adminList.map(u=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;gap:6px"><div style="min-width:0"><b>${esc(u.email)}</b> ${left(u)}${u.role==='admin'?'':` <span class="pill pri">${esc(PLAN_NAME[u.plan]||u.plan||'베이직')}</span>`}${u.memo?`<div class="hint">${esc(u.memo)}</div>`:''}</div>${u.role==='admin'?'':`<div class="row" style="flex:none;gap:6px">${planSel(`data-admplan="${esc(u.email)}" aria-label="요금제"`,u.plan)}<button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="30">+30일</button><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="90">+90일</button><button class="btn sm" data-adm="del" data-em="${esc(u.email)}">빼기</button></div>`}</div>`).join('')||'<div class="hint">아직 승인한 계정이 없어요.</div>'}</div>`;
+    <div style="margin-top:8px">${adminList.map(u=>`<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;flex-wrap:wrap;gap:6px"><div style="min-width:0"><b>${esc(u.email)}</b> ${left(u)}${u.role==='admin'?'':` <span class="pill ${u.plan==='trial'?'warn':'pri'}">${esc(PLAN_NAME[u.plan]||u.plan||'베이직')}</span>`}${u.memo?`<div class="hint">${esc(u.memo)}</div>`:''}</div>${u.role==='admin'?'':`<div class="row" style="flex:none;gap:6px">${planSel(`data-admplan="${esc(u.email)}" aria-label="요금제"`,u.plan)}<button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="7" title="7일 더 주기 (무료 덤)">+7일</button><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="30">+30일</button><button class="btn sm" data-adm="ext" data-em="${esc(u.email)}" data-d="90">+90일</button><button class="btn sm" data-adm="del" data-em="${esc(u.email)}">빼기</button></div>`}</div>`).join('')||'<div class="hint">아직 승인한 계정이 없어요.</div>'}</div>`;
   renderOps();
 }
 /* ---------- 관리자: 작업 서버 · 운영 키 · 저장 방식 ---------- */
@@ -2598,13 +2643,22 @@ document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.c
       const old=(adminList||[]).find(u=>u.email.toLowerCase()===em);if(old&&old.role==='admin'){err.textContent='관리자 계정이에요.';return}
       const plan=$('#adPlan').value||'basic';
       const {error}=await sb.from('allowed_users').upsert({email:em,role:'customer',plan,expires_at:d?addDays(old&&old.expires_at,d):null,memo:memo||(old&&old.memo)||''});if(error)throw error;toast(`${em} 승인했어요 (${PLAN_NAME[plan]})`)}
+    if(act==='trial'){const em=$('#adEmail').value.trim().toLowerCase(),memo=$('#adMemo').value.trim();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){err.textContent='이메일을 확인해 주세요.';return}
+      const old=(adminList||[]).find(u=>u.email.toLowerCase()===em);
+      if(old&&old.role==='admin'){err.textContent='관리자 계정이에요.';return}
+      if(old&&!confirm(`${em}은(는) 이미 승인된 계정이에요(${PLAN_NAME[old.plan]||old.plan}). 무료 체험으로 바꾸고 7일을 더할까요?`))return;
+      const {error}=await sb.from('allowed_users').upsert({email:em,role:'customer',plan:'trial',expires_at:addDays(old&&old.expires_at,7),memo:memo||(old&&old.memo)||'무료 체험'});if(error)throw error;toast(`${em}에 7일 무료 체험을 줬어요`)}
     if(act==='ext'){const u=(adminList||[]).find(x=>x.email===b.dataset.em);const {error}=await sb.from('allowed_users').update({expires_at:addDays(u&&u.expires_at,+b.dataset.d)}).eq('email',b.dataset.em);if(error)throw error;toast('기간을 늘렸어요')}
     if(act==='del'){if(!confirm(`${b.dataset.em} 계정의 사용 승인을 뺄까요? 다음 접속부터 쓸 수 없어요.`))return;const {error}=await sb.from('allowed_users').delete().eq('email',b.dataset.em);if(error)throw error;toast('승인을 뺐어요')}
     await adminLoad();
   }catch(er){if(err)err.textContent='저장하지 못했어요: '+(er.message||er)}});
 document.addEventListener('change',async e=>{const t=e.target;if(!t.dataset||!t.dataset.admplan||!isAdmin())return;const em=t.dataset.admplan,plan=t.value;
-  if(!confirm(`${em} 요금제를 ${PLAN_NAME[plan]}(으)로 바꿀까요? 이번 달 쓴 글 수는 그대로 이어져요.`)){adminLoad();return}
-  const {error}=await sb.from('allowed_users').update({plan}).eq('email',em);if(error){alert('바꾸지 못했어요: '+error.message);adminLoad();return}toast('요금제를 바꿨어요');adminLoad()});
+  const was=((adminList||[]).find(u=>u.email===em)||{}).plan,fromTrial=was==='trial'&&plan!=='trial';
+  if(!confirm(`${em} 요금제를 ${PLAN_NAME[plan]}(으)로 바꿀까요?\n${fromTrial?'무료 체험 때 쓴 글 수는 0으로 돌아가요. 기간은 +30일 버튼으로 늘려 주세요.':'이번 달 쓴 글 수는 그대로 이어져요.'}`)){adminLoad();return}
+  const {error}=await sb.from('allowed_users').update({plan}).eq('email',em);if(error){alert('바꾸지 못했어요: '+error.message);adminLoad();return}
+  if(fromTrial){try{await dbRpc('bh_admin_reset_usage',{p_email:em})}catch(x){alert('요금제는 바꿨지만 체험 글 수를 되돌리지 못했어요: '+x.message+'\n(SQL step5를 실행했는지 확인해 주세요)')}}
+  toast('요금제를 바꿨어요');adminLoad()});
 async function cloudInit(){
   if(!CLOUD_ON){renderCloud();return}
   sb=window.supabase.createClient(CLOUD.url,CLOUD.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'pkce'}});
@@ -2689,6 +2743,7 @@ const TIP={
   'GitHub 연결 · 글쓰는 곳':'<b>GitHub 연결 (관리자)</b>\n관리자 본인 글을 GitHub 서버로 쓸 때의 저장소와 토큰이에요.',
   '비용 · 모델':'<b>비용 · 모델 (관리자)</b>\n월 예산과 글쓰기·리서치·키워드에 쓰는 AI 모델이에요. 예산에 닿으면 자동으로 멈춰요.',
   'AI 그림 (선택)':'<b>AI 그림 (관리자)</b>\n구글 Imagen으로 대표 그림을 만들 때 쓰는 키예요. 버튼을 누를 때만 만들어져요.',
+  '화면 설정':'<b>화면 설정</b>\n자동 = 폰·PC의 다크 모드 설정을 따라요. 화이트·블랙으로 고정할 수도 있어요.\n밝기는 60~120%로 조절해요. 이 기기에만 적용돼요.',
   '데이터 지우기':'<b>데이터 지우기</b>\n이 기기의 키워드·글·기록을 모두 지워요. 먼저 홈에서 백업을 받아 두세요.'
 };
 const TIP_RULES=[
