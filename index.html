@@ -298,11 +298,13 @@ body.role-customer .admin-only{display:none!important}
       <button class="btn pri" data-manual="naver">네이버 글 쓰기</button>
       <button class="btn" id="manualG">블로그스팟·워드프레스 글 쓰기</button>
       <button class="btn" id="manualVol">검색량 확인 (0원)</button>
+      <button class="btn" id="manualBq">＋ 예약에 담기</button>
     </div>
     <div id="styleQuick"></div>
     <div id="manualVolOut"></div>
     <div class="err" id="manualErr"></div>
   </div>
+  <div class="card" id="bqCard"></div>
   <div id="kwList"></div>
   <div class="card" id="patCard"></div>
 </section>
@@ -553,7 +555,7 @@ $('#nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)g
 document.addEventListener('click',e=>{const a=e.target.closest('[data-go]');if(a){e.preventDefault();go(a.dataset.go)}});
 function render(tab){
   renderHeader();
-  if(tab==='kw'||tab==='set'){try{renderStyle();renderAdN();renderViewNotify()}catch(_){}}
+  if(tab==='kw'||tab==='set'){try{renderStyle();renderAdN();renderViewNotify();renderBq()}catch(_){}}
   if(tab==='home')renderTodo();
   if(tab==='kw'){renderKw();renderPat()}
   if(tab==='write')renderWrite();
@@ -587,8 +589,8 @@ function renderSide(){
   for(const p of S.projects){
     const list=p.posts.filter(x=>!(hide&&x.published));
     if(!list.length&&p.posts.length)continue;
-    if(p.multi&&p.posts.length===1&&!p.posts.some(x=>x.status!=='done')){}else h+=`<div class="skw"><span>${esc(p.keyword)}</span><span>${new Date(p.createdAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})}${p.running||(p.remote&&LIVE.includes(p.status))?' · 작성 중':''}</span></div>`;
-    if(!p.posts.length)h+=`<div class="hint" style="padding:0 8px">${p.running||(p.remote&&LIVE.includes(p.status))?'리서치 중…':p.status==='error'?'멈춤 — 눌러서 확인':'글 없음'}</div>`;
+    if(p.multi&&p.posts.length===1&&!p.posts.some(x=>x.status!=='done')){}else h+=`<div class="skw"><span>${esc(p.keyword)}</span><span>${new Date(p.createdAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})}${schedWait(p)?' · ⏰ '+fmtWhen(p.notBefore):p.running||(p.remote&&LIVE.includes(p.status))?' · 작성 중':''}</span></div>`;
+    if(!p.posts.length)h+=`<div class="hint" style="padding:0 8px">${schedWait(p)?'⏰ 예약 '+fmtWhen(p.notBefore):p.running||(p.remote&&LIVE.includes(p.status))?'리서치 중…':p.status==='error'?'멈춤 — 눌러서 확인':'글 없음'}</div>`;
     for(const x of list){
       const ic=x.published?'<span style="color:var(--ok)">✓</span>':x.status==='done'?'<span style="color:var(--pri)">●</span>':(x.status==='writing'||x.status==='research')?'<span style="color:var(--warn)">✎</span>':x.status==='error'?'<span style="color:var(--bad)">!</span>':'<span style="color:var(--muted)">○</span>';
       const sn=x.researchFrom?p.posts.filter(y=>y.researchFrom===x.researchFrom).indexOf(x)+2:(x.kw&&p.posts.some(y=>y.researchFrom===x.id)?1:0);
@@ -636,7 +638,7 @@ $('#oneBtn').addEventListener('click',oneClick);
 function renderTodo(){
   const key=lsGet(LS_KEY);
   const all=S.projects.flatMap(pr=>(pr.posts||[]).map(x=>({pr,x})));
-  const busy=S.projects.find(p=>p.running||(p.remote&&LIVE.includes(p.status)));
+  const busy=S.projects.find(p=>p.running||(p.remote&&LIVE.includes(p.status)&&!schedWait(p)));
   const ready=all.filter(o=>o.x.status==='done'&&!o.x.published);
   const failed=all.filter(o=>o.x.status==='error');
   const pick=ready[0]||null;
@@ -983,7 +985,7 @@ function renderKw(){
       ${k.vol?`<div class="row" style="margin-bottom:4px">${volPills(k.vol)}${lifePill(k)}</div>`:''}
       <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span><span class="pill ${kwPf(k)==='google'?'pri':'ok'}">${kwPf(k)==='google'?'구글 적합':'네이버 적합'}</span>${briefPill(k)}${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
       <div class="r">${esc(k.reason||'')}</div>
-      ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used||kwPf(k)==='google'?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기${kwPf(k)==='naver'?' (추천)':''} · ${estWon('post')}</button><button class="btn ${!used&&kwPf(k)==='google'?'pri':''} sm" data-gkw="${i}">블로그스팟·워드프레스 글 쓰기${kwPf(k)==='google'?' (추천)':''} · ${estWon('auto')}</button></div></div>`}).join('')
+      ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used||kwPf(k)==='google'?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기${kwPf(k)==='naver'?' (추천)':''} · ${estWon('post')}</button><button class="btn ${!used&&kwPf(k)==='google'?'pri':''} sm" data-gkw="${i}">블로그스팟·워드프레스 글 쓰기${kwPf(k)==='google'?' (추천)':''} · ${estWon('auto')}</button><button class="btn sm" data-bqadd="${i}">${bqHas(k.keyword)?'예약됨 ✓':'＋ 예약'}</button></div></div>`}).join('')
     +lowHtml(S.kwLow)+relHtml(S.relatedKw);
 }
 // 검색량이 적어서 뺀 후보 (단기 글감으로 쓰고 싶으면 눌러서 직접 입력칸에 넣는다)
@@ -1084,6 +1086,7 @@ function periodPill(exp){
   return ` <span class="pill ${d<=3?'bad':d<=7?'warn':''}" title="이용 기간 · 연장은 판매자에게 문의">남은 기간 ${Math.max(0,d)}일 (~${day})</span>`}
 
 const LIVE=['queued','research','writing'];
+function schedWait(p){return !!(p&&p.notBefore&&p.status==='queued'&&Date.parse(p.notBefore)>Date.now())} // 예약 시간 전
 function mergeRemote(lp,rd){
   const wasLive=LIVE.includes(lp.status)||!lp.status;let anyOpen=(lp.posts||[]).some(x=>x.open);
   lp.keyword=rd.keyword;lp.crossLinks=rd.crossLinks||lp.crossLinks;lp.createdAt=rd.createdAt||lp.createdAt;lp.status=rd.status;lp.error=rd.error||'';lp.research=rd.research||null;lp.updatedAt=rd.updatedAt||rd.createdAt;
@@ -1092,7 +1095,7 @@ function mergeRemote(lp,rd){
     if(old.status&&old.status!=='done'&&rp.status==='done')doneQ.push({p:lp.id,x:rp.id,t:rp.title||(rp.spec&&rp.spec.sub_keyword)||rd.keyword});
     const m=Object.assign({},rp,{seriesIdeas:rp.seriesIdeas||old.seriesIdeas,open:old.open||justDone,published:!!old.published,publishedAt:old.publishedAt||null});if(old.titleEdited&&rp.status==='done'&&old.raw===rp.raw){m.title=old.title;m.titleEdited=true}return m});
   lp.stage=rd.status==='done'||rd.status==='partial'?'done':rd.research?'write':'research';
-  lp.remote=true;lp.running=false;
+  lp.remote=true;lp.running=false;lp.notBefore=rd.notBefore||null;
 }
 let syncing=false,pollT=null,syncErr='',lastSync=0;
 const doneQ=[]; // 서버에서 방금 완성된 글 (알림용)
@@ -1122,6 +1125,7 @@ async function sync(){
     S.projects.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
     syncErr='';lastSync=Date.now();
     if(changed.size){save();refreshAfterSync(changed)}else renderSide();
+    try{if(activeTab()==='kw')renderBq()}catch(_){}
     while(doneQ.length){const d=doneQ.shift();notifyDone(`글이 완성됐어요: ${d.t}`,()=>{S.currentId=d.p;go('write')})}
   }catch(e){syncErr=e.message;renderSide()}
   finally{syncing=false;loadMyPlan()}
@@ -1140,7 +1144,7 @@ function refreshAfterSync(changed){
 }
 function schedulePoll(){
   clearTimeout(pollT); if(!serverReady())return;
-  const live=S.projects.some(p=>p.remote&&(LIVE.includes(p.status)||p.pendingAt));
+  const live=S.projects.some(p=>p.remote&&!schedWait(p)&&(LIVE.includes(p.status)||p.pendingAt));
   pollT=setTimeout(async()=>{await sync();schedulePoll()},document.hidden?60000:live?12000:60000);
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&serverReady()){sync().then(schedulePoll)}});
@@ -1525,19 +1529,21 @@ function seoBadge(r){return `<span class="seo ${r.score>=85?'g':r.score>=65?'m':
 /* ---------- 업로드 순서 (버튼 하나로) ---------- */
 function flowSteps(wp){return wp
   ?[['① 제목 복사','워드프레스 새 글 제목에 붙여넣으세요'],['② 본문 복사','본문에 붙여넣고 사진 자리를 채우세요'],['③ 메타 설명 복사','SEO 플러그인(Rank Math 등)의 설명 칸에'],['④ 올렸어요 · 사용 완료','']]
-  :[['① 제목 복사','네이버 블로그 앱/PC 글쓰기 제목에 붙여넣으세요'],['② 본문 복사','본문에 붙여넣고 노란 칸에 사진을 넣으세요'],['③ 태그 복사','글 맨 아래 태그 칸에 붙여넣으세요'],['④ 올렸어요 · 사용 완료','임시저장만 했다면 발행한 뒤에 누르세요']]}
+  :[['① 제목 복사','제목에 붙여넣고 내 말투로 다듬으세요'],['② 본문 복사','본문에 붙여넣고 내 말로 고쳐 쓰세요. 노란 칸에는 직접 찍은 사진·화면 캡처를 넣으세요'],['③ 태그 복사','글 맨 아래 태그 칸에 붙여넣으세요'],['④ 올렸어요 · 사용 완료','임시저장만 했다면 발행한 뒤에 누르세요']]}
+const NAVER_DAY=2; // 네이버 하루 권장 발행 수
+function naverToday(){const t=todayKST();return S.projects.reduce((n,p)=>n+(p.posts||[]).filter(x=>x.published&&x.publishedAt&&(x.spec||{}).platform!=='wordpress'&&new Date(Date.parse(x.publishedAt)+9*3600e3).toISOString().slice(0,10)===t).length,0)}
 function flowHtml(post,wp,where){
-  const st=flowSteps(wp),i=Math.min(post.flow||0,3);
+  const st=flowSteps(wp),i=Math.min(post.flow||0,3),nt=!wp&&!post.published?naverToday():0;
   return `<div class="flowbox ${where||'top'}"><button class="btn pri big" data-act="flow" style="width:100%;justify-content:center">${st[i][0]}</button>
     <div class="hint" style="margin-top:6px">${i===0?'버튼을 누를 때마다 다음 단계로 넘어갑니다.':esc(st[i-1][1])}</div>
-    <div class="steps">${st.map((x,k)=>`<i class="${k<=i?'on':''}"></i>`).join('')}</div></div>`;
+    <div class="steps">${st.map((x,k)=>`<i class="${k<=i?'on':''}"></i>`).join('')}</div>${!wp&&where!=='bot'?`<div class="notice nvown" style="margin-top:8px;padding-right:34px">✍️ <b>네이버는 내 글처럼 올려야 잘 돼요.</b> 제목과 본문은 그대로 올리지 말고 <b>내 말투·내 경험으로 직접 고쳐 쓰고</b>, 본문에는 <b>직접 찍은 사진이나 화면 캡처</b>를 꼭 넣으세요.</div>`:''}${nt>=NAVER_DAY?`<div class="notice nvday" style="margin-top:8px;padding-right:34px">⚠️ 오늘 네이버에 벌써 <b>${nt}개</b> 올렸어요. 네이버는 <b>하루 1~2개</b>가 안전해요 — 이 글은 <b>내일</b> 올리는 걸 추천해요. (한꺼번에 많이 올리면 저품질 위험이 커져요)</div>`:''}</div>`;
 }
 async function flowStep(p,post,sec,det){
   const wp=post.spec.platform==='wordpress',i=post.flow||0;
   if(i===0)await copy(post.title||sec.TITLE||'');
   else if(i===1){const [t,h]=withAd(post,plain(sec.BODY),md(sec.BODY,true));await copy(t,h)}
   else if(i===2)await copy(wp?(sec.META||''):(sec.TAGS||'').split(/[,，]/).map(t=>t.trim().replace(/^#/,'')).filter(Boolean).map(t=>'#'+t).join(' '));
-  else{setUsed(post,true);post.flow=0;updateCard(p,post);renderHeader();toast('사용 완료로 표시했습니다');return}
+  else{setUsed(post,true);post.flow=0;updateCard(p,post);renderHeader();const n=wp?0:naverToday();toast(n>=NAVER_DAY?`사용 완료 · 오늘 네이버 ${n}개째예요. 다음 글은 내일 올리세요 (하루 1~2개 권장)`:'사용 완료로 표시했습니다');return}
   post.flow=i+1;save();updateCard(p,post);
 }
 
@@ -1689,6 +1695,7 @@ function renderProgress(){const b=$('#progBox'),p=cur();if(b&&p)b.innerHTML=prog
 function ago(t){if(!t)return '';const m=Math.round((Date.now()-new Date(t))/60000);return m<1?'방금':m<60?m+'분 전':Math.round(m/60)+'시간 전'}
 function progressHtml(p){
   const doneN=p.posts.filter(x=>x.status==='done').length, total=p.posts.length||7;
+  if(schedWait(p))return `<div class="notice">⏰ 예약된 글이에요. <b>${fmtWhen(p.notBefore)}</b>에 서버가 쓰기 시작해요. 취소하려면 ① 키워드 찾기의 "글쓰기 예약"에서 빼세요.</div>`;
   if(p.multi){
     const x=p.posts.find(y=>y.status!=='done')||p.posts[0];
     if(x.status==='done'&&!p.error)return '';
@@ -2020,7 +2027,7 @@ async function syncAuto(){
 }
 function autoPoll(){
   clearTimeout(autoT);if(!ghReady())return;
-  const live=autoLog().some(e=>e.status==='writing')||(S.auto.pending||[]).length>0||Date.now()<autoUntil;
+  const live=autoLog().some(e=>e.status==='writing')||(S.auto.pending||[]).some(x=>!(x.notBefore&&Date.parse(x.notBefore)>Date.now()))||Date.now()<autoUntil;
   if(activeTab()!=='auto'&&!live)return;
   autoT=setTimeout(async()=>{await syncAuto();autoPoll()},live?20000:90000);
 }
@@ -2083,8 +2090,8 @@ S.auto.pending=S.auto.pending||[];
 async function pubRequest(d,msg){
   const id=d.id||uid();const body=Object.assign({id,status:'queued',createdAt:new Date().toISOString()},d);
   await ghPut('requests/pub-'+id+'.json',body,null,msg);
-  (S.auto.pending=S.auto.pending||[]).push({id,type:d.type,kw:d.kw,blog:d.blog,contentId:d.contentId,want:d.want,at:Date.now()});save();
-  autoUntil=Date.now()+20*60000;autoPoll();return id;
+  (S.auto.pending=S.auto.pending||[]).push({id,type:d.type,kw:d.kw,blog:d.blog,contentId:d.contentId,want:d.want,notBefore:d.notBefore||null,at:Date.now()});save();
+  if(!d.notBefore)autoUntil=Date.now()+20*60000;autoPoll();return id;
 }
 async function gWrite(kw,blog,family,reuse){
   if(!ghReady()){toast('설정에서 GitHub를 먼저 연결하세요');go('set');return false}
@@ -2116,8 +2123,9 @@ async function checkPending(){
     const e=autoLog().find(x=>x.id===(p.type==='write'?p.id:p.contentId));
     if(p.type==='write'&&e&&e.status!=='writing'){continue}
     if(p.type==='send'&&e&&e.remoteId){continue}
-    if(Date.now()-p.at>45000){try{const r=await ghGet('requests/pub-'+p.id+'.json');const d=r&&r.data;if(d&&d.status==='error'){toast('요청 실패: '+d.error);(S.auto.failed=S.auto.failed||[]).unshift({kw:p.kw||'',type:p.type,error:d.error,at:Date.now()});S.auto.failed=S.auto.failed.slice(0,5);continue}if(d&&d.status==='done'&&p.type==='send'){continue}}catch(_){}}
-    if(Date.now()-p.at>40*60000)continue; // 너무 오래되면 정리
+    const base=Math.max(p.at,p.notBefore?Date.parse(p.notBefore)||0:0);if(base>Date.now()){keep.push(p);continue} // 예약 시간 전
+    if(Date.now()-base>45000){try{const r=await ghGet('requests/pub-'+p.id+'.json');const d=r&&r.data;if(d&&d.status==='error'){toast('요청 실패: '+d.error);(S.auto.failed=S.auto.failed||[]).unshift({kw:p.kw||'',type:p.type,error:d.error,at:Date.now()});S.auto.failed=S.auto.failed.slice(0,5);continue}if(d&&d.status==='done'&&p.type==='send'){continue}}catch(_){}}
+    if(Date.now()-base>40*60000)continue; // 너무 오래되면 정리
     keep.push(p);
   }
   S.auto.pending=keep;save();
@@ -2199,7 +2207,7 @@ function renderAuto(){
     const ready=lg.filter(e=>e.status==='ready'||(e.status==='writing'&&e.manual)||(e.status==='failed'&&e.hasContent&&!e.remoteId)).slice().sort((a,b)=>(b.t||0)-(a.t||0));
     const sending=new Set((S.auto.pending||[]).filter(p=>p.type==='send').map(p=>p.contentId));
     h+=`<div class="card" id="readyCard" style="scroll-margin-top:110px"><h3>만든 글 · 전송 대기 ${ready.length+pend.length?`<span class="pill pri">${ready.length+pend.length}</span>`:''}</h3>
-      ${pend.map(p=>`<div class="lg"><div class="t1"><span class="pill pri">서버에 요청함</span><span class="hint">${esc(blogName(p.blog))}</span></div><div style="margin-top:4px"><b>${esc(p.kw)}</b></div>${stepper(0,['요청','자료 조사·글쓰기','품질 검사','완성'])}<div class="why">서버가 곧 시작해요. 보통 5~10분 걸려요.</div></div>`).join('')}
+      ${pend.map(p=>p.notBefore&&Date.parse(p.notBefore)>Date.now()?`<div class="lg"><div class="t1"><span class="pill">⏰ 예약 ${fmtWhen(p.notBefore)}</span><span class="hint">${esc(blogName(p.blog))}</span></div><div style="margin-top:4px"><b>${esc(p.kw)}</b></div><div class="why">예약한 시각에 서버가 쓰기 시작해요. 취소는 ① 키워드 찾기 → 글쓰기 예약에서.</div></div>`:`<div class="lg"><div class="t1"><span class="pill pri">서버에 요청함</span><span class="hint">${esc(blogName(p.blog))}</span></div><div style="margin-top:4px"><b>${esc(p.kw)}</b></div>${stepper(0,['요청','자료 조사·글쓰기','품질 검사','완성'])}<div class="why">서버가 곧 시작해요. 보통 5~10분 걸려요.</div></div>`).join('')}
       ${ready.map(e=>{const g=e.gate||{};const busy=e.status==='writing';
         return `<div class="lg"><div class="t1"><span class="pill ${busy?'pri':g.ok===false?'warn':'ok'}">${busy?'쓰는 중':g.ok===false?'품질 미달 · 임시저장만':'품질 통과'+(g.score?' '+g.score+'점':'')}</span><span class="hint">${esc(e.date||'')} · ${esc(blogName(e.blog))}용${e.usage&&e.usage.cost?' · '+won(e.usage.cost):''}</span></div>
         <div style="margin-top:4px"><b>${esc(e.title||e.kw)}</b></div>
@@ -2679,14 +2687,14 @@ function renderDash(){
   const all=S.projects.flatMap(p=>(p.posts||[]).map(x=>({p,x})));
   const lg=typeof autoLog==='function'?autoLog():[];
   const readyN=all.filter(o=>o.x.status==='done'&&!o.x.published).length,readyG=lg.filter(e=>e.status==='ready').length;
-  const busyN=all.filter(o=>['research','writing'].includes(o.x.status)||(o.p.remote&&LIVE.includes(o.p.status)&&o.x.status!=='done')).length+lg.filter(e=>e.status==='writing').length+((S.auto&&S.auto.pending)||[]).filter(x=>x.type==='write').length;
+  const busyN=all.filter(o=>!schedWait(o.p)&&(['research','writing'].includes(o.x.status)||(o.p.remote&&LIVE.includes(o.p.status)&&o.x.status!=='done'))).length+lg.filter(e=>e.status==='writing').length+((S.auto&&S.auto.pending)||[]).filter(x=>x.type==='write'&&!(x.notBefore&&Date.parse(x.notBefore)>Date.now())).length;
   const pubs=[...all.filter(o=>o.x.published&&o.x.publishedAt).map(o=>({t:Date.parse(o.x.publishedAt),ti:o.x.title||o.x.spec.sub_keyword})),...lg.filter(e=>e.status==='published').map(e=>({t:Date.parse(e.sentAt||e.doneAt||e.t||0),ti:e.title}))].sort((a,b)=>b.t-a.t);
   let mon;try{mon=myPlan&&myPlan.monthly_posts&&!isAdmin()?{b:`${Math.max(0,myPlan.monthly_posts-(myPlan.used_posts||0))}편 남음`,s:`이번 달 ${myPlan.used_posts||0}/${myPlan.monthly_posts}편`}:null}catch(_){mon=null}
   if(!mon)mon={b:`${monthPosts()}편`,s:'이번 달 쓴 글'};
   const wk=pubs.filter(x=>Date.now()-x.t<7*864e5).length;
   let h=`<div class="dash">
-    <button class="dcard" data-go="${readyN?'write':'auto'}"><small>올릴 글</small><b>${readyN+readyG}</b><span>${readyN?'네이버 '+readyN:''}${readyN&&readyG?' · ':''}${readyG?'구글 '+readyG:''}${!readyN&&!readyG?'완성된 글이 여기 쌓여요':''}</span></button>
-    <button class="dcard" data-go="write"><small>쓰는 중</small><b>${busyN}</b><span>${busyN?'창을 닫아도 서버가 계속 써요':'지금 쓰는 글 없음'}</span></button>
+    <button class="dcard" data-go="${readyN?'write':'auto'}"><small>올릴 글</small><b>${readyN+readyG}</b><span>${readyN?'네이버 '+readyN:''}${readyN&&readyG?' · ':''}${readyG?'구글 '+readyG:''}${!readyN&&!readyG?'완성된 글이 여기 쌓여요':''}${readyN?`<br>오늘 네이버 ${naverToday()}/${NAVER_DAY}개 올림`:''}</span></button>
+    <button class="dcard" data-go="${bqWaitN()?'kw':'write'}"><small>쓰는 중</small><b>${busyN}</b><span>${bqWaitN()?'⏰ 예약 '+bqWaitN()+'개 대기':busyN?'창을 닫아도 서버가 계속 써요':'지금 쓰는 글 없음'}</span></button>
     <button class="dcard" data-go="set"><small>이번 달</small><b>${esc(mon.b)}</b><span>${esc(mon.s)}</span></button>
     <button class="dcard" data-go="pub"><small>최근 올린 글</small><b>${wk}<small style="display:inline;font-size:13px"> 이번 주</small></b><span>${pubs[0]?esc(pubs[0].ti||'')+' · '+ago(pubs[0].t):'아직 없음'}</span></button></div>`;
   // 처음 시작 안내
@@ -2736,6 +2744,98 @@ const athumb={};
 document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.closest('[data-ath]');if(!b)return;const id=b.dataset.ath,box=document.getElementById('av-'+id);if(!box||!box._d)return;
   const o=athumb[id]=Object.assign({size:'wide'},athumb[id]||{});if(b.dataset.pal!=null)o.pal=+b.dataset.pal;if(b.dataset.size)o.size=b.dataset.size;if(b.dataset.apply){const i=box.querySelector(`[data-ath-text="${id}"]`);o.text=i?i.value.trim():''}
   renderAThumb(id,box)});
+
+// ---- 글쓰기 예약: 키워드를 담아 두고 차례대로(또는 하루 N개씩) 쓰기 ----
+function bqList(){return (S.settings.bq=S.settings.bq||[])}
+function bqRun(){return (S.settings.bqRun=S.settings.bqRun||[])}
+function bqHas(kw){return bqList().some(x=>nsp(x.kw)===nsp(kw))}
+function fmtWhen(t){const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
+function bqSave(){save();if(typeof cloudPushSoon==='function')cloudPushSoon()}
+function bqAdd(kw,meta){kw=String(kw||'').trim();if(!kw)return;
+  if(bqHas(kw)){bqList().splice(bqList().findIndex(x=>nsp(x.kw)===nsp(kw)),1);bqSave();toast('예약에서 뺐어요');renderBq();renderKw();return}
+  const g=accts().filter(b=>b.enabled!==false),pf=meta&&kwPf(meta)==='google'&&g.length?'google':'naver';
+  bqList().push({kw,pf,blog:pf==='google'?g[0].id:'',cat:meta&&meta.category||'',type:meta&&meta.type||''});bqSave();toast(`예약에 담았어요 (${bqList().length}개)`);renderBq();renderKw()}
+function bqStatus(r){
+  if(r.cancelled)return ['취소','',''];
+  if(r.pf==='naver'){const p=S.projects.find(x=>x.id===r.id);
+    if(!p)return Date.now()-r.at<180000?['등록 중…','pri','']:['없음(삭제됨)','',''];
+    if(schedWait(p))return ['⏰ '+fmtWhen(p.notBefore),'',''];
+    const x=p.posts[0]||{};if(x.status==='done')return [x.published?'올림 ✓':'완성','ok',`${p.id}|${x.id}`];
+    if(p.status==='error'||x.status==='error')return ['실패','bad',`${p.id}|${x.id||''}`];
+    return [x.status==='research'?'자료 조사 중':LIVE.includes(p.status)?'쓰는 중':'대기','pri',`${p.id}|${x.id||''}`]}
+  const e=autoLog().find(y=>y.id===r.id);
+  if(e)return e.status==='ready'?['완성','ok','']:['published','draft','scheduled'].includes(e.status)?['보냄 ✓','ok','']:e.status==='failed'?['실패','bad','']:['쓰는 중','pri',''];
+  if(r.notBefore&&Date.parse(r.notBefore)>Date.now())return ['⏰ '+fmtWhen(r.notBefore),'',''];
+  return ['대기','pri','']}
+function bqWaitN(){return bqRun().filter(r=>!r.cancelled&&/⏰|대기|등록/.test(bqStatus(r)[0])).length}
+function renderBq(){const el=$('#bqCard');if(!el)return;
+  const L=bqList(),R=bqRun().slice(-30).reverse(),g=accts().filter(b=>b.enabled!==false),mode=S.settings.bqMode||'now',hr=+S.settings.bqHour||9;
+  if(!L.length&&!R.length){el.innerHTML=`<h3>글쓰기 예약</h3><div class="hint">마음에 드는 후보의 <b>＋ 예약</b>을 눌러 담아 두면, 나중에 한 번에 <b>차례대로</b> 또는 <b>하루 몇 개씩</b> 서버가 알아서 써 줘요. 직접 입력한 키워드도 "＋ 예약에 담기"로 넣을 수 있어요.</div>`;return}
+  const opt=x=>`<select data-bqpf="${esc(x.kw)}" style="width:auto;flex:none"><option value="naver"${x.pf==='naver'?' selected':''}>네이버</option>${g.map(b=>`<option value="g:${esc(b.id)}"${x.pf==='google'&&x.blog===b.id?' selected':''}>${esc(b.name||b.id)}</option>`).join('')}</select>`;
+  el.innerHTML=`<h3>글쓰기 예약 ${L.length?`<span class="pill pri">${L.length}개 담음</span>`:''}</h3>
+    ${L.length?`<div>${L.map((x,i)=>`<div class="row" style="border-top:1px solid var(--line);padding:7px 0;flex-wrap:nowrap;gap:6px;align-items:center"><b style="flex:none;width:22px;color:var(--muted)">${i+1}</b><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.kw)}</span>${opt(x)}<button class="btn sm" data-bqmv="${i}|-1" title="위로" ${i?'':'disabled'}>▲</button><button class="btn sm" data-bqmv="${i}|1" title="아래로" ${i<L.length-1?'':'disabled'}>▼</button><button class="btn sm" data-bqdel="${i}" title="빼기">✕</button></div>`).join('')}</div>
+    <label class="f">쓰는 방식</label>${segHtml('bqMode',{now:'지금부터 차례대로',d1:'하루 1개',d2:'하루 2개',d3:'하루 3개'},mode)}
+    <div class="row" style="margin-top:6px;align-items:center;${mode==='now'?'display:none':''}"><span class="hint">하루 첫 글 시작</span><select id="bqHour" style="width:auto">${[6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21].map(h=>`<option value="${h}"${h===hr?' selected':''}>${h}시</option>`).join('')}</select><span class="hint">${mode==='d2'?'· 6시간 간격':mode==='d3'?'· 4시간 간격':''}</span></div>
+    ${(()=>{const nN=L.filter(x=>x.pf==='naver').length;return mode==='now'&&nN>NAVER_DAY?`<div class="notice nvday" style="margin-top:8px;padding-right:34px">⚠️ 네이버 글 ${nN}개가 한꺼번에 완성돼요. 써 두는 건 괜찮지만 <b>올리는 건 하루 1~2개씩</b> 나눠서 하세요. 또는 "하루 1개"로 예약하세요.</div>`:mode==='d3'&&nN>NAVER_DAY?`<div class="notice nvday" style="margin-top:8px;padding-right:34px">⚠️ 하루 3개는 네이버에 많아요. 네이버는 <b>하루 1~2개</b>를 추천해요.</div>`:''})()}
+    <div class="hint" style="margin-top:6px">${mode==='now'?'담은 순서대로 한 개씩 써요(앞 글이 끝나야 다음 글). 창을 닫아도 계속 써요.':'네이버는 하루 1~2개가 안전해요. 정해진 시각이 되면 서버가 알아서 써요(완성되면 알림).'} 요금제 글 수는 쓴 만큼 빠져요.</div>
+    <div class="row" style="margin-top:10px"><button class="btn pri" id="bqStart">${L.length}개 예약 시작</button><button class="btn" id="bqClear">모두 비우기</button></div><div class="err" id="bqErr"></div>`:''}
+    ${R.length?`<h4 style="margin:14px 0 4px">진행 현황</h4>${R.map(r=>{const [t,c,open]=bqStatus(r);const can=/⏰|대기/.test(t)&&!r.cancelled;
+      return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0;flex-wrap:nowrap;gap:6px;align-items:center"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.kw)} <span class="hint">· ${r.pf==='naver'?'네이버':esc(blogName(r.blog))}</span></span><span class="pill ${c}" style="flex:none">${esc(t)}</span>${open?`<button class="btn sm" data-open="${esc(open)}" style="flex:none">열기</button>`:''}${can?`<button class="btn sm" data-bqcancel="${esc(r.id)}" style="flex:none">취소</button>`:''}</div>`}).join('')}`:''}`;
+}
+function bqTimes(n,mode,hr){
+  if(mode==='now')return Array(n).fill(null);
+  const per={d1:1,d2:2,d3:3}[mode]||1,gap={1:0,2:6,3:4}[per],out=[];
+  let day=new Date();day.setHours(0,0,0,0);
+  const first=new Date(day);first.setHours(hr,0,0,0);if(first<=new Date(Date.now()+5*60000))day.setDate(day.getDate()+1);
+  // 오늘 남은 칸부터 채운다
+  let slots=[];for(let d=0;slots.length<n+per*2;d++)for(let k=0;k<per;k++){const t=new Date(day);t.setDate(t.getDate()+d);t.setHours(hr+gap*k,0,0,0);if(t>Date.now()+5*60000)slots.push(t)}
+  return slots.slice(0,n).map(t=>t.toISOString())}
+async function bqStartAll(){
+  const L=bqList().slice(),err=$('#bqErr');err.textContent='';if(!L.length)return;
+  if(!serverReady()||!isServer()){toast('서버 연결이 먼저 필요해요 (설정 → 서버 모드)');go('set');return}
+  try{if(useDB()){const pl=await loadMyPlan(true);if(pl&&pl.role!=='admin'&&pl.monthly_posts){const left=pl.monthly_posts-(pl.used_posts||0);if(left<L.length){err.textContent=`이번 달 남은 글이 ${left}편이라 ${L.length}개를 다 쓸 수 없어요. 개수를 줄여 주세요.`;return}}}}catch(_){}
+  const est=L.reduce((a,x)=>a+BH.estimate(x.pf==='google'?'auto':'post',MODELS()),0);if(!canSpend(est))return;
+  const mode=S.settings.bqMode||'now',times=bqTimes(L.length,mode,+S.settings.bqHour||9);
+  if(!confirm(`${L.length}개 글을 ${mode==='now'?'지금부터 차례대로':'정해진 시각에'} 쓸까요?\n\n${L.map((x,i)=>`${i+1}. ${x.kw} (${x.pf==='naver'?'네이버':blogName(x.blog)})${times[i]?' — '+fmtWhen(times[i]):''}`).join('\n')}${custView()?'':'\n\n예상 비용: '+wonA(est)}`))return;
+  const b=$('#bqStart');b.disabled=true;let okN=0;const skipped=[];
+  for(let i=0;i<L.length;i++){const x=L[i],nb=times[i];b.textContent=`등록 중… ${i+1}/${L.length}`;
+    try{
+      if(x.pf==='google'){const blog=accts().find(a=>a.id===x.blog);if(!blog)throw new Error('계정을 찾을 수 없어요');
+        const own=kwOwner(x.kw);if(own){skipped.push(`${x.kw} (이미 ${own})`);continue}
+        const id=await pubRequest(Object.assign({type:'write',blog:blog.id,kw:x.kw,style:styleNow()},nb?{notBefore:nb}:{}),'예약 글쓰기: '+x.kw);
+        bqRun().push({id,kw:x.kw,pf:'google',blog:blog.id,notBefore:nb,at:Date.now()})}
+      else{if(isUsedKw(x.kw)){skipped.push(`${x.kw} (이미 쓴 키워드)`);continue}
+        const id=uid(),now=new Date(Date.now()+i).toISOString();
+        const posts=P().buildMulti([{keyword:x.kw,platform:'naver',category:x.cat,type:x.type}]),crossLinks=crossCandidates(x.kw);
+        const rd={id,keyword:x.kw,multi:true,createdAt:now,status:'queued',notBefore:nb||null,settings:{model:MODELS().write,researchModel:MODELS().research,categories:S.settings.categories,interest:S.settings.interest,detail:S.settings.detail!==false,patterns:S.settings.patterns||null,style:styleNow()},promptsUrl:promptsUrl(),research:null,posts,crossLinks};
+        await ghPut('projects/'+id+'.json',rd,null,'예약 글: '+x.kw);
+        S.projects.unshift({id,keyword:x.kw,multi:true,createdAt:now,remote:true,status:'queued',notBefore:nb||null,stage:'research',research:null,posts:JSON.parse(JSON.stringify(posts)),error:'',pendingAt:Date.now(),crossLinks});
+        bqRun().push({id,kw:x.kw,pf:'naver',notBefore:nb,at:Date.now()})}
+      okN++;const k=bqList().findIndex(y=>nsp(y.kw)===nsp(x.kw));if(k>=0)bqList().splice(k,1);bqSave();
+    }catch(e){err.textContent=`"${x.kw}" 등록 실패: ${e.message}`;break}}
+  S.settings.bqRun=bqRun().slice(-50);bqSave();b.disabled=false;renderBq();renderKw();renderSide();renderDash();
+  if(mode==='now'&&okN&&typeof ghDispatch==='function')ghDispatch().catch(()=>{});
+  schedulePoll();toast(`${okN}개 예약했어요${skipped.length?` · ${skipped.length}개는 겹쳐서 뺐어요`:''}`);
+  if(skipped.length)alert('겹치는 키워드라 빼고 예약했어요 (중복 문서 방지):\n'+skipped.join('\n'));
+}
+async function bqCancel(id){const r=bqRun().find(x=>x.id===id);if(!r)return;if(!confirm(`"${r.kw}" 예약을 취소할까요?`))return;
+  try{if(r.pf==='naver'){const g=await ghGet('projects/'+id+'.json');if(g&&g.data&&!['queued'].includes(g.data.status)){toast('이미 쓰기 시작해서 취소할 수 없어요');return}
+      if(g)await gh('/contents/projects/'+id+'.json',{method:'DELETE',body:{message:'예약 취소: '+r.kw,sha:g.sha}});S.projects=S.projects.filter(p=>p.id!==id)}
+    else{const g=await ghGet('requests/pub-'+id+'.json');if(g&&g.data&&g.data.status!=='queued'){toast('이미 쓰기 시작해서 취소할 수 없어요');return}
+      if(g)await ghPut('requests/pub-'+id+'.json',Object.assign(g.data,{status:'cancelled',doneAt:new Date().toISOString()}),g.sha,'예약 취소: '+r.kw);S.auto.pending=(S.auto.pending||[]).filter(p=>p.id!==id)}
+    r.cancelled=true;bqSave();renderBq();renderSide();renderDash();toast('예약을 취소했어요')}catch(e){alert('취소하지 못했어요: '+e.message)}}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-bqadd],[data-bqmv],[data-bqdel],[data-bqcancel],#bqStart,#bqClear,#manualBq');if(!t)return;
+  if(t.dataset.bqadd!=null){const k=S.keywords[+t.dataset.bqadd];if(k)bqAdd(k.keyword,k);return}
+  if(t.id==='manualBq'){const v=$('#manualKw').value.trim();if(!v){toast('위 칸에 키워드를 넣어 주세요');return}bqAdd(v,null);$('#manualKw').value='';return}
+  if(t.dataset.bqmv){const [i,d]=t.dataset.bqmv.split('|').map(Number),L=bqList(),j=i+d;if(j<0||j>=L.length)return;[L[i],L[j]]=[L[j],L[i]];bqSave();renderBq();return}
+  if(t.dataset.bqdel!=null){bqList().splice(+t.dataset.bqdel,1);bqSave();renderBq();renderKw();return}
+  if(t.dataset.bqcancel){bqCancel(t.dataset.bqcancel);return}
+  if(t.id==='bqClear'){if(confirm('담아 둔 키워드를 모두 비울까요?')){S.settings.bq=[];bqSave();renderBq();renderKw()}return}
+  if(t.id==='bqStart')bqStartAll()});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.dataset&&t.dataset.bqpf){const x=bqList().find(y=>y.kw===t.dataset.bqpf);if(x){if(t.value==='naver'){x.pf='naver';x.blog=''}else{x.pf='google';x.blog=t.value.slice(2)}bqSave()}}
+  if(t.name==='bqMode'){S.settings.bqMode=t.value;bqSave();renderBq()}
+  if(t.id==='bqHour'){S.settings.bqHour=+t.value;bqSave()}});
 try{renderStyle();renderAdN();renderViewNotify()}catch(_){}
 function renderAThumb(id,box){const d=box._d,o=athumb[id]||{size:'wide'},w=box.querySelector('[data-athw]'),c=box.querySelector('[data-athc]');if(!w)return;
   c.innerHTML=thumbCtl(id,o,'data-ath');drawThumb(w,d.title,d.kw||'',o)}
@@ -2942,6 +3042,9 @@ const TIP={
   '네이버 글 광고 문구':'<b>광고 문구 · 제휴 링크</b>\n쿠팡 파트너스·협찬 글에 필요한 대가 표시 문구를 본문 맨 위에 넣어 줘요(공정위 지침). 글마다 켜고 끌 수 있어요.\n블로그스팟·워드프레스는 ④ 계정 설정에서 블로그마다 따로 정해요.',
   '처음 시작하기':'<b>처음 시작하기</b>\n4단계만 따라 하면 첫 글을 올릴 수 있어요. 다 하면 자동으로 사라지고, "숨기기"로 감출 수도 있어요.',
   '대표 썸네일':'<b>대표 썸네일</b>\n글 제목으로 대표 이미지를 사이트가 직접 그려요(비용 0원). 색 6가지, 정사각(네이버)·가로(구글) 크기, 큰 글자를 바꿀 수 있어요.',
+  '#nvown':'<b>네이버에서 잘 되는 글</b>\n네이버는 AI로 글의 신뢰도를 평가하고, 자동 생성 글·경험 없는 글을 걸러내요.\n· 제목: 내 말투로 다듬기 (키워드는 남기기)\n· 본문: 파란 칸은 내 실제 경험으로, 문장도 내 말로 고쳐 쓰기\n· 사진: 직접 찍은 사진·화면 캡처 넣기 (다른 블로그·뉴스 사진 금지)\nAI 글을 그대로 올리는 것보다 노출에 훨씬 유리해요.',
+  '#nvday':'<b>네이버는 하루 1~2개</b>\n하루에 여러 개를 한꺼번에 올리면 저품질(검색 누락) 위험이 커져요.\n글은 미리 많이 써 둬도 괜찮아요. 올리는 것만 하루 1~2개씩 나눠서 하세요.\n오늘 2개를 올리면 글 화면에 "내일 올리기 추천" 안내가 떠요.',
+  '글쓰기 예약':'<b>글쓰기 예약</b>\n후보의 "＋ 예약"으로 키워드를 담아 두고, 한 번에 시작해요.\n지금부터 차례대로 = 앞 글이 끝나면 다음 글\n하루 1~3개 = 정한 시각에 서버가 알아서 써요(네이버는 하루 1~2개 추천).\n▲▼로 순서를 바꾸고, 계정(네이버/구글 블로그)을 고를 수 있어요. 시작 전 예약은 취소할 수 있어요.',
   '화면 설정':'<b>화면 설정</b>\n자동 = 폰·PC의 다크 모드 설정을 따라요. 화이트·블랙으로 고정할 수도 있어요.\n밝기는 60~120%로 조절해요. 이 기기에만 적용돼요.',
   '데이터 지우기':'<b>데이터 지우기</b>\n이 기기의 키워드·글·기록을 모두 지워요. 먼저 홈에서 백업을 받아 두세요.'
 };
@@ -2949,7 +3052,7 @@ const TIP_RULES=[
   ['main h2,#tab-set h2,#tab-help h2','text'],
   ['#side .sh>span:first-child','text'],['.sth>b','text'],['.now>b','text'],
   ['main h3','prefix'],['main h4','prefix'],['main summary','prefix'],
-  ['#tab-kw>.card:first-of-type','#find','corner'],['#kwList .kw','#kw','corner']
+  ['#tab-kw>.card:first-of-type','#find','corner'],['#kwList .kw','#kw','corner'],['.nvday','#nvday','corner'],['.nvown','#nvown','corner']
 ];
 function tipFor(el,mode){
   const t=(el.firstChild&&el.firstChild.nodeType===3?el.firstChild.textContent:el.textContent||'').trim();
