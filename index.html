@@ -366,6 +366,32 @@ main>section>.card{border-top:3px solid var(--cl)}
 .tchips>*{padding:3px 9px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
 .tchips .ok{border-color:var(--ok);color:var(--ok);font-weight:600}
 .tchips label{cursor:pointer}
+
+/* ---- 진행 바 ---- */
+.pgx{--pc:var(--c-write);--pcs:var(--cs-write);border:1px solid var(--cl-write);background:linear-gradient(135deg,var(--pcs),var(--card) 80%);border-radius:14px;padding:12px 14px;margin:8px 0}
+.pgx.pg-google{--pc:var(--c-auto);--pcs:var(--cs-auto);border-color:var(--cl-auto)}
+.pgtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
+.pgtop b{color:var(--pc)}
+.pgdot{width:10px;height:10px;border-radius:50%;background:var(--pc);box-shadow:0 0 0 0 var(--pc);animation:pgPing 1.6s ease-out infinite;flex:none}
+.pgmsg{color:var(--sub);font-size:13.5px}.pgmsg.in{animation:pgIn .45s ease}
+.pgtime{margin-left:auto;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pgbar{position:relative;height:12px;border-radius:99px;margin:10px 0 8px;overflow:hidden;background:color-mix(in srgb,var(--pc) 12%,transparent);box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
+.pgbar i{position:absolute;inset:0 auto 0 0;width:5%;border-radius:99px;transition:width 1s linear;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--pc) 55%,#fff),var(--pc),color-mix(in srgb,var(--pc) 55%,#fff));background-size:200% 100%;animation:pgFlow 2.2s linear infinite;overflow:hidden}
+.pgbar i::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.28) 0 8px,transparent 8px 16px);background-size:22.6px 22.6px;animation:pgStripe .8s linear infinite}
+.pgbar i::before{content:"";position:absolute;top:0;bottom:0;width:40%;left:-40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);animation:pgShine 1.8s ease-in-out infinite;z-index:1}
+.pgsteps{display:flex;gap:4px}
+.pgsteps span{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted);text-align:center;min-width:0}
+.pgsteps em{width:10px;height:10px;border-radius:50%;border:2px solid var(--line);background:var(--card)}
+.pgsteps span.ok{color:var(--ok)}.pgsteps span.ok em{background:var(--ok);border-color:var(--ok)}
+.pgsteps span.on{color:var(--pc);font-weight:700}.pgsteps span.on em{background:var(--pc);border-color:var(--pc);animation:pgPing 1.6s ease-out infinite}
+@keyframes pgFlow{to{background-position:-200% 0}}
+@keyframes pgStripe{to{background-position:22.6px 0}}
+@keyframes pgShine{0%{left:-40%}60%,100%{left:110%}}
+@keyframes pgPing{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--pc) 55%,transparent)}100%{box-shadow:0 0 0 9px transparent}}
+@keyframes pgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.pgbar i,.pgbar i::after,.pgbar i::before,.pgdot,.pgsteps em{animation:none!important}}
+@media (max-width:640px){.pgtime{margin-left:0;width:100%}}
 </style>
 </head>
 <body>
@@ -920,7 +946,7 @@ function renderTodo(){
   if(busy){
     const x=busy.posts.find(y=>y.status!=='done')||busy.posts[0]||{};
     h+=`<div class="step on"><div class="sth"><span class="num">2</span><b>글 완성 · 품질 점검</b><span class="stx">작성 중</span></div><div class="stb">
-      ${stepper(stepOf(x))}<div class="hint">${x.status==='research'?'1차 출처와 상위 글을 확인하고 있어요 (1~2분)':'글을 쓰고 있어요 (1~3분)'}${busy.remote?' · 창을 닫아도 서버에서 계속 써요':' · 다른 탭은 봐도 되지만 이 탭은 닫지 마세요'}</div>
+      ${stepper(stepOf(x),null,{kind:'naver',start:Date.parse(busy.notBefore||busy.createdAt)||Date.now(),est:210,phase:x.status==='research'?'research':'write'})}<div class="hint">${x.status==='research'?'1차 출처와 상위 글을 확인하고 있어요 (1~2분)':'글을 쓰고 있어요 (1~3분)'}${busy.remote?' · 창을 닫아도 서버에서 계속 써요':' · 다른 탭은 봐도 되지만 이 탭은 닫지 마세요'}</div>
       <button class="btn big" data-open="${busy.id}|${x.id||''}">진행 상황 보기</button></div></div>`;
   }else if(pick){
     const sec=parseSec(pick.x.raw||'');if(pick.x.edited)sec.BODY=fixNumbers(pick.x.edited);
@@ -1964,8 +1990,9 @@ function progressHtml(p){
     const stale=p.remote&&live&&p.updatedAt&&Date.now()-new Date(p.updatedAt)>15*60000;
     const step=(many?`${doneN}/${total}편 완료 · 지금 "${x.spec.sub_keyword}" `:'')+(x.status==='research'?'1차 출처·상위글 확인 중 (1~2분)':x.status==='writing'?'글 작성 중 (1~3분)':x.status==='error'?'멈췄습니다':p.status==='queued'?'서버 대기 중 — 보통 1분 안에 시작합니다':'대기 중');
     const pct=many?Math.max(5,Math.round(100*doneN/total)):x.status==='research'?30:x.status==='writing'?70:x.status==='done'?100:5;
-    return `<div class="card"><h3>"${esc(p.keyword)}" 진행 상황 <span class="pill ${p.remote?'pri':''}">${p.remote?'서버':'이 브라우저'}</span></h3><div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="prog"><div class="on">${esc(step)}</div>${p.remote?`<div class="hint">마지막 진행: ${ago(p.updatedAt||p.createdAt)}</div>`:''}</div>
+    const pg=!many&&live&&['research','writing','queued','wait'].includes(x.status||'queued')&&!x.error&&!p.error;
+    return `<div class="card"><h3>"${esc(p.keyword)}" 진행 상황 <span class="pill ${p.remote?'pri':''}">${p.remote?'서버':'이 브라우저'}</span></h3>${pg?stepper(x.status==='writing'?1:x.status==='research'?0:0,x.status==='research'||x.status==='writing'?null:['대기','자료 조사','글쓰기','완성'],{kind:'naver',start:Date.parse(p.notBefore||p.createdAt)||Date.now(),est:210,phase:x.status==='writing'?'write':x.status==='research'?'research':'req'}):`<div class="bar"><i style="width:${pct}%"></i></div>`}
+      <div class="prog">${pg?'':`<div class="on">${esc(step)}</div>`}${p.remote?`<div class="hint">마지막 진행: ${ago(p.updatedAt||p.createdAt)}</div>`:''}</div>
       ${x.error||p.error?`<div class="err">${esc(x.error||p.error)}</div>`:''}
       ${live?`<div class="hint" style="margin-top:6px">${p.remote?'이 창을 닫거나 폰을 꺼도 서버에서 계속 씁니다.':'다른 탭을 봐도 계속 씁니다. 이 탭을 닫으면 멈춥니다.'}</div>`:''}
       ${(p.remote&&(p.status==='error'||p.status==='partial'||stale))?`<div class="row" style="margin-top:10px"><button class="btn pri" id="kick">서버에서 다시 시작</button></div>`:(!p.remote&&!p.running&&x.status!=='done')?`<div class="row" style="margin-top:10px"><button class="btn pri" id="resume">이어서 쓰기</button></div>`:''}</div>`;
@@ -2469,12 +2496,12 @@ function renderAuto(){
     const ready=lg.filter(e=>e.status==='ready'||(e.status==='writing'&&e.manual)||(e.status==='failed'&&e.hasContent&&!e.remoteId)).slice().sort((a,b)=>(b.t||0)-(a.t||0));
     const sending=new Set((S.auto.pending||[]).filter(p=>p.type==='send').map(p=>p.contentId));
     h+=`<div class="card" id="readyCard" style="scroll-margin-top:110px"><h3>만든 글 · 전송 대기 ${ready.length+pend.length?`<span class="pill pri">${ready.length+pend.length}</span>`:''}</h3>
-      ${pend.map(p=>p.notBefore&&Date.parse(p.notBefore)>Date.now()?`<div class="lg"><div class="t1"><span class="pill">⏰ 예약 ${fmtWhen(p.notBefore)}</span><span class="hint">${esc(blogName(p.blog))}</span></div><div style="margin-top:4px"><b>${esc(p.kw)}</b></div><div class="why">예약한 시각에 서버가 쓰기 시작해요. 취소는 ① 키워드 찾기 → 글쓰기 예약에서.</div></div>`:`<div class="lg"><div class="t1"><span class="pill pri">서버에 요청함</span><span class="hint">${esc(blogName(p.blog))}</span></div><div style="margin-top:4px"><b>${esc(p.kw)}</b></div>${stepper(0,['요청','자료 조사·글쓰기','품질 검사','완성'])}<div class="why">서버가 곧 시작해요. 보통 5~10분 걸려요.</div></div>`).join('')}
+      ${pend.map(p=>p.notBefore&&Date.parse(p.notBefore)>Date.now()?`<div class="lg"><div class="t1"><span class="pill">⏰ 예약 ${fmtWhen(p.notBefore)}</span><span class="hint">${esc(blogName(p.blog))}</span></div><div style="margin-top:4px"><b>${esc(p.kw)}</b></div><div class="why">예약한 시각에 서버가 쓰기 시작해요. 취소는 ① 키워드 찾기 → 글쓰기 예약에서.</div></div>`:`<div class="lg"><div class="t1"><span class="pill pri">서버에 요청함</span><span class="hint">${esc(blogName(p.blog))}</span></div><div style="margin-top:4px"><b>${esc(p.kw)}</b></div>${stepper(0,['요청','자료 조사·글쓰기','품질 검사','완성'],{kind:'google',start:p.at,est:480,phase:'req'})}<div class="why">창을 닫아도 서버가 계속 써요. 다 되면 여기에 전송 버튼이 생겨요.</div></div>`).join('')}
       ${ready.map(e=>{const g=e.gate||{};const busy=e.status==='writing';
         return `<div class="lg"><div class="t1"><span class="pill ${busy?'pri':g.ok===false?'warn':'ok'}">${busy?'쓰는 중':g.ok===false?'품질 미달 · 임시저장만':'품질 통과'+(g.score?' '+g.score+'점':'')}</span><span class="hint">${esc(e.date||'')} · ${esc(blogName(e.blog))}용${e.usage&&e.usage.cost?' · '+won(e.usage.cost):''}</span></div>
         <div style="margin-top:4px"><b>${esc(e.title||e.kw)}</b></div>
         ${e.reason&&g.ok===false?`<div class="why">${esc(e.reason)}</div>`:''}${e.status==='failed'?`<div class="why" style="color:var(--bad)">${esc(e.error||'')}</div>`:''}
-        ${busy?stepper(1,['요청','자료 조사·글쓰기','품질 검사','완성'])+'<div class="why">리서치·글쓰기 중이에요. 다 되면 여기에 전송 버튼이 생겨요.</div>':sending.has(e.id)?'<div class="why">보내는 중… 1~2분</div>':`<div class="row" style="margin-top:6px"><button class="btn sm" data-aview="${esc(e.id)}">내용 보기</button></div><div id="av-${esc(e.id)}"></div>${sendBox(e)}`}</div>`}).join('')||(!pend.length?'<div class="hint">아직 없어요. 위에서 글을 쓰면 여기에 나타나요.</div>':'')}</div>`;
+        ${busy?stepper(1,['요청','자료 조사·글쓰기','품질 검사','완성'],{kind:'google',start:Date.parse(e.startedAt||e.t||e.at||0)||Date.now(),est:480,phase:'write'})+'<div class="why">창을 닫아도 서버가 계속 써요. 다 되면 여기에 전송 버튼이 생겨요.</div>':sending.has(e.id)?'<div class="why">보내는 중… 1~2분</div>':`<div class="row" style="margin-top:6px"><button class="btn sm" data-aview="${esc(e.id)}">내용 보기</button></div><div id="av-${esc(e.id)}"></div>${sendBox(e)}`}</div>`}).join('')||(!pend.length?'<div class="hint">아직 없어요. 위에서 글을 쓰면 여기에 나타나요.</div>':'')}</div>`;
     // 4) 자동 발행 (계정별)
     const autoOn=list.filter(b=>b.auto===true&&b.enabled!==false);
     h+=`<details class="card" ${autoOn.length?'open':''}><summary style="cursor:pointer;font-weight:700">자동 발행 (계정별) ${autoOn.length?`<span class="pill ok">${autoOn.length}개 계정 켜짐</span>`:'<span class="pill">모두 꺼짐</span>'}</summary>
@@ -2921,8 +2948,26 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.dataset||!t.datase
   for(const p of S.projects)for(const x of p.posts||[])if(x.id===t.dataset.adon){x.adOn=t.checked;save();toast(t.checked?'복사할 때 맨 위에 광고 문구를 넣어요':'광고 문구를 빼요')}});
 
 // ---- 진행 단계 ----
-function stepper(i,labels){labels=labels||['자료 조사','글쓰기','품질 검사','완성'];
-  return `<div class="stp">${labels.map((l,k)=>`<span class="${k<i?'ok':k===i?'on':''}">${k<i?'✓ ':''}${l}</span>`).join('')}</div>`}
+// ---- 진행 바: 흐르는 색 + 경과 시간 · 남은 시간 + 지금 하는 일 ----
+const PG_MSG={req:['서버가 곧 시작해요','순서를 기다리고 있어요','작업 서버를 깨우고 있어요'],
+  research:['1차 출처(공고·공식 사이트)를 찾고 있어요','상위 글을 비교하고 있어요','상위 글이 빠뜨린 정보를 찾고 있어요','함께 묻는 질문을 모으고 있어요'],
+  write:['소제목 흐름을 짜고 있어요','본문을 쓰고 있어요','표와 핵심 요약을 정리하고 있어요','자주 묻는 질문을 쓰고 있어요','키워드가 자연스럽게 들어갔는지 다듬고 있어요'],
+  check:['키워드·중복·사실 표현을 검사하고 있어요','품질 점수를 매기고 있어요']};
+function stepper(i,labels,o){labels=labels||['자료 조사','글쓰기','품질 검사','완성'];o=o||{};
+  const n=labels.length,start=o.start||Date.now(),est=o.est||240,ph=o.phase||(i===0&&labels[0]==='요청'?'req':i<=1?'research':'check');
+  return `<div class="pgx pg-${o.kind||'naver'}" data-start="${start}" data-est="${est}" data-i="${i}" data-n="${n}" data-ph="${ph}">
+    <div class="pgtop"><span class="pgdot"></span><b>${esc(labels[Math.min(i,n-1)])}</b><span class="pgmsg">${PG_MSG[ph][0]}</span><span class="pgtime"></span></div>
+    <div class="pgbar"><i></i></div>
+    <div class="pgsteps">${labels.map((l,k)=>`<span class="${k<i?'ok':k===i?'on':''}"><em></em>${esc(l)}</span>`).join('')}</div></div>`}
+function pgTick(){const els=document.querySelectorAll('.pgx');if(!els.length)return;const now=Date.now();
+  els.forEach(el=>{const st=+el.dataset.start,est=+el.dataset.est,i=+el.dataset.i,n=+el.dataset.n,ph=el.dataset.ph,el_s=Math.max(0,Math.round((now-st)/1000));
+    const tf=Math.min(.95,el_s/est),pct=Math.round(100*Math.max(i/n+.04,Math.min(tf,(i+1)/n-.02)));
+    const bar=el.querySelector('.pgbar i');if(bar)bar.style.width=pct+'%';
+    const left=Math.max(0,est-el_s),fm=t=>t>=60?`${Math.floor(t/60)}분${t%60?' '+(t%60)+'초':''}`:`${t}초`;
+    const tm=el.querySelector('.pgtime');if(tm)tm.textContent=`${fm(el_s)} 지남 · ${left>20?'약 '+fm(Math.ceil(left/30)*30)+' 남음':'거의 다 됐어요'}`;
+    const ms=PG_MSG[ph]||PG_MSG.write,m=el.querySelector('.pgmsg'),k=Math.floor(el_s/7)%ms.length;if(m&&m.textContent!==ms[k]){m.classList.remove('in');void m.offsetWidth;m.textContent=ms[k];m.classList.add('in')}});
+}
+setInterval(pgTick,1000);new MutationObserver(()=>{if(document.querySelector('.pgx:not([data-t])')){document.querySelectorAll('.pgx:not([data-t])').forEach(e=>e.dataset.t=1);pgTick()}}).observe(document.body,{childList:true,subtree:true});
 const stepOf=x=>!x?0:x.status==='done'?4:x.status==='writing'?1:0;
 
 // ---- 완성 알림 (브라우저) ----
