@@ -2401,7 +2401,7 @@ async function gSend(contentId,blog,want){
   const e=autoLog().find(x=>x.id===contentId);if(!e)return;
   if(want==='publish'&&e.gate&&e.gate.ok===false){alert('품질 검사를 통과하지 못한 글이라 공개 발행은 막혀 있어요. 임시저장으로 보낸 뒤 블로그에서 고쳐서 발행하세요.');return}
   if(!confirm(`"${e.title||e.kw}"\n\n→ ${acctLine(blog)}\n→ ${want==='publish'?'바로 공개 발행':'임시저장(블로그에서 내가 보고 발행)'}\n\n보낼까요? (0원)`))return;
-  try{await pubRequest({type:'send',blog:blog.id,contentId,want},'전송 요청: '+(e.title||e.kw));toast('보내는 중이에요. 1~2분 뒤 결과가 나와요');renderAuto()}
+  try{const th=athumb[contentId];await pubRequest(Object.assign({type:'send',blog:blog.id,contentId,want},th&&(th.pal!=null||th.text)?{thumb:{pal:th.pal,text:th.text||''}}:{}),'전송 요청: '+(e.title||e.kw));toast('보내는 중이에요. 1~2분 뒤 결과가 나와요');renderAuto()}
   catch(er){alert('요청하지 못했어요.\n'+er.message)}
 }
 // 요청이 끝났는지 확인 (실패면 이유를 보여준다)
@@ -2607,7 +2607,7 @@ document.addEventListener('click',async e=>{
       box.innerHTML=`<div class="sec"><h4>품질 검사 ${g.ok?'<span class="seo g">통과</span>':'<span class="seo b">미달</span>'} ${g.len?`<span class="hint">${fmtN(g.len)}${d.lang==='en'?'단어':'자'} · 예전 글과 겹침 ${Math.round((g.sim||0)*100)}%</span>`:''}</h4>
         ${(g.fails||[]).length?`<ul class="ck">${g.fails.map(x=>`<li>❌ ${esc(x)}</li>`).join('')}</ul>`:''}${(g.warns||[]).length?`<ul class="ck">${g.warns.map(x=>`<li>⚠️ ${esc(x)}</li>`).join('')}</ul>`:''}</div>
         <div class="sec"><h4>제목</h4><div>${esc(d.title)}</div></div><div class="sec"><h4>검색 설명</h4><div class="hint">${esc(d.meta||'')}</div></div>
-        <div class="sec"><h4>대표 썸네일 <span class="pill ok">0원</span></h4><div class="thumbbox" data-athw="1"></div><div data-athc="1"></div><div class="hint">블로그 대표 이미지로 올리면 검색 결과에서 눈에 띄어요.</div></div>
+        <div class="sec"><h4>대표 썸네일 <span class="pill ok">0원</span></h4><div class="thumbbox" data-athw="1"></div><div data-athc="1"></div><div class="hint">전송하면 이 썸네일이 <b>블로그스팟은 본문 맨 위</b>에, <b>워드프레스는 대표 이미지</b>로 자동으로 들어가요. 색·문구를 바꾼 뒤 전송하면 바꾼 대로 들어가요.</div></div>
         <div class="sec"><h4>본문 미리보기</h4><div class="preview">${cleanHtml(d.html)}</div></div>
         <div class="row" style="margin-top:8px"><button class="btn sm" data-acopy="t">제목 복사</button><button class="btn sm" data-acopy="h">HTML 복사</button></div>`;
       box._d=d;renderAThumb(id,box);}
@@ -3027,7 +3027,7 @@ async function thumbImg(title,kw,o){
   const pi=o.pal!=null?o.pal:Math.abs([...String(kw)].reduce((a,c)=>a+c.charCodeAt(0),0))%4,[bg,ac]=TH_PAL[pi]||TH_PAL[0],light=pi===5;
   x.fillStyle=bg;x.fillRect(0,0,W,H);
   const P=wide?70:90;x.fillStyle=ac;x.font=F(700,wide?38:44);x.fillText(String(kw||'').slice(0,22),P,wide?110:170);x.fillRect(P,wide?132:200,110,9);
-  let t=String(o.text||title||'');const kp=t.indexOf(kw);let main=t;if(!o.text&&kp===0&&t.length>String(kw).length+2)main=t.slice(String(kw).length).replace(/^[\s,·:-]+/,'');
+  let t=String(o.text||title||'');const kp=t.indexOf(kw);let main=t;if(!o.text&&kp===0&&t.length>String(kw).length+2&&/^\s*[,·:\-–|]/.test(t.slice(String(kw).length)))main=t.slice(String(kw).length).replace(/^[\s,·:-]+/,'');
   let size=wide?80:96,lines;do{x.font=F(800,size);lines=wrapText(x,main,W-P*2);size-=6}while(lines.length>(wide?3:4)&&size>48);
   size+=6;x.font=F(800,size);lines=lines.slice(0,wide?3:5);const lh=size*1.25,blockH=lines.length*lh;
   x.fillStyle=light?'#111827':'#fff';let y=Math.max(wide?230:330,(H-blockH)/2+size*0.8);lines.forEach(l=>{x.fillText(l,P,y);y+=lh});
@@ -3195,7 +3195,8 @@ function renderAdmin(){
 const OP_KEYS=[['op_anthropic_api_key','Claude API 키','sk-ant-…','글쓰기·키워드 찾기 (모든 고객 공용 · 비용은 판매자 부담)'],
   ['op_searchad_customer_id','네이버 검색광고 CUSTOMER_ID','숫자','실제 검색량 조회'],['op_searchad_api_key','네이버 검색광고 액세스 라이선스','',''],['op_searchad_secret','네이버 검색광고 비밀키','',''],
   ['op_pexels_api_key','Pexels API 키 (선택)','','블로그스팟·워드프레스 대표 사진'],
-  ['op_blogger_client_id','구글 OAuth 클라이언트 ID','….apps.googleusercontent.com','고객 블로그스팟 연결용'],['op_blogger_client_secret','구글 OAuth 클라이언트 보안 비밀번호','GOCSPX-…','']];
+  ['op_blogger_client_id','구글 OAuth 클라이언트 ID','….apps.googleusercontent.com','고객 블로그스팟 연결용'],['op_blogger_client_secret','구글 OAuth 클라이언트 보안 비밀번호','GOCSPX-…',''],
+  ['op_r2_account_id','Cloudflare R2 Account ID','영문숫자 32자','블로그스팟 대표 썸네일 저장소'],['op_r2_access_key_id','R2 Access Key ID','',''],['op_r2_secret_access_key','R2 Secret Access Key','',''],['op_r2_bucket','R2 버킷 이름','blog-helper-img',''],['op_r2_public_url','R2 그림 주소','https://img.warminsight.com','비우면 https://img.warminsight.com']];
 let migBusy=false;
 function renderOps(){
   let el=$('#opsCard');const a=$('#adminCard');
