@@ -392,6 +392,15 @@ main>section>.card{border-top:3px solid var(--cl)}
 @keyframes pgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.pgbar i,.pgbar i::after,.pgbar i::before,.pgdot,.pgsteps em{animation:none!important}}
 @media (max-width:640px){.pgtime{margin-left:0;width:100%}}
+
+.bqgo{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;background:none;border:0;padding:4px 2px;font:inherit;color:var(--text);cursor:pointer;border-radius:6px;text-decoration:underline dotted var(--muted);text-underline-offset:4px}
+.bqgo:hover{background:var(--cs-kw);color:var(--c-kw)}
+.bqinfo{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;margin:0 0 6px 28px;border-radius:10px;background:var(--cs-kw);border:1px dashed var(--cl-kw)}
+.relrow{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);padding:7px 0}
+.relrow .rk{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:640px){.relrow{flex-wrap:wrap}.relrow .row{width:100%;justify-content:flex-end}}
+.flash{animation:flashK 1.8s ease}
+@keyframes flashK{0%,40%{box-shadow:0 0 0 4px var(--c-kw);background:var(--cs-kw)}100%{box-shadow:0 0 0 0 transparent}}
 </style>
 </head>
 <body>
@@ -469,6 +478,7 @@ main>section>.card{border-top:3px solid var(--cl)}
     <div id="manualVolOut"></div>
     <div class="err" id="manualErr"></div>
   </div>
+  <div class="card" id="relCard"></div>
   <div class="card" id="bqCard"></div>
   <div id="kwList"></div>
   <div class="card" id="patCard"></div>
@@ -841,7 +851,7 @@ $('#nav').addEventListener('click',e=>{const b=e.target.closest('button[data-tab
 document.addEventListener('click',e=>{const a=e.target.closest('[data-go]');if(a){e.preventDefault();go(a.dataset.go)}});
 function render(tab){
   renderHeader();navBadges();
-  if(tab==='kw'||tab==='set'){try{renderStyle();renderAdN();renderViewNotify();renderBq()}catch(_){}}
+  if(tab==='kw'||tab==='set'){try{renderStyle();renderAdN();renderViewNotify();renderBq();renderRel()}catch(_){}}
   if(tab==='home')renderTodo();
   if(tab==='kw'){renderKw();renderPat()}
   if(tab==='write')renderWrite();
@@ -1167,7 +1177,7 @@ async function attachVolumes(statusEl){
     const isLow=k=>k.vol&&(k.vol.none||(k.vol.total||0)<100);
     S.kwLow=S.keywords.filter(isLow).map(k=>({kw:k.keyword,total:k.vol.none?0:k.vol.total||0}));S.keywords=S.keywords.filter(k=>!isLow(k));
     S.keywords.sort((a,b)=>volScore(b)-volScore(a));
-    const tok=topicTokens();S.relatedKw=(d.related||[]).filter(r=>r.total>=300&&tok.some(w=>r.kw.includes(w))&&!isUsedKw(r.kw)).sort((a,b)=>b.total-a.total).slice(0,20);
+    const tok=topicTokens();S.relatedKw=(d.related||[]).filter(r=>r.total>=300&&tok.some(w=>r.kw.includes(w))&&!isUsedKw(r.kw)).sort((a,b)=>b.total-a.total).slice(0,20);relKeep(S.relatedKw);
     S.volAt=new Date().toISOString();saveNow();return true;
   }catch(e){if(statusEl)statusEl.textContent='검색량 확인 실패: '+e.message;return false}
 }
@@ -1198,7 +1208,7 @@ $('#manualVol').addEventListener('click',async()=>{
   if(!ghReady()){$('#manualErr').textContent='설정에서 GitHub 저장소와 토큰을 먼저 연결하세요.';return}
   const b=$('#manualVol');b.disabled=true;
   try{const d=await volLookup([k],s=>{b.textContent=`확인 중… ${s}초`});const r=(d.results||[])[0];
-    out.innerHTML=`<div class="row" style="margin-top:8px">${volPills(r&&{pc:r.pc,mo:r.mo,total:r.total,comp:r.comp,none:r.none})}</div>`+relHtml((d.related||[]).filter(x=>x.total>=100&&!isUsedKw(x.kw)&&k.split(/\s+/).filter(w=>w.length>=2).some(w=>x.kw.includes(w))).slice(0,10));}
+    out.innerHTML=`<div class="row" style="margin-top:8px">${volPills(r&&{pc:r.pc,mo:r.mo,total:r.total,comp:r.comp,none:r.none})}</div>`;const rl=(d.related||[]).filter(x=>x.total>=100&&!isUsedKw(x.kw)&&k.split(/\s+/).filter(w=>w.length>=2).some(w=>x.kw.includes(w))).slice(0,10);const nAdd=relKeep(rl);if(rl.length)out.innerHTML+=`<div class="hint" style="margin-top:6px">함께 찾는 키워드 ${rl.length}개를 아래 <a href="#relCard" data-relscroll="1">모아 둔 키워드</a>에 ${nAdd?nAdd+'개 새로 ':''}담았어요.</div>`;}
   catch(e){$('#manualErr').textContent=e.message}
   finally{b.disabled=false;b.textContent='검색량 확인 (0원)'}
 });
@@ -1267,12 +1277,12 @@ function renderKw(){
   el.innerHTML=`<div class="hint" style="margin:0 0 8px">${esc(when)} 기준 후보 · ${hasVol?'네이버 실제 월간 검색수 기준 정렬':ghReady()?'검색량을 아직 못 받았어요':'설정에서 GitHub를 연결하면 실제 검색량이 나와요'} · 이슈형은 하루이틀 안에 쓰는 게 좋아요</div>`+S.keywords.map((k,i)=>{
     const used=isUsedKw(k.keyword);
     const comp=k.competition==='높음'?'bad':k.competition==='낮음'?'ok':'warn';
-    return `<div class="kw"><div class="t">${i===0&&!used?'<span class="pill ok" style="margin-right:6px">가장 추천</span>':''}${esc(k.keyword)}${k.opportunity?` <span class="pill">기회 ${'★'.repeat(Math.max(1,Math.min(5,k.opportunity)))}</span>`:''}</div>
+    return `<div class="kw" data-kwn="${esc(nsp(k.keyword))}"><div class="t">${i===0&&!used?'<span class="pill ok" style="margin-right:6px">가장 추천</span>':''}${esc(k.keyword)}${k.opportunity?` <span class="pill">기회 ${'★'.repeat(Math.max(1,Math.min(5,k.opportunity)))}</span>`:''}</div>
       ${k.vol?`<div class="row" style="margin-bottom:4px">${volPills(k.vol)}${lifePill(k)}</div>`:''}
       <div class="row">${k.type?`<span class="pill ${k.type==='이슈형'?'pri':''}">${esc(k.type)}</span>`:''}${k.lifespan?`<span class="pill">${esc(k.lifespan)}</span>`:''}${k.vol?'':`<span class="pill ${comp}">경쟁(추정) ${esc(k.competition||'-')}</span>`}<span class="pill">${esc(k.category||'')}</span><span class="pill ${kwPf(k)==='google'?'pri':'ok'}">${kwPf(k)==='google'?'구글 적합':'네이버 적합'}</span>${briefPill(k)}${k.official_source===false?'<span class="pill warn">공식 출처 없음</span>':''}</div>
       <div class="r">${esc(k.reason||'')}</div>
       ${used?'<div class="hint" style="margin-bottom:6px;color:var(--warn)">이미 글을 쓴 키워드입니다</div>':''}<div class="row"><button class="btn ${used||kwPf(k)==='google'?'':'pri'} sm" data-kw="${i}" data-pf="naver">네이버 글 쓰기${kwPf(k)==='naver'?' (추천)':''} · ${estWon('post')}</button><button class="btn ${!used&&kwPf(k)==='google'?'pri':''} sm" data-gkw="${i}">블로그스팟·워드프레스 글 쓰기${kwPf(k)==='google'?' (추천)':''} · ${estWon('auto')}</button><button class="btn sm" data-bqadd="${i}">${bqHas(k.keyword)?'예약됨 ✓':'＋ 예약'}</button></div></div>`}).join('')
-    +lowHtml(S.kwLow)+relHtml(S.relatedKw);
+    +lowHtml(S.kwLow);
 }
 // 검색량이 적어서 뺀 후보 (단기 글감으로 쓰고 싶으면 눌러서 직접 입력칸에 넣는다)
 function lowHtml(list){if(!list||!list.length)return '';
@@ -3052,6 +3062,43 @@ document.addEventListener('click',async e=>{const b=e.target.closest&&e.target.c
   const o=athumb[id]=Object.assign({size:'wide'},athumb[id]||{});if(b.dataset.pal!=null)o.pal=+b.dataset.pal;if(b.dataset.size)o.size=b.dataset.size;if(b.dataset.apply){const i=box.querySelector(`[data-ath-text="${id}"]`);o.text=i?i.value.trim():''}
   renderAThumb(id,box)});
 
+
+// ---- 모아 둔 키워드 (사람들이 함께 찾는 키워드를 쌓아 둠 · 쓰면 사라지고 · 지울 수 있음) ----
+function relBank(){return (S.settings.relBank=S.settings.relBank||[])}
+function relGone(){return (S.settings.relGone=S.settings.relGone||[])}
+function relKeep(list){let n=0;const B=relBank(),G=new Set(relGone());
+  (list||[]).forEach(r=>{const k=nsp(r.kw);if(!k||G.has(k)||isUsedKw(r.kw))return;const o=B.find(x=>nsp(x.kw)===k),v={kw:r.kw,pc:r.pc,mo:r.mo,total:r.total||0,comp:r.comp,at:Date.now()};
+    if(o)Object.assign(o,v,{at:o.at});else{B.push(v);n++}});
+  B.sort((a,b)=>(b.total||0)-(a.total||0));if(B.length>150)B.length=150;bqSave();renderRel();return n}
+function relUsed(x){return isUsedKw(x.kw)||bqHas(x.kw)||bqRun().some(r=>!r.cancelled&&nsp(r.kw)===nsp(x.kw))}
+let relMore=false;
+function renderRel(){const el=$('#relCard');if(!el)return;
+  if(!S.settings.relInit){S.settings.relInit=1;if(S.relatedKw&&S.relatedKw.length){relKeep(S.relatedKw);return}}
+  const B=relBank(),gone=B.filter(x=>isUsedKw(x.kw));if(gone.length){S.settings.relBank=B.filter(x=>!isUsedKw(x.kw));bqSave()}
+  const L=relBank().filter(x=>!relUsed(x));
+  if(!L.length){el.innerHTML=`<h3>모아 둔 키워드</h3><div class="hint">키워드 찾기나 검색량 확인을 하면 <b>사람들이 함께 찾는 키워드</b>가 여기에 차곡차곡 쌓여요. 새로 찾아도 지워지지 않고, 글을 쓰면 자동으로 빠져요.</div>`;return}
+  const show=relMore?L:L.slice(0,8);
+  el.innerHTML=`<h3>모아 둔 키워드 <span class="pill ok">${L.length}개</span><span class="sub" style="margin-left:auto;font-size:12.5px;font-weight:500;color:var(--muted)">실제 검색량 · 많은 순</span></h3>
+    <div class="hint" style="margin-bottom:6px">사람들이 함께 찾는 키워드를 모아 뒀어요. <b>쓰기</b>는 위 입력칸에 넣고, <b>＋ 예약</b>은 글쓰기 예약에 담아요. 글을 쓰면 자동으로 사라지고, 필요 없는 건 ✕로 지워요.</div>
+    ${show.map(x=>`<div class="relrow"><span class="rk">${esc(x.kw)}</span><span class="row" style="flex:none;gap:4px">${volPills(x)}<button class="btn sm" data-relkw="${esc(x.kw)}">쓰기</button><button class="btn sm" data-reladd="${esc(x.kw)}">＋ 예약</button><button class="btn sm" data-reldel="${esc(x.kw)}" title="지우기">✕</button></span></div>`).join('')}
+    <div class="row" style="margin-top:8px">${L.length>8?`<button class="btn sm" id="relMore">${relMore?'접기':`더 보기 (${L.length-8}개)`}</button>`:''}<button class="btn sm" id="relClear">모두 지우기</button></div>`;
+}
+function bqInfo(x){const v=x.vol;
+  return `<div class="bqinfo">${v?volPills(v):''}${x.type?`<span class="pill">${esc(x.type)}</span>`:''}${x.cat?`<span class="pill">${esc(x.cat)}</span>`:''}<span class="pill">${x.src==='rel'?'모아 둔 키워드에서':x.src==='manual'?'직접 입력':'키워드 찾기 후보에서'} · ${x.at?new Date(x.at).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'}):''}</span>${x.reason?`<div class="hint" style="width:100%;margin-top:4px">${esc(x.reason)}</div>`:''}${!v&&!x.reason?'<div class="hint" style="width:100%">저장된 정보가 없어요 (직접 넣은 키워드)</div>':''}</div>`}
+let bqOpen='';
+function flashTo(el){if(!el)return false;el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');return true}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-bqgo],[data-reladd],[data-reldel],#relMore,#relClear,[data-relscroll]');if(!t)return;
+  if(t.dataset.bqgo!=null){const x=bqList()[+t.dataset.bqgo];if(!x)return;const k=nsp(x.kw);
+    const card=document.querySelector(`#kwList .kw[data-kwn="${CSS.escape(k)}"]`);
+    if(card){bqOpen='';flashTo(card);return}
+    bqOpen=bqOpen===k?'':k;renderBq();return}
+  if(t.dataset.reladd){const x=relBank().find(y=>y.kw===t.dataset.reladd);bqAdd(t.dataset.reladd,x?{vol:{pc:x.pc,mo:x.mo,total:x.total,comp:x.comp},src:'rel'}:null);renderRel();return}
+  if(t.dataset.reldel){const k=nsp(t.dataset.reldel);S.settings.relBank=relBank().filter(y=>nsp(y.kw)!==k);const G=relGone();if(!G.includes(k)){G.push(k);if(G.length>400)G.splice(0,G.length-400)}bqSave();renderRel();toast('지웠어요 (다시 담기지 않아요)');return}
+  if(t.id==='relMore'){relMore=!relMore;renderRel();return}
+  if(t.id==='relClear'){if(confirm('모아 둔 키워드를 모두 지울까요? (지운 키워드는 다시 담기지 않아요)')){const G=relGone();relBank().forEach(y=>{const k=nsp(y.kw);if(!G.includes(k))G.push(k)});S.settings.relBank=[];bqSave();renderRel()}return}
+  if(t.dataset.relscroll){e.preventDefault();flashTo($('#relCard'))}
+});
+
 // ---- 글쓰기 예약: 키워드를 담아 두고 차례대로(또는 하루 N개씩) 쓰기 ----
 function bqList(){return (S.settings.bq=S.settings.bq||[])}
 function bqRun(){return (S.settings.bqRun=S.settings.bqRun||[])}
@@ -3061,7 +3108,8 @@ function bqSave(){save();if(typeof cloudPushSoon==='function')cloudPushSoon()}
 function bqAdd(kw,meta){kw=String(kw||'').trim();if(!kw)return;
   if(bqHas(kw)){bqList().splice(bqList().findIndex(x=>nsp(x.kw)===nsp(kw)),1);bqSave();toast('예약에서 뺐어요');renderBq();renderKw();return}
   const g=accts().filter(b=>b.enabled!==false),pf=meta&&kwPf(meta)==='google'&&g.length?'google':'naver';
-  bqList().push({kw,pf,blog:pf==='google'?g[0].id:'',cat:meta&&meta.category||'',type:meta&&meta.type||''});bqSave();toast(`예약에 담았어요 (${bqList().length}개)`);renderBq();renderKw()}
+  const vol=meta&&(meta.vol||(meta.total!=null?{pc:meta.pc,mo:meta.mo,total:meta.total,comp:meta.comp}:null));
+  bqList().push({kw,pf,blog:pf==='google'?g[0].id:'',cat:meta&&meta.category||'',type:meta&&meta.type||'',vol:vol||null,reason:meta&&meta.reason?String(meta.reason).slice(0,200):'',src:meta&&meta.src||(meta?'kw':'manual'),at:Date.now()});bqSave();toast(`예약에 담았어요 (${bqList().length}개)`);renderBq();renderKw();renderRel()}
 function bqStatus(r){
   if(r.cancelled)return ['취소','',''];
   if(r.pf==='naver'){const p=S.projects.find(x=>x.id===r.id);
@@ -3080,14 +3128,14 @@ function renderBq(){const el=$('#bqCard');if(!el)return;
   if(!L.length&&!R.length){el.innerHTML=`<h3>글쓰기 예약</h3><div class="hint">마음에 드는 후보의 <b>＋ 예약</b>을 눌러 담아 두면, 나중에 한 번에 <b>차례대로</b> 또는 <b>하루 몇 개씩</b> 서버가 알아서 써 줘요. 직접 입력한 키워드도 "＋ 예약에 담기"로 넣을 수 있어요.</div>`;return}
   const opt=x=>`<select data-bqpf="${esc(x.kw)}" style="width:auto;flex:none"><option value="naver"${x.pf==='naver'?' selected':''}>네이버</option>${g.map(b=>`<option value="g:${esc(b.id)}"${x.pf==='google'&&x.blog===b.id?' selected':''}>${esc(b.name||b.id)}</option>`).join('')}</select>`;
   el.innerHTML=`<h3>글쓰기 예약 ${L.length?`<span class="pill pri">${L.length}개 담음</span>`:''}</h3>
-    ${L.length?`<div>${L.map((x,i)=>`<div class="row" style="border-top:1px solid var(--line);padding:7px 0;flex-wrap:nowrap;gap:6px;align-items:center"><b style="flex:none;width:22px;color:var(--muted)">${i+1}</b><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.kw)}</span>${opt(x)}<button class="btn sm" data-bqmv="${i}|-1" title="위로" ${i?'':'disabled'}>▲</button><button class="btn sm" data-bqmv="${i}|1" title="아래로" ${i<L.length-1?'':'disabled'}>▼</button><button class="btn sm" data-bqdel="${i}" title="빼기">✕</button></div>`).join('')}</div>
+    ${L.length?`<div>${L.map((x,i)=>`<div class="row" style="border-top:1px solid var(--line);padding:7px 0;flex-wrap:nowrap;gap:6px;align-items:center"><b style="flex:none;width:22px;color:var(--muted)">${i+1}</b><button class="bqgo" data-bqgo="${i}" title="눌러서 이 키워드 정보 보기">${esc(x.kw)}</button>${opt(x)}<button class="btn sm" data-bqmv="${i}|-1" title="위로" ${i?'':'disabled'}>▲</button><button class="btn sm" data-bqmv="${i}|1" title="아래로" ${i<L.length-1?'':'disabled'}>▼</button><button class="btn sm" data-bqdel="${i}" title="빼기">✕</button></div>${bqOpen===nsp(x.kw)?bqInfo(x):''}`).join('')}</div>
     <label class="f">쓰는 방식</label>${segHtml('bqMode',{now:'지금부터 차례대로',d1:'하루 1개',d2:'하루 2개',d3:'하루 3개'},mode)}
     <div class="row" style="margin-top:6px;align-items:center;${mode==='now'?'display:none':''}"><span class="hint">하루 첫 글 시작</span><select id="bqHour" style="width:auto">${[6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21].map(h=>`<option value="${h}"${h===hr?' selected':''}>${h}시</option>`).join('')}</select><span class="hint">${mode==='d2'?'· 6시간 간격':mode==='d3'?'· 4시간 간격':''}</span></div>
     ${(()=>{const nN=L.filter(x=>x.pf==='naver').length;return mode==='now'&&nN>NAVER_DAY?`<div class="notice nvday" style="margin-top:8px;padding-right:34px">⚠️ 네이버 글 ${nN}개가 한꺼번에 완성돼요. 써 두는 건 괜찮지만 <b>올리는 건 하루 1~2개씩</b> 나눠서 하세요. 또는 "하루 1개"로 예약하세요.</div>`:mode==='d3'&&nN>NAVER_DAY?`<div class="notice nvday" style="margin-top:8px;padding-right:34px">⚠️ 하루 3개는 네이버에 많아요. 네이버는 <b>하루 1~2개</b>를 추천해요.</div>`:''})()}
     <div class="hint" style="margin-top:6px">${mode==='now'?'담은 순서대로 한 개씩 써요(앞 글이 끝나야 다음 글). 창을 닫아도 계속 써요.':'네이버는 하루 1~2개가 안전해요. 정해진 시각이 되면 서버가 알아서 써요(완성되면 알림).'} 요금제 글 수는 쓴 만큼 빠져요.</div>
     <div class="row" style="margin-top:10px"><button class="btn pri" id="bqStart">${L.length}개 예약 시작</button><button class="btn" id="bqClear">모두 비우기</button></div><div class="err" id="bqErr"></div>`:''}
     ${R.length?`<h4 style="margin:14px 0 4px">진행 현황</h4>${R.map(r=>{const [t,c,open]=bqStatus(r);const can=/⏰|대기/.test(t)&&!r.cancelled;
-      return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0;flex-wrap:nowrap;gap:6px;align-items:center"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.kw)} <span class="hint">· ${r.pf==='naver'?'네이버':esc(blogName(r.blog))}</span></span><span class="pill ${c}" style="flex:none">${esc(t)}</span>${open?`<button class="btn sm" data-open="${esc(open)}" style="flex:none">열기</button>`:''}${can?`<button class="btn sm" data-bqcancel="${esc(r.id)}" style="flex:none">취소</button>`:''}</div>`}).join('')}`:''}`;
+      return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0;flex-wrap:nowrap;gap:6px;align-items:center">${open?`<button class="bqgo" data-open="${esc(open)}" title="눌러서 글 열기">${esc(r.kw)} <span class="hint">· ${r.pf==='naver'?'네이버':esc(blogName(r.blog))}</span></button>`:`<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.kw)} <span class="hint">· ${r.pf==='naver'?'네이버':esc(blogName(r.blog))}</span></span>`}<span class="pill ${c}" style="flex:none">${esc(t)}</span>${open?`<button class="btn sm" data-open="${esc(open)}" style="flex:none">열기</button>`:''}${can?`<button class="btn sm" data-bqcancel="${esc(r.id)}" style="flex:none">취소</button>`:''}</div>`}).join('')}`:''}`;
 }
 function bqTimes(n,mode,hr){
   if(mode==='now')return Array(n).fill(null);
@@ -3354,7 +3402,8 @@ const TIP={
   '오늘 할 일':'<b>오늘 할 일</b>\n지금 무엇을 하면 되는지 순서대로 알려 줘요.\n네이버는 하루 2개까지만 안내하고, 손길 점수가 낮은 글은 먼저 고치도록 알려 줘요.\n버튼을 누르면 바로 그 화면으로 가요.',
   '블로그 안전 신호등':'<b>블로그 안전 신호등</b>\n초록 = 안전 · 노랑 = 주의 · 빨강 = 지금 확인\n네이버: 오늘·7일 올린 수, 올린 간격, 손길 점수, 같은 키워드 중복을 봐요.\n블로그스팟·워드프레스: 하루 공개 수, 품질 미달, 전송 실패를 봐요.\n빨리 많이 올리는 것보다 오래 살아남는 블로그가 수익이 나요.',
   '#nvday':'<b>네이버는 하루 1~2개</b>\n하루에 여러 개를 한꺼번에 올리면 저품질(검색 누락) 위험이 커져요.\n글은 미리 많이 써 둬도 괜찮아요. 올리는 것만 하루 1~2개씩 나눠서 하세요.\n오늘 2개를 올리면 글 화면에 "내일 올리기 추천" 안내가 떠요.',
-  '글쓰기 예약':'<b>글쓰기 예약</b>\n후보의 "＋ 예약"으로 키워드를 담아 두고, 한 번에 시작해요.\n지금부터 차례대로 = 앞 글이 끝나면 다음 글\n하루 1~3개 = 정한 시각에 서버가 알아서 써요(네이버는 하루 1~2개 추천).\n▲▼로 순서를 바꾸고, 계정(네이버/구글 블로그)을 고를 수 있어요. 시작 전 예약은 취소할 수 있어요.',
+  '모아 둔 키워드':'<b>모아 둔 키워드</b>\n키워드 찾기·검색량 확인 때 나온 "사람들이 함께 찾는 키워드"를 계속 쌓아 둬요(실제 검색량 많은 순).\n쓰기 = 위 입력칸에 넣기 · ＋ 예약 = 글쓰기 예약에 담기 · ✕ = 지우기(다시 안 담겨요)\n글을 쓰면 자동으로 빠져요.',
+  '글쓰기 예약':'<b>글쓰기 예약</b>\n후보의 "＋ 예약"으로 키워드를 담아 두고, 한 번에 시작해요.\n키워드 이름을 누르면 그 후보로 이동해요(후보가 바뀌었으면 담을 때 저장한 검색량·이유가 펼쳐져요).\n지금부터 차례대로 = 앞 글이 끝나면 다음 글\n하루 1~3개 = 정한 시각에 서버가 알아서 써요(네이버는 하루 1~2개 추천).\n▲▼로 순서를 바꾸고, 계정(네이버/구글 블로그)을 고를 수 있어요. 시작 전 예약은 취소할 수 있어요.',
   '화면 설정':'<b>화면 설정</b>\n자동 = 폰·PC의 다크 모드 설정을 따라요. 화이트·블랙으로 고정할 수도 있어요.\n밝기는 60~120%로 조절해요. 이 기기에만 적용돼요.',
   '데이터 지우기':'<b>데이터 지우기</b>\n이 기기의 키워드·글·기록을 모두 지워요. 먼저 홈에서 백업을 받아 두세요.'
 };
